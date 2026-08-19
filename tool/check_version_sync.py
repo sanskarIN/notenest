@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify NoteNest package, UI, changelog, and release-note versions stay in sync."""
+"""Verify NoteNest application/release versions and Flutter pins stay in sync."""
 
 from __future__ import annotations
 
@@ -12,6 +12,12 @@ PUBSPEC = ROOT / "pubspec.yaml"
 APP_STRINGS = ROOT / "lib/core/constants/app_strings.dart"
 CHANGELOG = ROOT / "CHANGELOG.md"
 RELEASES_DIR = ROOT / "docs/releases"
+FLUTTER_VERSION_FILE = ROOT / ".flutter-version"
+FLUTTER_WORKFLOWS = (
+    ROOT / ".github/workflows/ci.yml",
+    ROOT / ".github/workflows/platform-builds.yml",
+    ROOT / ".github/workflows/release.yml",
+)
 
 PUBSPEC_VERSION_RE = re.compile(
     r"^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$",
@@ -20,6 +26,40 @@ PUBSPEC_VERSION_RE = re.compile(
 APP_VERSION_RE = re.compile(
     r"static const String version\s*=\s*['\"](\d+\.\d+\.\d+)['\"]\s*;",
 )
+SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
+FLUTTER_ACTION_PIN_RE = re.compile(
+    r"^\s*flutter-version:\s*['\"]?(\d+\.\d+\.\d+)['\"]?\s*$",
+    re.MULTILINE,
+)
+
+
+def _check_flutter_pins(errors: list[str]) -> str | None:
+    if not FLUTTER_VERSION_FILE.is_file():
+        errors.append("missing .flutter-version")
+        return None
+
+    flutter_pin = FLUTTER_VERSION_FILE.read_text(encoding="utf-8").strip()
+    if SEMVER_RE.fullmatch(flutter_pin) is None:
+        errors.append(".flutter-version must contain exactly MAJOR.MINOR.PATCH")
+        return flutter_pin
+
+    for workflow in FLUTTER_WORKFLOWS:
+        relative = workflow.relative_to(ROOT).as_posix()
+        if not workflow.is_file():
+            errors.append(f"missing Flutter workflow: {relative}")
+            continue
+        pins = FLUTTER_ACTION_PIN_RE.findall(workflow.read_text(encoding="utf-8"))
+        if not pins:
+            errors.append(f"{relative} must declare at least one flutter-version pin")
+            continue
+        for pin in pins:
+            if pin != flutter_pin:
+                errors.append(
+                    f"Flutter version mismatch: .flutter-version={flutter_pin}, "
+                    f"{relative}={pin}"
+                )
+
+    return flutter_pin
 
 
 def main() -> int:
@@ -80,6 +120,8 @@ def main() -> int:
                     f"release notes must contain visible version {package_version}"
                 )
 
+    flutter_pin = _check_flutter_pins(errors)
+
     if errors:
         print("Version synchronization checks failed:", file=sys.stderr)
         for error in errors:
@@ -88,7 +130,7 @@ def main() -> int:
 
     print(
         "Version synchronization checks passed: "
-        f"{package_version}+{build_number}."
+        f"{package_version}+{build_number}; Flutter {flutter_pin}."
     )
     return 0
 
