@@ -110,8 +110,11 @@ dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --coverage
 python tool/check_repo.py
+python tool/check_markdown_links.py
 python tool/security_scan.py
 ```
+
+`tool/check_markdown_links.py` checks tracked Markdown documents for local inline links, reference-link definitions, and HTML `href`/`src` targets that point to missing files or escape the repository. External URLs are intentionally not fetched so the quality gate stays deterministic and does not fail because a third-party site is temporarily unavailable.
 
 On systems where the Python command is `python3`, use that executable. On Windows the `py` launcher may be used.
 
@@ -191,19 +194,21 @@ Automated checks should be complemented by manual review. Useful automated asser
 - Controls can be found/tapped without relying on pixel coordinates.
 - Large text does not overflow in representative widget sizes.
 
-Manual matrix is documented in `accessibility.md`.
+Manual matrix is documented in [accessibility.md](accessibility.md).
 
 ## Performance testing
 
 Do not turn unit tests into flaky timing benchmarks. Use dedicated benchmark/profile runs for search/list/editor hot paths. Document device/host, build mode, fixture size, and repeated measurements.
 
-See `performance.md`.
+See [performance.md](performance.md).
 
 ## Platform build checks
 
 Unit/widget tests run on Linux CI. Native build workflows validate platform integration separately because plugin compilation and generated runners vary by host OS.
 
 A platform build passing means the project compiled under that runner; it does not prove every plugin runtime behavior on a physical device.
+
+All automated Flutter workflows use the exact SDK recorded by the project rather than an unpinned moving stable release. A Flutter-version upgrade must therefore update the project pin and all workflows together.
 
 ## CI expectations
 
@@ -215,6 +220,7 @@ Pull requests to `main` should fail when:
 - Analyzer reports an error/warning under configured policy.
 - Tests fail.
 - Required repository/documentation files are absent.
+- Tracked Markdown contains a broken local link.
 - Lightweight secret scan finds a known credential pattern.
 
 Build workflows add native compile confidence.
