@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:notenest/core/utils/async_serial_queue.dart';
 import 'package:notenest/data/repositories/settings_repository.dart';
 
 final class AppSettingsController extends ChangeNotifier {
   AppSettingsController(this._repository);
 
-  final SettingsRepository _repository;
+  final SettingsStore _repository;
+  final AsyncSerialQueue _writes = AsyncSerialQueue();
 
   ThemeMode themeMode = ThemeMode.system;
   double fontScale = 1;
@@ -13,48 +15,135 @@ final class AppSettingsController extends ChangeNotifier {
   bool appLockEnabled = false;
   bool initialized = false;
 
+  ThemeMode _persistedThemeMode = ThemeMode.system;
+  double _persistedFontScale = 1;
+  bool _persistedReduceMotion = false;
+  bool _persistedOnboardingComplete = false;
+  bool _persistedAppLockEnabled = false;
+  bool _disposed = false;
+
   Future<void> load() async {
-    themeMode = await _repository.getThemeMode();
-    fontScale = await _repository.getFontScale();
-    reduceMotion = await _repository.getReduceMotion();
-    onboardingComplete = await _repository.getOnboardingComplete();
-    appLockEnabled = await _repository.getAppLockEnabled();
+    final ThemeMode nextThemeMode = await _repository.getThemeMode();
+    final double nextFontScale = await _repository.getFontScale();
+    final bool nextReduceMotion = await _repository.getReduceMotion();
+    final bool nextOnboardingComplete = await _repository.getOnboardingComplete();
+    final bool nextAppLockEnabled = await _repository.getAppLockEnabled();
+    if (_disposed) return;
+
+    themeMode = nextThemeMode;
+    fontScale = nextFontScale;
+    reduceMotion = nextReduceMotion;
+    onboardingComplete = nextOnboardingComplete;
+    appLockEnabled = nextAppLockEnabled;
+
+    _persistedThemeMode = nextThemeMode;
+    _persistedFontScale = nextFontScale;
+    _persistedReduceMotion = nextReduceMotion;
+    _persistedOnboardingComplete = nextOnboardingComplete;
+    _persistedAppLockEnabled = nextAppLockEnabled;
+
     initialized = true;
-    notifyListeners();
+    _notify();
   }
 
-  Future<void> setThemeMode(ThemeMode value) async {
-    if (themeMode == value) return;
+  Future<void> setThemeMode(ThemeMode value) {
+    if (themeMode == value) return Future<void>.value();
     themeMode = value;
-    notifyListeners();
-    await _repository.setThemeMode(value);
+    _notify();
+    return _writes.add(() async {
+      try {
+        await _repository.setThemeMode(value);
+        _persistedThemeMode = value;
+      } on Object {
+        if (themeMode == value) {
+          themeMode = _persistedThemeMode;
+          _notify();
+        }
+        rethrow;
+      }
+    });
   }
 
-  Future<void> setFontScale(double value) async {
+  Future<void> setFontScale(double value) {
     final double normalized = value.clamp(0.9, 1.4).toDouble();
-    if (fontScale == normalized) return;
+    if (fontScale == normalized) return Future<void>.value();
     fontScale = normalized;
-    notifyListeners();
-    await _repository.setFontScale(normalized);
+    _notify();
+    return _writes.add(() async {
+      try {
+        await _repository.setFontScale(normalized);
+        _persistedFontScale = normalized;
+      } on Object {
+        if (fontScale == normalized) {
+          fontScale = _persistedFontScale;
+          _notify();
+        }
+        rethrow;
+      }
+    });
   }
 
-  Future<void> setReduceMotion({required bool value}) async {
-    if (reduceMotion == value) return;
+  Future<void> setReduceMotion({required bool value}) {
+    if (reduceMotion == value) return Future<void>.value();
     reduceMotion = value;
-    notifyListeners();
-    await _repository.setReduceMotion(value: value);
+    _notify();
+    return _writes.add(() async {
+      try {
+        await _repository.setReduceMotion(value: value);
+        _persistedReduceMotion = value;
+      } on Object {
+        if (reduceMotion == value) {
+          reduceMotion = _persistedReduceMotion;
+          _notify();
+        }
+        rethrow;
+      }
+    });
   }
 
-  Future<void> completeOnboarding() async {
+  Future<void> completeOnboarding() {
+    if (onboardingComplete) return Future<void>.value();
     onboardingComplete = true;
-    notifyListeners();
-    await _repository.setOnboardingComplete(value: true);
+    _notify();
+    return _writes.add(() async {
+      try {
+        await _repository.setOnboardingComplete(value: true);
+        _persistedOnboardingComplete = true;
+      } on Object {
+        if (onboardingComplete) {
+          onboardingComplete = _persistedOnboardingComplete;
+          _notify();
+        }
+        rethrow;
+      }
+    });
   }
 
-  Future<void> setAppLockEnabled({required bool value}) async {
-    if (appLockEnabled == value) return;
+  Future<void> setAppLockEnabled({required bool value}) {
+    if (appLockEnabled == value) return Future<void>.value();
     appLockEnabled = value;
-    notifyListeners();
-    await _repository.setAppLockEnabled(value: value);
+    _notify();
+    return _writes.add(() async {
+      try {
+        await _repository.setAppLockEnabled(value: value);
+        _persistedAppLockEnabled = value;
+      } on Object {
+        if (appLockEnabled == value) {
+          appLockEnabled = _persistedAppLockEnabled;
+          _notify();
+        }
+        rethrow;
+      }
+    });
+  }
+
+  void _notify() {
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }
