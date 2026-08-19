@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:notenest/core/constants/app_strings.dart';
 
-class OnboardingPage extends StatelessWidget {
+class OnboardingPage extends StatefulWidget {
   const OnboardingPage({required this.onComplete, super.key});
 
   final Future<void> Function() onComplete;
+
+  @override
+  State<OnboardingPage> createState() => _OnboardingPageState();
+}
+
+class _OnboardingPageState extends State<OnboardingPage> {
+  bool _busy = false;
 
   @override
   Widget build(BuildContext context) {
@@ -56,8 +63,13 @@ class OnboardingPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 28),
                   FilledButton.icon(
-                    onPressed: () async => onComplete(),
-                    icon: const Icon(Icons.arrow_forward_rounded),
+                    onPressed: _busy ? null : _complete,
+                    icon: _busy
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.arrow_forward_rounded),
                     label: const Padding(
                       padding: EdgeInsets.symmetric(vertical: 14),
                       child: Text('Start using NoteNest'),
@@ -75,6 +87,25 @@ class OnboardingPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _complete() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await widget.onComplete();
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not save onboarding progress. Please try again.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 }
 
