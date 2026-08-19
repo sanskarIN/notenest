@@ -52,6 +52,7 @@ final class BackupRepository {
     if (decoded['schemaVersion'] != backupSchemaVersion) {
       throw const ValidationException('Unsupported backup schema version.');
     }
+    _date(decoded, 'exportedAt');
 
     final Object? rawNotes = decoded['notes'];
     final Object? rawVersions = decoded['versions'];
@@ -187,6 +188,18 @@ final class BackupRepository {
         'Backup note updatedAt must not be earlier than createdAt.',
       );
     }
+
+    final bool isPinned = _bool(map, 'isPinned');
+    final bool isFavorite = _bool(map, 'isFavorite');
+    final bool isArchived = _bool(map, 'isArchived');
+    final bool isTrashed = _bool(map, 'isTrashed');
+    _validateLifecycleState(
+      isPinned: isPinned,
+      isArchived: isArchived,
+      isTrashed: isTrashed,
+      label: 'note',
+    );
+
     return NotesCompanion(
       id: Value<String>(_string(map, 'id')),
       title: Value<String>(_string(map, 'title')),
@@ -194,10 +207,10 @@ final class BackupRepository {
       folder: Value<String>(_string(map, 'folder')),
       tags: Value<String>(_tagsJson(map, 'tags')),
       colorValue: Value<int?>(_nullableColor(map, 'colorValue')),
-      isPinned: Value<bool>(_bool(map, 'isPinned')),
-      isFavorite: Value<bool>(_bool(map, 'isFavorite')),
-      isArchived: Value<bool>(_bool(map, 'isArchived')),
-      isTrashed: Value<bool>(_bool(map, 'isTrashed')),
+      isPinned: Value<bool>(isPinned),
+      isFavorite: Value<bool>(isFavorite),
+      isArchived: Value<bool>(isArchived),
+      isTrashed: Value<bool>(isTrashed),
       createdAt: Value<DateTime>(createdAt),
       updatedAt: Value<DateTime>(updatedAt),
     );
@@ -205,6 +218,17 @@ final class BackupRepository {
 
   NoteVersionsCompanion _parseVersion(Object? raw) {
     final Map<String, Object?> map = _map(raw, 'version');
+    final bool isPinned = _bool(map, 'isPinned');
+    final bool isFavorite = _bool(map, 'isFavorite');
+    final bool isArchived = _bool(map, 'isArchived');
+    final bool isTrashed = _bool(map, 'isTrashed');
+    _validateLifecycleState(
+      isPinned: isPinned,
+      isArchived: isArchived,
+      isTrashed: isTrashed,
+      label: 'version',
+    );
+
     return NoteVersionsCompanion(
       noteId: Value<String>(_string(map, 'noteId')),
       title: Value<String>(_string(map, 'title')),
@@ -212,10 +236,10 @@ final class BackupRepository {
       folder: Value<String>(_string(map, 'folder')),
       tags: Value<String>(_tagsJson(map, 'tags')),
       colorValue: Value<int?>(_nullableColor(map, 'colorValue')),
-      isPinned: Value<bool>(_bool(map, 'isPinned')),
-      isFavorite: Value<bool>(_bool(map, 'isFavorite')),
-      isArchived: Value<bool>(_bool(map, 'isArchived')),
-      isTrashed: Value<bool>(_bool(map, 'isTrashed')),
+      isPinned: Value<bool>(isPinned),
+      isFavorite: Value<bool>(isFavorite),
+      isArchived: Value<bool>(isArchived),
+      isTrashed: Value<bool>(isTrashed),
       capturedAt: Value<DateTime>(_date(map, 'capturedAt')),
     );
   }
@@ -244,7 +268,15 @@ final class BackupRepository {
         'Backup field "$key" must encode a list of text tags.',
       );
     }
-    return encoded;
+
+    final List<String> normalized = decoded
+        .cast<String>()
+        .map((String tag) => tag.trim())
+        .where((String tag) => tag.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    return jsonEncode(normalized);
   }
 
   bool _bool(Map<String, Object?> map, String key) {
@@ -276,5 +308,23 @@ final class BackupRepository {
       throw ValidationException('Backup field "$key" is not a valid UTC date.');
     }
     return parsed;
+  }
+
+  void _validateLifecycleState({
+    required bool isPinned,
+    required bool isArchived,
+    required bool isTrashed,
+    required String label,
+  }) {
+    if (isTrashed && isArchived) {
+      throw ValidationException(
+        'Backup $label cannot be both archived and trashed.',
+      );
+    }
+    if (isTrashed && isPinned) {
+      throw ValidationException(
+        'Backup $label cannot be pinned while trashed.',
+      );
+    }
   }
 }
