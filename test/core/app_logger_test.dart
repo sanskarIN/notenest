@@ -39,4 +39,15 @@ void main() {
     expect(sanitized['operation'], isA<String>());
     expect((sanitized['operation']! as String).length, 121);
   });
+
+  test('does not split Unicode scalar values while truncating', () {
+    final String longValue = '${List<String>.filled(119, 'a').join()}😀tail';
+    final Map<String, Object?> sanitized = logger.sanitizeFields(
+      <String, Object?>{'operation': longValue},
+    );
+    final String result = sanitized['operation']! as String;
+
+    expect(result, '${List<String>.filled(119, 'a').join()}😀…');
+    expect(result.runes.length, 121);
+  });
 }
