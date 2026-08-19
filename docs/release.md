@@ -6,6 +6,8 @@ This guide describes how to prepare, verify, package, and publish a NoteNest rel
 
 - Release from a clean, reviewed commit.
 - Keep version, changelog, and documentation synchronized.
+- Use the Flutter SDK version pinned by `.flutter-version`; the current NoteNest 1.0.0 release-candidate pin is **3.44.7**.
+- Keep the exact Flutter version in CI, platform-build, and release workflows synchronized with `.flutter-version`.
 - Generate native runners using the documented script.
 - Generate Drift code using the pinned project dependencies.
 - Run the full quality gate before packaging.
@@ -32,6 +34,7 @@ Before release:
 3. Move relevant `CHANGELOG.md` entries from `Unreleased` into a dated release section.
 4. Update any visible version constant used by the About UI.
 5. Confirm `README.md`, privacy/security docs, and roadmap still match behavior.
+6. Confirm `.flutter-version` and every Flutter GitHub Actions workflow use the same SDK version.
 
 ## Clean checkout verification
 
@@ -42,7 +45,13 @@ git status --short
 git clean -ndx
 ```
 
-Review before using any destructive clean command. Then generate environment-dependent files:
+Review before using any destructive clean command. Verify the SDK first:
+
+```bash
+flutter --version
+```
+
+For the current 1.0.0 release candidate this must report Flutter **3.44.7**. Then generate environment-dependent files:
 
 ```bash
 python tool/bootstrap_platforms.py
@@ -59,36 +68,40 @@ dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --coverage
 python tool/check_repo.py
+python tool/check_markdown_links.py
 python tool/security_scan.py
 ```
 
-Run `flutter doctor -v` and record relevant host/toolchain versions for reproducibility.
+`tool/check_markdown_links.py` validates repository-local links in tracked Markdown without depending on live third-party sites. Run `flutter doctor -v` and record relevant host/toolchain versions for reproducibility.
 
 ## Manual product smoke test
 
 Use fictional data and exercise:
 
 1. Fresh first run/onboarding.
-2. Create, edit, autosave, close/reopen note.
+2. Create, edit, autosave, rapidly edit again, then close/reopen the note to confirm the newest draft wins.
 3. Folder, tags, color, pin, and favorite.
-4. Full-text search.
-5. Archive/unarchive.
-6. Trash/restore.
-7. Permanent delete confirmation.
-8. Version snapshot/restore.
-9. Markdown import/export.
-10. JSON backup export and conflict-safe restore.
-11. Theme modes.
-12. Large text.
-13. Reduced motion.
-14. Settings/About links.
-15. Optional app lock on a supported device and safe failure on unsupported targets.
+4. Verify note-color selection has a visible selected cue and usable touch target.
+5. Full-text search.
+6. Archive/unarchive.
+7. Trash/restore.
+8. Permanent delete confirmation.
+9. Version snapshot/restore.
+10. Markdown import/export, including a title that would be a reserved/invalid filename on Windows.
+11. Oversized Markdown/text import rejection beyond 16 MiB.
+12. JSON backup export and conflict-safe restore.
+13. Oversized JSON backup rejection beyond 64 MiB.
+14. Theme modes.
+15. Large text.
+16. Reduced motion.
+17. Settings/About links.
+18. Optional app lock on a supported device and safe failure on unsupported targets.
 
 Do not use real personal notes for release testing.
 
 ## Accessibility release check
 
-Follow the matrix in `docs/accessibility.md`. At minimum:
+Follow the matrix in [`docs/accessibility.md`](accessibility.md). At minimum:
 
 - Keyboard traversal on a desktop build.
 - Screen-reader/semantics review on at least one mobile build.
@@ -97,12 +110,13 @@ Follow the matrix in `docs/accessibility.md`. At minimum:
 - Dark and light themes.
 - Reduced-motion setting.
 - Destructive action labels/confirmations.
+- Editor color selection must expose a non-color selected cue and comfortable target.
 
 Document known non-blocking gaps honestly.
 
 ## Android
 
-Host: Windows, macOS, or Linux with Android toolchain supported by Flutter.
+Host: Windows, macOS, or Linux with Android toolchain supported by the pinned Flutter version.
 
 Compile checks:
 
@@ -231,9 +245,9 @@ Avoid marketing claims such as “bug-free” or “fully secure.” State what 
 
 ## Release workflow automation
 
-GitHub Actions may generate compile-validation artifacts and tagged release assets where the repository configuration supports it. Automated artifacts still require review. Store signing secrets should be configured only in appropriate protected CI secrets/environments and only when a distribution workflow is intentionally added.
+GitHub Actions generates compile-validation artifacts for supported targets. The workflow uses the same exact Flutter SDK version as the project pin so a tagged build cannot silently move to a newer stable SDK.
 
-The initial project avoids embedding any real release signing secret.
+Automated artifacts still require review. Store signing secrets should be configured only in appropriate protected CI secrets/environments and only when a distribution workflow is intentionally added. The project does not embed any real release signing secret.
 
 ## Branch protection recommendation
 
@@ -252,6 +266,8 @@ If a solo-maintainer workflow needs direct maintenance pushes, choose rules that
 
 - [ ] Version/build number updated.
 - [ ] `AppStrings.version` matches.
+- [ ] `.flutter-version` matches CI/platform/release workflow Flutter versions.
+- [ ] `flutter --version` matches the project pin on verification hosts.
 - [ ] Changelog release section dated.
 - [ ] `what_changed.md` updated.
 - [ ] Clean checkout/setup succeeds.
@@ -260,6 +276,7 @@ If a solo-maintainer workflow needs direct maintenance pushes, choose rules that
 - [ ] Analyzer passes.
 - [ ] Tests pass.
 - [ ] Repository policy scan passes.
+- [ ] Markdown local-link scan passes.
 - [ ] Secret scan passes.
 - [ ] Dependency/security review complete.
 - [ ] Android build verified.
@@ -268,6 +285,8 @@ If a solo-maintainer workflow needs direct maintenance pushes, choose rules that
 - [ ] macOS build verified on macOS.
 - [ ] iOS no-codesign compile verified on macOS.
 - [ ] Manual primary journeys verified.
+- [ ] Serialized autosave final-draft behavior manually verified.
+- [ ] Oversized import rejection manually verified where picker integration is supported.
 - [ ] Accessibility checks recorded.
 - [ ] Privacy/security documentation matches build.
 - [ ] Runtime screenshots captured from verified builds.
