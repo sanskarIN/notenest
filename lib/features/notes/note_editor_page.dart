@@ -60,13 +60,14 @@ class _NoteEditorPageState extends State<NoteEditorPage>
   bool _distractionFree = false;
   int? _colorValue;
 
-  static const List<Color?> _palette = <Color?>[
-    null,
-    Color(0xFFFFD7D7),
-    Color(0xFFFFE7B3),
-    Color(0xFFD9F2D9),
-    Color(0xFFD8EBFF),
-    Color(0xFFE8DBFF),
+  static const List<({Color? color, String label})> _palette =
+      <({Color? color, String label})>[
+    (label: 'Default', color: null),
+    (label: 'Red', color: Color(0xFFFFD7D7)),
+    (label: 'Amber', color: Color(0xFFFFE7B3)),
+    (label: 'Green', color: Color(0xFFD9F2D9)),
+    (label: 'Blue', color: Color(0xFFD8EBFF)),
+    (label: 'Purple', color: Color(0xFFE8DBFF)),
   ];
 
   @override
@@ -294,40 +295,67 @@ class _NoteEditorPageState extends State<NoteEditorPage>
           Align(
             alignment: Alignment.centerLeft,
             child: Wrap(
-              spacing: 8,
+              spacing: 4,
               children: <Widget>[
-                for (final Color? color in _palette)
-                  Tooltip(
-                    message: color == null ? 'Default color' : 'Note color',
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(24),
-                      onTap: () {
-                        setState(() => _colorValue = color?.toARGB32());
-                        _autosave.run(_save);
-                      },
-                      child: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: color ?? Theme.of(context).colorScheme.surface,
-                          border: Border.all(
-                            width: _colorValue == color?.toARGB32() ? 3 : 1,
-                            color: _colorValue == color?.toARGB32()
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.outline,
-                          ),
-                        ),
-                        child: color == null
-                            ? const Icon(Icons.format_color_reset_rounded, size: 17)
-                            : null,
-                      ),
-                    ),
-                  ),
+                for (final ({Color? color, String label}) swatch in _palette)
+                  _colorSwatch(context, swatch),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _colorSwatch(
+    BuildContext context,
+    ({Color? color, String label}) swatch,
+  ) {
+    final Color? color = swatch.color;
+    final bool selected = _colorValue == color?.toARGB32();
+    final String label =
+        '${swatch.label} note color${selected ? ', selected' : ''}';
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () {
+            setState(() => _colorValue = color?.toARGB32());
+            _autosave.run(_save);
+          },
+          child: SizedBox.square(
+            dimension: AppTokens.minimumTouchTarget,
+            child: Center(
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color ?? Theme.of(context).colorScheme.surface,
+                  border: Border.all(
+                    width: selected ? 3 : 1,
+                    color: selected
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.outline,
+                  ),
+                ),
+                child: selected
+                    ? Icon(
+                        Icons.check_rounded,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      )
+                    : color == null
+                        ? const Icon(Icons.format_color_reset_rounded, size: 17)
+                        : null,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
