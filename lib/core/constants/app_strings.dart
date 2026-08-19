@@ -51,6 +51,16 @@ abstract final class AppStrings {
   static const String continueLabel = 'Continue';
   static const String restore = 'Restore';
 
+  static const String moreActions = 'More actions';
+  static const String removeFromFavorites = 'Remove from favorites';
+  static const String addToFavorites = 'Add to favorites';
+  static const String unpin = 'Unpin';
+  static const String pin = 'Pin';
+  static const String unarchive = 'Unarchive';
+  static const String archiveAction = 'Archive';
+  static const String moveToTrash = 'Move to trash';
+  static const String deletePermanently = 'Delete permanently';
+
   static const String editing = 'Editing';
   static const String saving = 'Saving';
   static const String savedLocally = 'Saved locally';
