@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:notenest/core/constants/app_strings.dart';
+import 'package:notenest/core/theme/app_tokens.dart';
 import 'package:notenest/core/utils/markdown_lite.dart';
 import 'package:notenest/data/database/app_database.dart';
 
@@ -35,14 +37,14 @@ class NoteCard extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: note.title.trim().isEmpty ? 'Untitled note' : note.title,
+      label: note.title.trim().isEmpty ? AppStrings.untitledNote : note.title,
       child: Card(
         color: background,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onOpen,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: AppTokens.pagePadding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
@@ -55,7 +57,7 @@ class NoteCard extends StatelessWidget {
                       ),
                     Expanded(
                       child: Text(
-                        note.title.trim().isEmpty ? 'Untitled' : note.title,
+                        note.title.trim().isEmpty ? AppStrings.untitled : note.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -65,8 +67,8 @@ class NoteCard extends StatelessWidget {
                     ),
                     IconButton(
                       tooltip: note.isFavorite
-                          ? 'Remove from favorites'
-                          : 'Add to favorites',
+                          ? AppStrings.removeFromFavorites
+                          : AppStrings.addToFavorites,
                       onPressed: onFavorite,
                       icon: Icon(
                         note.isFavorite
@@ -75,7 +77,7 @@ class NoteCard extends StatelessWidget {
                       ),
                     ),
                     PopupMenuButton<String>(
-                      tooltip: 'More actions',
+                      tooltip: AppStrings.moreActions,
                       onSelected: (String action) {
                         switch (action) {
                           case 'pin':
@@ -99,34 +101,40 @@ class NoteCard extends StatelessWidget {
                         if (!note.isTrashed)
                           PopupMenuItem<String>(
                             value: 'pin',
-                            child: Text(note.isPinned ? 'Unpin' : 'Pin'),
+                            child: Text(
+                              note.isPinned ? AppStrings.unpin : AppStrings.pin,
+                            ),
                           ),
                         if (!note.isTrashed)
                           PopupMenuItem<String>(
                             value: 'archive',
-                            child: Text(note.isArchived ? 'Unarchive' : 'Archive'),
+                            child: Text(
+                              note.isArchived
+                                  ? AppStrings.unarchive
+                                  : AppStrings.archiveAction,
+                            ),
                           ),
                         if (!note.isTrashed)
                           const PopupMenuItem<String>(
                             value: 'trash',
-                            child: Text('Move to trash'),
+                            child: Text(AppStrings.moveToTrash),
                           ),
                         if (note.isTrashed)
                           const PopupMenuItem<String>(
                             value: 'restore',
-                            child: Text('Restore'),
+                            child: Text(AppStrings.restore),
                           ),
                         if (note.isTrashed)
                           const PopupMenuItem<String>(
                             value: 'delete',
-                            child: Text('Delete permanently'),
+                            child: Text(AppStrings.deletePermanently),
                           ),
                       ],
                     ),
                   ],
                 ),
                 if (preview.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppTokens.space8),
                   Text(
                     preview,
                     maxLines: 6,
@@ -134,9 +142,9 @@ class NoteCard extends StatelessWidget {
                   ),
                 ],
                 const Spacer(),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppTokens.space12),
                 Wrap(
-                  spacing: 8,
+                  spacing: AppTokens.space8,
                   runSpacing: 6,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: <Widget>[
