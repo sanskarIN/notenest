@@ -27,6 +27,7 @@ class _NoteNestAppState extends State<NoteNestApp> {
   @override
   void dispose() {
     widget.dependencies.settings.removeListener(_settingsChanged);
+    unawaited(widget.dependencies.dispose());
     super.dispose();
   }
 
