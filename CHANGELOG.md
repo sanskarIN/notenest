@@ -29,22 +29,27 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 - Optional operating-system-backed app lock through `local_auth`.
 - Settings and About screens with project/support/funding information.
 - Editable NoteNest SVG logo source and labeled layout-reference artwork.
-- In-memory repository/database tests, backup-validation tests, settings tests, Markdown helper/metadata tests, logger-redaction tests, import-bound/bounded-reader tests, safe-filename tests, async-save-order tests, external-link tests, onboarding coverage, collection-empty-state coverage, About-link failure coverage, and custom color-swatch accessibility coverage.
+- In-memory repository/database tests, backup-validation tests, settings tests, application-controller tests, feature-controller tests, Markdown helper/metadata tests, logger-redaction tests, import-bound/bounded-reader tests, safe-filename tests, async-save-order tests, external-link tests, onboarding coverage, collection-empty-state coverage, About-link failure coverage, and custom color-swatch accessibility coverage.
 - Reproducible native runner bootstrap script for Android, iOS, Linux, macOS, and Windows.
 - Repository documentation, contribution policy, security policy, privacy disclosure, support guide, ADRs, CI configuration, templates, and dependency automation.
 - Deterministic Markdown local-link checker integrated into the CI quality gate.
 - Exact Flutter SDK pin (`3.44.7`) synchronized across project, quality, platform-build, and release workflows.
 - Shared 48-logical-pixel minimum touch-target design token for custom controls.
 - Bounded native-file reader used by local note/backup imports.
-- `tool/check_version_sync.py` to keep the package semantic version and visible About version synchronized.
+- `tool/check_version_sync.py` to keep package, visible app, changelog, and release-note versions synchronized.
 - A centralized `ExternalLinkService` boundary with injectable launcher behavior for deterministic tests.
+- Injectable `SettingsStore` boundary for testing settings persistence and failures without a real platform preference plugin.
 
 ### Changed
 
 - Project semantic version advanced to **2.0.12** with Flutter build number **2012**.
 - About UI now reports version **2.0.12**.
 - CI verifies version synchronization before dependency resolution and Flutter compilation work.
-- External repository, funding, support-email, business-email, and release links now share the same safe launcher behavior.
+- External repository, funding, support-email, business-email, and release links share the same safe launcher behavior.
+- Folder/tag filter metadata is now collection-scoped rather than global.
+- Switching between All Notes, Favorites, Archive, and Trash clears folder/tag selections that belong to the previous collection.
+- Onboarding completion is persisted before the UI leaves onboarding.
+- Settings mutations are serialized through the same ordered async primitive used for other ordering-sensitive work.
 
 ### Fixed
 
@@ -52,16 +57,25 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 - Prevented stale save completions from reporting a newer unsaved draft as saved.
 - Corrected Favorites, Archive, and Trash empty states so they no longer offer create/import actions whose result would not appear in the active collection.
 - Restricted Markdown import affordance to All Notes, where newly imported notes are immediately visible.
+- Fixed Trash folder/tag filtering by including trashed note metadata in the Trash collection's filter choices.
+- Prevented Favorites/Archive filter menus from advertising folders/tags that do not exist in the active collection.
 - Hardened Markdown export filenames against cross-platform invalid characters, trailing dots/spaces, excessive length, and Windows reserved device names.
+- Prevented filename truncation from splitting a UTF-16 surrogate pair/Unicode code point at the configured boundary.
 - Replaced color-only editor swatch selection with explicit selected semantics and a visible checkmark while keeping a comfortable interaction target.
 - Replaced moving-stable Flutter workflow setup with the exact project SDK version for reproducible automated builds.
 - Removed eager `file_picker` byte loading from native Markdown/backup imports; selected cached files are length-checked and consumed incrementally through the configured byte ceiling before NoteNest constructs the final in-memory buffer.
 - External-link launcher failures and exceptions no longer escape from About/Settings actions; users receive concise failure feedback instead.
+- Settings preference failures no longer leave the UI pretending an unpersisted value was saved; applicable settings roll back to the last persisted value.
+- Preference writes are ordered so rapid changes cannot persist out of submission order.
+- Failed onboarding persistence no longer causes a transition away from onboarding before the failure can be shown/retried.
+- Preference-store setter results are checked instead of silently ignoring a reported persistence failure.
 
 ### Security
 
 - Backup restore rejects malformed/non-NoteNest/unsupported-schema data before applying writes.
-- Restore validation rejects malformed serialized tags, duplicate note IDs, and version entries that reference unknown notes.
+- Restore validation rejects malformed serialized tags, duplicate note IDs, IDs containing surrounding whitespace, and version entries that reference unknown notes.
+- Restore validation requires explicit UTC timestamps ending in `Z` and rejects a note whose `updatedAt` precedes `createdAt`.
+- Restore validation accepts `colorValue` only when null or within the 32-bit ARGB integer range.
 - Restore operations preserve newer local note revisions.
 - Imported text is decoded as UTF-8 and never executed.
 - Markdown/text imports are rejected above 16 MiB before NoteNest constructs a complete import buffer.
@@ -72,6 +86,7 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 - App lock delegates authentication to maintained platform APIs rather than custom authentication/cryptography.
 - Generated Markdown export names are normalized before reaching platform save dialogs.
 - External launcher exceptions are contained at a service boundary instead of becoming uncaught UI failures.
+- Preference-persistence failures are propagated to controller/UI boundaries instead of being treated as successful writes.
 
 ### Known release-preparation constraints
 
@@ -79,9 +94,9 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 - A Flutter-enabled environment is required to produce runtime screenshots and final native artifacts.
 - Store/distribution signing credentials are intentionally not part of the repository.
 - Completed green GitHub Actions/native verification is still required against the 2.0.12 candidate before a stable tag is created.
-- Real-device/platform checks remain required for local authentication, file pickers/providers, external links, keyboard navigation, screen readers, large text, reduced motion, and runtime screenshots.
+- Real-device/platform checks remain required for local authentication, file pickers/providers, settings persistence, external links, keyboard navigation, screen readers, large text, reduced motion, and runtime screenshots.
 
-The 2.0.12 tag must only be created after all configured CI jobs pass from a clean checkout, primary platform build checks complete, verified runtime screenshots replace the illustrative reference, and final manual accessibility/release checks are recorded in `what_changed.md`.
+The `v2.0.12` tag must only be created after all configured CI jobs pass from a clean checkout, primary platform build checks complete, verified runtime screenshots replace the illustrative reference, and final manual accessibility/release checks are recorded in `what_changed.md`.
 
 [Unreleased]: https://github.com/sanskarIN/notenest/compare/v2.0.12...HEAD
 [2.0.12]: https://github.com/sanskarIN/notenest/releases/tag/v2.0.12
