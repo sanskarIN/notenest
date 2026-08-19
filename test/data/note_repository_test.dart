@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notenest/core/errors/app_exception.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/data/repositories/note_repository.dart';
 import 'package:notenest/domain/models/note_filter.dart';
@@ -158,6 +159,20 @@ void main() {
 
     await repository.restore(created.id);
     expect(await repository.list(const NoteFilter()), hasLength(1));
+  });
+
+  test('trashed notes cannot be pinned', () async {
+    final Note created = await repository.create(title: 'Trashed');
+    await repository.trash(created.id);
+
+    await expectLater(
+      repository.setPinned(created.id, value: true),
+      throwsA(isA<ValidationException>()),
+    );
+
+    final Note trashed = await repository.getById(created.id);
+    expect(trashed.isTrashed, isTrue);
+    expect(trashed.isPinned, isFalse);
   });
 
   test('folder metadata is scoped to the requested collection', () async {
