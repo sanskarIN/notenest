@@ -1,0 +1,110 @@
+name: Release artifacts
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Package Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: python tool/bootstrap_platforms.py
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notenest-${{ github.ref_name }}-android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  linux:
+    name: Package Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux desktop prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: python tool/bootstrap_platforms.py
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: flutter build linux --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notenest-${{ github.ref_name }}-linux
+          path: build/linux/*/release/bundle/**
+          if-no-files-found: error
+          retention-days: 30
+
+  windows:
+    name: Package Windows
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: python tool/bootstrap_platforms.py
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: flutter build windows --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notenest-${{ github.ref_name }}-windows
+          path: build/windows/*/runner/Release/**
+          if-no-files-found: error
+          retention-days: 30
+
+  apple:
+    name: Package macOS and compile iOS
+    runs-on: macos-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: python tool/bootstrap_platforms.py
+      - run: flutter pub get
+      - run: dart run build_runner build --delete-conflicting-outputs
+      - run: flutter build macos --release
+      - run: flutter build ios --release --no-codesign
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notenest-${{ github.ref_name }}-macos
+          path: build/macos/Build/Products/Release/*.app/**
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notenest-${{ github.ref_name }}-ios-no-codesign
+          path: build/ios/iphoneos/*.app/**
+          if-no-files-found: error
+          retention-days: 30
