@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:notenest/core/errors/app_exception.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/domain/models/note_filter.dart';
 import 'package:uuid/uuid.dart';
@@ -145,8 +146,20 @@ final class NoteRepository {
     );
   }
 
-  Future<void> setPinned(String id, {required bool value}) =>
-      _patch(id, NotesCompanion(isPinned: Value<bool>(value)));
+  Future<void> setPinned(String id, {required bool value}) async {
+    if (!value) {
+      await _patch(id, const NotesCompanion(isPinned: Value<bool>(false)));
+      return;
+    }
+
+    await _db.transaction(() async {
+      final Note existing = await getById(id);
+      if (existing.isTrashed) {
+        throw const ValidationException('Trashed notes cannot be pinned.');
+      }
+      await _patch(id, const NotesCompanion(isPinned: Value<bool>(true)));
+    });
+  }
 
   Future<void> setFavorite(String id, {required bool value}) =>
       _patch(id, NotesCompanion(isFavorite: Value<bool>(value)));
