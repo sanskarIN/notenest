@@ -18,7 +18,6 @@ final class AppSettingsController extends ChangeNotifier {
   ThemeMode _persistedThemeMode = ThemeMode.system;
   double _persistedFontScale = 1;
   bool _persistedReduceMotion = false;
-  bool _persistedOnboardingComplete = false;
   bool _persistedAppLockEnabled = false;
   bool _disposed = false;
 
@@ -39,7 +38,6 @@ final class AppSettingsController extends ChangeNotifier {
     _persistedThemeMode = nextThemeMode;
     _persistedFontScale = nextFontScale;
     _persistedReduceMotion = nextReduceMotion;
-    _persistedOnboardingComplete = nextOnboardingComplete;
     _persistedAppLockEnabled = nextAppLockEnabled;
 
     initialized = true;
@@ -103,19 +101,11 @@ final class AppSettingsController extends ChangeNotifier {
 
   Future<void> completeOnboarding() {
     if (onboardingComplete) return Future<void>.value();
-    onboardingComplete = true;
-    _notify();
     return _writes.add(() async {
-      try {
-        await _repository.setOnboardingComplete(value: true);
-        _persistedOnboardingComplete = true;
-      } on Object {
-        if (onboardingComplete) {
-          onboardingComplete = _persistedOnboardingComplete;
-          _notify();
-        }
-        rethrow;
-      }
+      await _repository.setOnboardingComplete(value: true);
+      if (_disposed) return;
+      onboardingComplete = true;
+      _notify();
     });
   }
 
