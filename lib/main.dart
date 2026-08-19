@@ -4,6 +4,7 @@ import 'package:notenest/app/app_dependencies.dart';
 import 'package:notenest/core/constants/app_strings.dart';
 import 'package:notenest/core/logging/app_logger.dart';
 
+// Verification-only branch touch for the final 2.0.12 platform workflows.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   const AppLogger logger = AppLogger();
