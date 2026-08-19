@@ -74,6 +74,36 @@ void main() {
     controller.dispose();
   });
 
+  test('keeps onboarding visible when persistence fails', () async {
+    final _FakeSettingsStore store = _FakeSettingsStore()
+      ..failOnboardingWrites = true;
+    final AppSettingsController controller = AppSettingsController(store);
+    await controller.load();
+
+    await expectLater(
+      controller.completeOnboarding(),
+      throwsStateError,
+    );
+
+    expect(controller.onboardingComplete, isFalse);
+    expect(store.onboardingComplete, isFalse);
+
+    controller.dispose();
+  });
+
+  test('marks onboarding complete only after persistence succeeds', () async {
+    final _FakeSettingsStore store = _FakeSettingsStore();
+    final AppSettingsController controller = AppSettingsController(store);
+    await controller.load();
+
+    await controller.completeOnboarding();
+
+    expect(controller.onboardingComplete, isTrue);
+    expect(store.onboardingComplete, isTrue);
+
+    controller.dispose();
+  });
+
   test('rolls app-lock state back when preference persistence fails', () async {
     final _FakeSettingsStore store = _FakeSettingsStore()
       ..failAppLockWrites = true;
@@ -108,6 +138,7 @@ final class _FakeSettingsStore implements SettingsStore {
   bool appLockEnabled;
 
   bool failThemeWrites = false;
+  bool failOnboardingWrites = false;
   bool failAppLockWrites = false;
   Completer<void>? firstThemeWriteStarted;
   Completer<void>? releaseFirstThemeWrite;
@@ -151,6 +182,9 @@ final class _FakeSettingsStore implements SettingsStore {
 
   @override
   Future<void> setOnboardingComplete({required bool value}) async {
+    if (failOnboardingWrites) {
+      throw StateError('onboarding write failed');
+    }
     onboardingComplete = value;
   }
 
