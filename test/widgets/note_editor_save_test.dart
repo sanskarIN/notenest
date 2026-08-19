@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,12 +42,14 @@ void main() {
             body: Center(
               child: FilledButton(
                 onPressed: () {
-                  Navigator.of(context).push<void>(
-                    MaterialPageRoute<void>(
-                      builder: (BuildContext context) => NoteEditorPage(
-                        noteId: note.id,
-                        repository: repository,
-                        files: files,
+                  unawaited(
+                    Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (BuildContext context) => NoteEditorPage(
+                          noteId: note.id,
+                          repository: repository,
+                          files: files,
+                        ),
                       ),
                     ),
                   );
