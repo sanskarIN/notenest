@@ -111,6 +111,45 @@ void main() {
     expect(results.single.title, 'Quoted idea');
   });
 
+  test('full-text search supports Unicode content', () async {
+    await repository.create(title: 'हिंदी नोट्स', body: 'भौतिकी का अध्ययन');
+    await repository.create(title: 'English', body: 'Different topic');
+
+    final List<Note> results = await repository.list(
+      const NoteFilter(query: 'भौतिकी'),
+    );
+
+    expect(results, hasLength(1));
+    expect(results.single.title, 'हिंदी नोट्स');
+  });
+
+  test('folder and tag filters combine with search', () async {
+    await repository.create(
+      title: 'Physics project',
+      body: 'Experiment notes',
+      folder: 'School',
+      tags: const <String>['science', 'lab'],
+    );
+    await repository.create(
+      title: 'Physics reading',
+      body: 'Book notes',
+      folder: 'Personal',
+      tags: const <String>['science'],
+    );
+
+    final List<Note> results = await repository.list(
+      const NoteFilter(
+        query: 'physics',
+        folder: 'School',
+        tag: 'lab',
+      ),
+    );
+
+    expect(results, hasLength(1));
+    expect(results.single.folder, 'School');
+    expect(repository.decodeTags(results.single.tags), contains('lab'));
+  });
+
   test('favorite collection contains only active favorites', () async {
     final Note favorite = await repository.create(title: 'Favorite');
     final Note archived = await repository.create(title: 'Archived favorite');
@@ -158,6 +197,30 @@ void main() {
 
     await repository.restore(created.id);
     expect(await repository.list(const NoteFilter()), hasLength(1));
+  });
+
+  test('empty trash deletes only trashed notes and cascades history', () async {
+    final Note keep = await repository.create(title: 'Keep');
+    final Note remove = await repository.create(title: 'Remove', body: 'Before');
+    await repository.saveContent(
+      id: remove.id,
+      title: 'Remove',
+      body: 'After',
+      folder: '',
+      tags: const <String>[],
+      colorValue: null,
+    );
+    await repository.trash(remove.id);
+
+    expect(await repository.emptyTrash(), 1);
+    expect((await repository.getById(keep.id)).title, 'Keep');
+    expect(await repository.versions(remove.id), isEmpty);
+    expect(
+      await repository.list(
+        const NoteFilter(collection: NoteCollection.trash),
+      ),
+      isEmpty,
+    );
   });
 
   test('permanent delete cascades version history', () async {
