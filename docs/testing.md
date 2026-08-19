@@ -11,11 +11,12 @@ Use for logic without real platform services or user databases. Current core cov
 - `test/core/markdown_lite_test.dart` — Markdown-lite transformations and preview behavior.
 - `test/core/markdown_document_codec_test.dart` — NoteNest Markdown metadata round trips and malformed metadata rejection.
 - `test/core/import_limits_test.dart` — accepted/rejected Markdown and backup byte-size boundaries.
+- `test/core/bounded_file_reader_test.dart` — bounded native-file reads, early oversize rejection, and safe filesystem-error wrapping.
 - `test/core/safe_file_name_test.dart` — invalid characters, Windows reserved names, trailing-dot/space handling, Unicode, and maximum filename length.
 - `test/core/async_serial_queue_test.dart` — FIFO async task ordering and recovery after an earlier task fails.
-- `test/core/app_logger_test.dart` — structured logger redaction behavior where present in the current test tree.
+- `test/core/app_logger_test.dart` — structured logger redaction behavior.
 
-The serial-queue tests protect the editor autosave ordering primitive independently of the UI. Import-limit and safe-filename tests keep local file handling deterministic and cross-platform.
+The serial-queue tests protect the editor autosave ordering primitive independently of the UI. Import-limit, bounded-reader, and safe-filename tests keep local file handling deterministic and cross-platform.
 
 ### Repository/database tests
 
@@ -155,18 +156,22 @@ Whenever a backup bug is fixed, add the smallest regression fixture before or wi
 
 File transfer has two layers: pure validation/normalization and platform picker integration.
 
-Pure coverage should keep these invariants stable:
+Pure coverage keeps these invariants stable:
 
 - Markdown/text import limit is 16 MiB.
 - JSON backup import limit is 64 MiB.
 - Files exactly at a configured limit are accepted by the limit validator.
+- Native picked files are not requested with eager `withData` loading.
+- The cached native file is length-checked and read incrementally through `BoundedFileReader` before a final byte buffer is produced.
+- Files exceeding the active validator fail before a full oversized buffer is constructed by NoteNest.
+- Filesystem read failures are surfaced as `ImportExportException` rather than leaking raw filesystem errors through the feature layer.
 - Cross-platform invalid filename characters are normalized.
 - Windows reserved device names cannot become raw export basenames.
 - Trailing dots/spaces are removed.
 - Empty/invalid titles fall back to `untitled-note`.
 - Unicode titles remain usable.
 
-Platform picker behavior must still be smoke-tested on real supported targets because `file_picker` is a native boundary.
+Platform picker behavior must still be smoke-tested on real supported targets because `file_picker` is a native boundary and may cache cloud/provider files before handing NoteNest a local path.
 
 ## Search tests
 
