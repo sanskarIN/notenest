@@ -38,8 +38,12 @@ final class NotesController extends ChangeNotifier {
     }
     try {
       final List<Note> nextNotes = await _repository.list(requestedFilter);
-      final Set<String> nextFolders = await _repository.folders();
-      final Set<String> nextTags = await _repository.tags();
+      final Set<String> nextFolders = await _repository.folders(
+        collection: requestedFilter.collection,
+      );
+      final Set<String> nextTags = await _repository.tags(
+        collection: requestedFilter.collection,
+      );
       if (!_isCurrentLoad(generation)) return;
       notes = nextNotes;
       folders = nextFolders;
@@ -64,7 +68,11 @@ final class NotesController extends ChangeNotifier {
   }
 
   void setCollection(NoteCollection value) {
-    filter = filter.copyWith(collection: value);
+    filter = filter.copyWith(
+      collection: value,
+      clearFolder: true,
+      clearTag: true,
+    );
     unawaited(load());
   }
 
