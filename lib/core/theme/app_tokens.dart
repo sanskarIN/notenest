@@ -17,6 +17,8 @@ abstract final class AppTokens {
   static const double radiusLarge = 20;
   static const double radiusPill = 999;
 
+  static const double minimumTouchTarget = 48;
+
   static const double compactNavigationBreakpoint = 760;
   static const double extendedNavigationBreakpoint = 1120;
   static const double gridTwoColumnBreakpoint = 560;
