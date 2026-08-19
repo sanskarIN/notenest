@@ -64,6 +64,7 @@ final class BackupRepository {
     final List<NoteVersionsCompanion> versions = rawVersions
         .map(_parseVersion)
         .toList(growable: false);
+    await _validateRelationships(notes, versions);
 
     int importedNotes = 0;
     int skippedNewerNotes = 0;
@@ -106,6 +107,35 @@ final class BackupRepository {
     );
   }
 
+  Future<void> _validateRelationships(
+    List<NotesCompanion> notes,
+    List<NoteVersionsCompanion> versions,
+  ) async {
+    final Set<String> incomingIds = <String>{};
+    for (final NotesCompanion note in notes) {
+      final String id = note.id.value.trim();
+      if (id.isEmpty) {
+        throw const ValidationException('Backup note id must not be empty.');
+      }
+      if (!incomingIds.add(id)) {
+        throw const ValidationException('Backup contains duplicate note ids.');
+      }
+    }
+
+    final Set<String> knownIds = <String>{...incomingIds};
+    final List<Note> localNotes = await _db.select(_db.notes).get();
+    knownIds.addAll(localNotes.map((Note note) => note.id));
+
+    for (final NoteVersionsCompanion version in versions) {
+      final String noteId = version.noteId.value.trim();
+      if (noteId.isEmpty || !knownIds.contains(noteId)) {
+        throw const ValidationException(
+          'Backup version references a note that does not exist.',
+        );
+      }
+    }
+  }
+
   Map<String, Object?> _noteToJson(Note note) => <String, Object?>{
         'id': note.id,
         'title': note.title,
@@ -142,7 +172,7 @@ final class BackupRepository {
       title: Value<String>(_string(map, 'title')),
       body: Value<String>(_string(map, 'body')),
       folder: Value<String>(_string(map, 'folder')),
-      tags: Value<String>(_string(map, 'tags')),
+      tags: Value<String>(_tagsJson(map, 'tags')),
       colorValue: Value<int?>(_nullableInt(map, 'colorValue')),
       isPinned: Value<bool>(_bool(map, 'isPinned')),
       isFavorite: Value<bool>(_bool(map, 'isFavorite')),
@@ -160,7 +190,7 @@ final class BackupRepository {
       title: Value<String>(_string(map, 'title')),
       body: Value<String>(_string(map, 'body')),
       folder: Value<String>(_string(map, 'folder')),
-      tags: Value<String>(_string(map, 'tags')),
+      tags: Value<String>(_tagsJson(map, 'tags')),
       colorValue: Value<int?>(_nullableInt(map, 'colorValue')),
       isPinned: Value<bool>(_bool(map, 'isPinned')),
       isFavorite: Value<bool>(_bool(map, 'isFavorite')),
@@ -179,6 +209,22 @@ final class BackupRepository {
     final Object? value = map[key];
     if (value is String) return value;
     throw ValidationException('Backup field "$key" must be text.');
+  }
+
+  String _tagsJson(Map<String, Object?> map, String key) {
+    final String encoded = _string(map, key);
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(encoded);
+    } on FormatException catch (error) {
+      throw ValidationException('Backup field "$key" is not valid tag JSON.', error);
+    }
+    if (decoded is! List<Object?> || decoded.any((Object? item) => item is! String)) {
+      throw ValidationException(
+        'Backup field "$key" must encode a list of text tags.',
+      );
+    }
+    return encoded;
   }
 
   bool _bool(Map<String, Object?> map, String key) {
