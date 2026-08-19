@@ -6,6 +6,8 @@ on:
     paths:
       - "lib/**"
       - "pubspec.yaml"
+      - "pubspec.lock"
+      - ".flutter-version"
       - "build.yaml"
       - "tool/bootstrap_platforms.py"
       - ".github/workflows/platform-builds.yml"
@@ -14,6 +16,8 @@ on:
     paths:
       - "lib/**"
       - "pubspec.yaml"
+      - "pubspec.lock"
+      - ".flutter-version"
       - "build.yaml"
       - "tool/bootstrap_platforms.py"
       - ".github/workflows/platform-builds.yml"
