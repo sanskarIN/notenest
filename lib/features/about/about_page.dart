@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:notenest/core/constants/app_strings.dart';
+import 'package:notenest/core/theme/app_tokens.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class AboutPage extends StatelessWidget {
@@ -8,7 +9,7 @@ class AboutPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(24),
+      padding: AppTokens.largePagePadding,
       children: <Widget>[
         Center(
           child: Icon(
@@ -17,7 +18,7 @@ class AboutPage extends StatelessWidget {
             color: Theme.of(context).colorScheme.primary,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppTokens.space16),
         Text(
           AppStrings.appName,
           textAlign: TextAlign.center,
@@ -27,50 +28,49 @@ class AboutPage extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         const Text(AppStrings.tagline, textAlign: TextAlign.center),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppTokens.space8),
         const Text(
-          'Version ${AppStrings.version} • MIT License',
+          'Version ${AppStrings.version} • ${AppStrings.mitLicense}',
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: AppTokens.space28),
         const _AboutCard(
           icon: Icons.lock_outline_rounded,
-          title: 'Privacy by design',
-          body:
-              'NoteNest is offline-first. Core note content is stored locally in a Drift/SQLite database and does not require an account.',
+          title: AppStrings.privacyByDesign,
+          body: AppStrings.privacyByDesignBody,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppTokens.space12),
         _LinkTile(
           icon: Icons.code_rounded,
-          title: 'GitHub repository',
+          title: AppStrings.githubRepository,
           subtitle: AppStrings.repositoryUrl,
           uri: Uri.parse(AppStrings.repositoryUrl),
         ),
         _LinkTile(
           icon: Icons.favorite_outline_rounded,
-          title: 'Buy Me a Coffee',
+          title: AppStrings.buyMeACoffee,
           subtitle: AppStrings.fundingUrl,
           uri: Uri.parse(AppStrings.fundingUrl),
         ),
         _LinkTile(
           icon: Icons.mail_outline_rounded,
-          title: 'Business email',
+          title: AppStrings.businessEmailLabel,
           subtitle: AppStrings.businessEmail,
           uri: Uri(scheme: 'mailto', path: AppStrings.businessEmail),
         ),
         _LinkTile(
           icon: Icons.business_center_outlined,
-          title: 'Secondary business email',
+          title: AppStrings.secondaryBusinessEmailLabel,
           subtitle: AppStrings.secondaryBusinessEmail,
           uri: Uri(scheme: 'mailto', path: AppStrings.secondaryBusinessEmail),
         ),
         _LinkTile(
           icon: Icons.support_agent_rounded,
-          title: 'Support email',
+          title: AppStrings.supportEmailLabel,
           subtitle: AppStrings.supportEmail,
           uri: Uri(scheme: 'mailto', path: AppStrings.supportEmail),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppTokens.space24),
         Text(
           AppStrings.credit,
           textAlign: TextAlign.center,
@@ -147,7 +147,9 @@ class _LinkTile extends StatelessWidget {
       title: Text(title),
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.open_in_new_rounded),
-      onTap: () => launchUrl(uri, mode: LaunchMode.externalApplication),
+      onTap: () async {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      },
     );
   }
 }
