@@ -4,16 +4,18 @@ Testing protects local user data first, then interaction quality. A passing test
 
 ## Quality layers
 
-### Pure unit tests
+### Pure/core unit tests
 
-Use for logic without Flutter platform services or databases:
+Use for logic without real platform services or user databases. Current core coverage includes:
 
-- Markdown-lite transformations.
-- Filename/format helpers when extracted.
-- Search-token normalization when exposed for testing.
-- Backup field validation helpers when useful.
+- `test/core/markdown_lite_test.dart` — Markdown-lite transformations and preview behavior.
+- `test/core/markdown_document_codec_test.dart` — NoteNest Markdown metadata round trips and malformed metadata rejection.
+- `test/core/import_limits_test.dart` — accepted/rejected Markdown and backup byte-size boundaries.
+- `test/core/safe_file_name_test.dart` — invalid characters, Windows reserved names, trailing-dot/space handling, Unicode, and maximum filename length.
+- `test/core/async_serial_queue_test.dart` — FIFO async task ordering and recovery after an earlier task fails.
+- `test/core/app_logger_test.dart` — structured logger redaction behavior where present in the current test tree.
 
-Current coverage includes `test/core/markdown_lite_test.dart`.
+The serial-queue tests protect the editor autosave ordering primitive independently of the UI. Import-limit and safe-filename tests keep local file handling deterministic and cross-platform.
 
 ### Repository/database tests
 
@@ -23,16 +25,16 @@ Use an in-memory SQLite database through Drift `NativeDatabase.memory()` for:
 - Search results.
 - Pin/favorite/archive/trash lifecycle invariants.
 - Snapshot creation/restore.
-- Backup conflict resolution.
+- Backup conflict resolution and relationship validation.
 - Transactions.
 - Future migrations.
-
-These tests avoid touching a contributor's real app database.
 
 Current files:
 
 - `test/data/note_repository_test.dart`
 - `test/data/backup_repository_test.dart`
+
+These tests avoid touching a contributor's real app database.
 
 ### Settings tests
 
@@ -44,16 +46,13 @@ Current file:
 
 ### Widget tests
 
-Use for deterministic UI behavior that does not require real plugins. Current onboarding test verifies privacy/offline messaging and completion callback behavior.
+Use for deterministic UI behavior that does not require real plugins. Current coverage includes:
 
-Future widget coverage should prioritize:
+- `test/widgets/onboarding_page_test.dart` — privacy/offline messaging and onboarding completion.
+- `test/widgets/notes_page_empty_state_test.dart` — collection-specific empty states and prevention of mismatched create/import actions in Favorites, Archive, and Trash.
+- `test/widgets/note_editor_accessibility_test.dart` — reusable note-color swatch selected cue, reset cue, tap behavior, and minimum interaction target.
 
-- Notes browser empty/error/list states.
-- Navigation collection changes.
-- Editor formatting actions.
-- Destructive confirmation behavior.
-- Settings values with injected fakes.
-- Semantics labels for icon-only controls.
+Remaining useful widget coverage includes navigation collection changes, editor formatting actions, destructive confirmation behavior, Settings values with injected fakes, and broader large-text/layout checks.
 
 ### Integration/end-to-end tests
 
@@ -67,6 +66,8 @@ Important journeys that should receive platform integration coverage as CI/devic
 6. Export backup → modify fictional library → restore backup.
 7. App-lock enable → background/resume → authenticate.
 8. Markdown import/export through platform picker adapters.
+9. Rapid editor changes followed by background/navigation to confirm the final draft wins after serialized saves.
+10. Oversized file selection to confirm the user receives a safe import failure on supported picker platforms.
 
 Plugin-heavy behavior may require a real/emulated platform or a wrapper/fake boundary rather than a pure widget test.
 
@@ -138,6 +139,9 @@ Backup/restore is data-sensitive and should cover at least:
 - Unsupported backup schema version.
 - Missing/wrong field types.
 - Invalid timestamps.
+- Malformed serialized tags.
+- Duplicate note IDs.
+- Snapshot references to missing notes.
 - Newer-local-note conflict preservation.
 - Duplicate snapshot behavior.
 - Transaction rollback if a parsed/restored operation fails.
@@ -146,6 +150,23 @@ Backup/restore is data-sensitive and should cover at least:
 - Large but reasonable fixture.
 
 Whenever a backup bug is fixed, add the smallest regression fixture before or with the fix.
+
+## Import/export tests
+
+File transfer has two layers: pure validation/normalization and platform picker integration.
+
+Pure coverage should keep these invariants stable:
+
+- Markdown/text import limit is 16 MiB.
+- JSON backup import limit is 64 MiB.
+- Files exactly at a configured limit are accepted by the limit validator.
+- Cross-platform invalid filename characters are normalized.
+- Windows reserved device names cannot become raw export basenames.
+- Trailing dots/spaces are removed.
+- Empty/invalid titles fall back to `untitled-note`.
+- Unicode titles remain usable.
+
+Platform picker behavior must still be smoke-tested on real supported targets because `file_picker` is a native boundary.
 
 ## Search tests
 
@@ -162,7 +183,7 @@ FTS behavior should cover:
 
 Search input must never be concatenated into executable SQL syntax.
 
-## Snapshot tests
+## Snapshot and autosave tests
 
 Version behavior should cover:
 
@@ -171,6 +192,8 @@ Version behavior should cover:
 - Restore makes the snapshot content current.
 - Permanent note deletion removes related snapshots.
 - Snapshot timestamps are UTC values.
+
+Editor save ordering uses a serial async queue so overlapping autosave/lifecycle/action saves cannot overtake each other. The queue primitive has deterministic ordering/failure-continuation tests; a platform/editor integration smoke test should still confirm that the final visible draft is persisted after rapid edits and navigation/backgrounding.
 
 If snapshot retention/pruning is introduced, add boundary tests around the retention policy.
 
@@ -191,10 +214,12 @@ Do not test migrations only from an empty database.
 Automated checks should be complemented by manual review. Useful automated assertions include:
 
 - Semantics label exists for icon-only/custom controls.
+- Selected state is not communicated only by color.
+- Custom interaction targets meet the shared minimum size.
 - Controls can be found/tapped without relying on pixel coordinates.
 - Large text does not overflow in representative widget sizes.
 
-Manual matrix is documented in [accessibility.md](accessibility.md).
+Current deterministic coverage verifies the custom note-color swatch's visible selected/reset cues and 48-logical-pixel target. Manual matrix is documented in [accessibility.md](accessibility.md).
 
 ## Performance testing
 
@@ -208,7 +233,7 @@ Unit/widget tests run on Linux CI. Native build workflows validate platform inte
 
 A platform build passing means the project compiled under that runner; it does not prove every plugin runtime behavior on a physical device.
 
-All automated Flutter workflows use the exact SDK recorded by the project rather than an unpinned moving stable release. A Flutter-version upgrade must therefore update the project pin and all workflows together.
+All automated Flutter workflows use the exact SDK recorded by the project rather than an unpinned moving stable release. A Flutter-version upgrade must therefore update `.flutter-version` and all workflows together.
 
 ## CI expectations
 
