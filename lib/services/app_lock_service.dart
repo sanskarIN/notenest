@@ -12,6 +12,8 @@ final class AppLockService {
       return await _authentication.isDeviceSupported();
     } on LocalAuthException {
       return false;
+    } on MissingPluginException {
+      return false;
     } on PlatformException {
       return false;
     }
@@ -28,6 +30,8 @@ final class AppLockService {
         persistAcrossBackgrounding: true,
       );
     } on LocalAuthException {
+      return false;
+    } on MissingPluginException {
       return false;
     } on PlatformException {
       return false;
