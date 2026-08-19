@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:notenest/app/app_settings_controller.dart';
 import 'package:notenest/core/constants/app_strings.dart';
@@ -49,101 +51,117 @@ class _SettingsPageState extends State<SettingsPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: <Widget>[
-        Text('Appearance', style: Theme.of(context).textTheme.titleLarge),
+        Text(AppStrings.appearance, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
         SegmentedButton<ThemeMode>(
           segments: const <ButtonSegment<ThemeMode>>[
             ButtonSegment<ThemeMode>(
               value: ThemeMode.system,
               icon: Icon(Icons.brightness_auto_rounded),
-              label: Text('System'),
+              label: Text(AppStrings.system),
             ),
             ButtonSegment<ThemeMode>(
               value: ThemeMode.light,
               icon: Icon(Icons.light_mode_rounded),
-              label: Text('Light'),
+              label: Text(AppStrings.light),
             ),
             ButtonSegment<ThemeMode>(
               value: ThemeMode.dark,
               icon: Icon(Icons.dark_mode_rounded),
-              label: Text('Dark'),
+              label: Text(AppStrings.dark),
             ),
           ],
           selected: <ThemeMode>{settings.themeMode},
-          onSelectionChanged: (Set<ThemeMode> values) =>
-              settings.setThemeMode(values.single),
+          onSelectionChanged: (Set<ThemeMode> values) {
+            unawaited(settings.setThemeMode(values.single));
+          },
         ),
         const SizedBox(height: 28),
-        Text('Accessibility', style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          AppStrings.accessibility,
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         ListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Text size'),
+          title: const Text(AppStrings.textSize),
           subtitle: Slider(
             value: settings.fontScale,
             min: 0.9,
             max: 1.4,
             divisions: 5,
             label: '${(settings.fontScale * 100).round()}%',
-            onChanged: settings.setFontScale,
+            onChanged: (double value) {
+              unawaited(settings.setFontScale(value));
+            },
           ),
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Reduce motion'),
-          subtitle: const Text('Prefer fewer non-essential interface animations.'),
+          title: const Text(AppStrings.reduceMotion),
+          subtitle: const Text(AppStrings.reduceMotionBody),
           value: settings.reduceMotion,
-          onChanged: (bool value) => settings.setReduceMotion(value: value),
+          onChanged: (bool value) {
+            unawaited(settings.setReduceMotion(value: value));
+          },
         ),
         const Divider(height: 36),
-        Text('Privacy', style: Theme.of(context).textTheme.titleLarge),
+        Text(AppStrings.privacy, style: Theme.of(context).textTheme.titleLarge),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Local app lock'),
-          subtitle: const Text('Use device authentication when supported.'),
+          title: const Text(AppStrings.localAppLock),
+          subtitle: const Text(AppStrings.localAppLockBody),
           value: settings.appLockEnabled,
-          onChanged: _busy ? null : _toggleAppLock,
+          onChanged: _busy
+              ? null
+              : (bool value) {
+                  unawaited(_toggleAppLock(value));
+                },
         ),
         const Divider(height: 36),
-        Text('Data', style: Theme.of(context).textTheme.titleLarge),
+        Text(AppStrings.data, style: Theme.of(context).textTheme.titleLarge),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.backup_rounded),
-          title: const Text('Export backup'),
-          subtitle: const Text('Save notes and version history as validated JSON.'),
+          title: const Text(AppStrings.exportBackup),
+          subtitle: const Text(AppStrings.exportBackupBody),
           enabled: !_busy,
-          onTap: _exportBackup,
+          onTap: _busy
+              ? null
+              : () {
+                  unawaited(_exportBackup());
+                },
         ),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.restore_rounded),
-          title: const Text('Restore backup'),
-          subtitle: const Text(
-            'Merge a NoteNest JSON backup without overwriting newer local notes.',
-          ),
+          title: const Text(AppStrings.restoreBackup),
+          subtitle: const Text(AppStrings.restoreBackupBody),
           enabled: !_busy,
-          onTap: _restoreBackup,
+          onTap: _busy
+              ? null
+              : () {
+                  unawaited(_restoreBackup());
+                },
         ),
         const Divider(height: 36),
-        Text('Updates', style: Theme.of(context).textTheme.titleLarge),
+        Text(AppStrings.updates, style: Theme.of(context).textTheme.titleLarge),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.system_update_alt_rounded),
-          title: const Text('Release updates'),
-          subtitle: const Text(
-            'Open the official NoteNest GitHub Releases page to review published versions.',
-          ),
+          title: const Text(AppStrings.releaseUpdates),
+          subtitle: const Text(AppStrings.releaseUpdatesBody),
           trailing: const Icon(Icons.open_in_new_rounded),
-          onTap: _openReleases,
+          onTap: () {
+            unawaited(_openReleases());
+          },
         ),
         const Divider(height: 36),
-        Text('About', style: Theme.of(context).textTheme.titleLarge),
+        Text(AppStrings.about, style: Theme.of(context).textTheme.titleLarge),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.info_outline_rounded),
-          title: const Text('About NoteNest'),
-          subtitle: const Text(
-            'Version, license, privacy summary, support, source code, and funding.',
-          ),
+          title: const Text(AppStrings.aboutNoteNest),
+          subtitle: const Text(AppStrings.aboutNoteNestBody),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: widget.onOpenAbout,
         ),
@@ -162,12 +180,12 @@ class _SettingsPageState extends State<SettingsPage> {
       if (enable) {
         final bool supported = await widget.appLock.canAuthenticate();
         if (!supported) {
-          _message('Device authentication is not available on this platform or device.');
+          _message(AppStrings.authUnavailable);
           return;
         }
         final bool verified = await widget.appLock.authenticate();
         if (!verified) {
-          _message('App lock was not enabled because authentication did not complete.');
+          _message(AppStrings.appLockNotEnabled);
           return;
         }
       }
@@ -181,9 +199,9 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _busy = true);
     try {
       final bool saved = await widget.files.exportBackup();
-      if (saved) _message('Backup exported successfully.');
+      if (saved) _message(AppStrings.backupExported);
     } on Object {
-      _message('Backup export failed. Your local notes were not changed.');
+      _message(AppStrings.backupExportFailed);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -197,12 +215,15 @@ class _SettingsPageState extends State<SettingsPage> {
       final RestoreReport? report = await widget.files.importBackup();
       if (report != null) {
         _message(
-          'Restored ${report.importedNotes} notes and ${report.importedVersions} snapshots; '
-          'kept ${report.skippedNewerNotes} newer local notes.',
+          AppStrings.restoreReport(
+            importedNotes: report.importedNotes,
+            importedVersions: report.importedVersions,
+            skippedNewerNotes: report.skippedNewerNotes,
+          ),
         );
       }
     } on Object {
-      _message('Backup restore failed. No partial restore was kept.');
+      _message(AppStrings.backupRestoreFailed);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -215,7 +236,7 @@ class _SettingsPageState extends State<SettingsPage> {
       mode: LaunchMode.externalApplication,
     );
     if (!opened) {
-      _message('Could not open the releases page on this device.');
+      _message(AppStrings.releasesOpenFailed);
     }
   }
 
@@ -223,18 +244,16 @@ class _SettingsPageState extends State<SettingsPage> {
     return await showDialog<bool>(
           context: context,
           builder: (BuildContext context) => AlertDialog(
-            title: const Text('Restore backup?'),
-            content: const Text(
-              'The backup is validated before changes are applied. Newer local notes are preserved.',
-            ),
+            title: const Text(AppStrings.restoreBackupQuestion),
+            content: const Text(AppStrings.restoreBackupWarning),
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: const Text(AppStrings.cancel),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Restore'),
+                child: const Text(AppStrings.restore),
               ),
             ],
           ),
