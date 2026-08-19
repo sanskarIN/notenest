@@ -79,10 +79,10 @@ Current deterministic widget coverage includes:
 - `test/widgets/onboarding_page_test.dart` — privacy/offline messaging, successful completion, and persistence-failure feedback.
 - `test/widgets/notes_page_empty_state_test.dart` — collection-specific empty states and prevention of mismatched create/import actions in Favorites, Archive, and Trash.
 - `test/widgets/note_editor_accessibility_test.dart` — reusable note-color swatch selected/reset cues, tap behavior, and minimum interaction target.
-- `test/widgets/note_editor_save_test.dart` — latest-draft persistence before normal back navigation and retryable missing-note load failure instead of an endless progress state.
+- `test/widgets/note_editor_save_test.dart` — latest-draft persistence before normal back navigation, retryable missing-note load failure instead of an endless progress state, and the caret-offset-zero first-line formatting boundary.
 - `test/widgets/about_page_test.dart` — user-visible feedback when an external About link cannot be opened.
 
-Remaining useful widget coverage includes editor formatting actions, destructive confirmation behavior, Settings failure messages with injected stores/services, note-browser mutation failure UI with a future injectable note store, broader large-text layout checks, and explicit keyboard focus traversal.
+Remaining useful widget coverage includes broader editor toolbar transformations, destructive confirmation behavior, Settings failure messages with injected stores/services, note-browser mutation failure UI with a future injectable note store, broader large-text layout checks, and explicit keyboard focus traversal.
 
 ### Integration/end-to-end tests
 
@@ -91,27 +91,29 @@ Important journeys that should receive platform integration coverage as CI/devic
 1. First run → persist onboarding → create note → autosave → close/reopen.
 2. Failed onboarding preference write → remain on onboarding → retry.
 3. Rapid edit → immediate Back → route remains until the latest draft is saved → reopen and verify newest content.
-4. Simulated save failure → Back remains blocked → failure message appears → content remains editable/retryable.
-5. Edit note → snapshot → restore prior version.
-6. Save failure before Version history/Export → requested action does not continue against stale persisted content.
-7. Search → result → editor.
-8. Change folder/tag filter → switch collection → verify stale filters clear.
-9. Archive → archive collection → collection-specific folder/tag filters → unarchive.
-10. Trash → trash collection → trashed folder/tag filters → restore/permanent-delete.
-11. Browser mutation/storage failure → concise feedback rather than uncaught asynchronous error.
-12. Export backup → modify fictional library → restore backup.
-13. App-lock enable → background/resume → authenticate.
-14. Preference write failure → previous saved setting restored.
-15. Markdown import/export through platform picker adapters.
-16. Oversized file selection → safe rejection on supported picker/provider platforms.
-17. Repository/funding/mail/release external links → success and no-handler/failure feedback.
-18. Bootstrap settings failure → startup fallback is shown and partially created local dependencies are cleaned up.
+4. First-line Markdown toolbar formatting with the caret at offset zero in a document that begins with a newline.
+5. Simulated save failure → Back remains blocked → failure message appears → content remains editable/retryable.
+6. Edit note → snapshot → restore prior version.
+7. Save failure before Version history/Export → requested action does not continue against stale persisted content.
+8. Search → result → editor.
+9. Change folder/tag filter → switch collection → verify stale filters clear.
+10. Archive → archive collection → collection-specific folder/tag filters → unarchive.
+11. Trash → trash collection → trashed folder/tag filters → restore/permanent-delete.
+12. Browser mutation/storage failure → concise feedback rather than uncaught asynchronous error.
+13. Export backup → modify fictional library → restore backup.
+14. App-lock enable → background/resume → authenticate.
+15. Preference write failure → previous saved setting restored.
+16. Markdown import/export through platform picker adapters.
+17. Oversized file selection → safe rejection on supported picker/provider platforms.
+18. Repository/funding/mail/release external links → success and no-handler/failure feedback.
+19. Bootstrap settings failure → startup fallback is shown and partially created local dependencies are cleaned up.
+20. Controlled root-app teardown → owned settings/database dependencies are disposed without lifecycle errors.
 
 Plugin-heavy behavior requires a real/emulated platform or a wrapper/fake boundary rather than relying only on widget tests.
 
 ## Commands
 
-Verify release metadata first:
+Verify release and Flutter workflow metadata first:
 
 ```bash
 python tool/check_version_sync.py
@@ -156,6 +158,7 @@ dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --coverage
 python tool/check_repo.py
+python tool/check_repository_reference.py
 python tool/check_markdown_links.py
 python tool/security_scan.py
 ```
@@ -171,8 +174,12 @@ Use `python3` or Windows `py` if that is the executable provided by the host.
 - `AppStrings.version` matches the package semantic version.
 - `CHANGELOG.md` has a matching release section.
 - `docs/releases/<version>.md` exists and contains the exact package/visible version values.
+- `.flutter-version` is an exact `MAJOR.MINOR.PATCH` pin.
+- Every Flutter action pin in CI, platform-build, and release workflows matches `.flutter-version`.
 
-`tool/check_repo.py` verifies required project/documentation files, forbidden unfinished markers in tracked Dart source, generated-file policy, and important ignore rules.
+`tool/check_repo.py` verifies the complete required repository/documentation/automation baseline, forbidden unfinished markers in tracked Dart source, generated-file policy, and important ignore rules.
+
+`tool/check_repository_reference.py` compares the tracked Git file set against `docs/repository-reference.md` and rejects missing, stale, or duplicate catalog entries.
 
 `tool/check_markdown_links.py` checks tracked Markdown documents for repository-local inline links, reference-link definitions, and HTML `href`/`src` targets that point to missing files or escape the repository. External URLs are intentionally not fetched so the quality gate remains deterministic.
 
@@ -305,8 +312,9 @@ Version/editor behavior should cover:
 - A stale save completion cannot mark a newer draft as saved.
 - Normal back navigation does not pop until the current draft save succeeds.
 - A failed save blocks normal back navigation and export/history actions.
+- First-line Markdown prefix formatting at caret offset zero does not skip an empty first line.
 
-`AsyncSerialQueue` has deterministic ordering/failure-continuation tests. `note_editor_save_test.dart` protects save-before-pop at widget level. Real platform/editor smoke testing should still cover system back gestures/buttons, desktop back navigation, lifecycle backgrounding, process termination behavior, and real storage/plugin failures.
+`AsyncSerialQueue` has deterministic ordering/failure-continuation tests. `note_editor_save_test.dart` protects save-before-pop and the first-line formatting boundary at widget level. Real platform/editor smoke testing should still cover system back gestures/buttons, desktop back navigation, lifecycle backgrounding, process termination behavior, and real storage/plugin failures.
 
 If snapshot retention/pruning is introduced, add boundary tests around the retention policy.
 
@@ -349,21 +357,25 @@ Unit/widget tests run on Linux CI. Native build workflows validate platform inte
 
 A platform build passing means the project compiled under that runner; it does not prove every plugin runtime behavior on a physical device.
 
-All automated Flutter workflows use the exact project SDK rather than an unpinned moving stable release. A Flutter-version upgrade must update `.flutter-version` and all Flutter workflows together.
+All automated Flutter workflows use the exact project SDK rather than an unpinned moving stable release. `tool/check_version_sync.py` rejects workflow pins that drift from `.flutter-version`. A Flutter-version upgrade must update `.flutter-version` and all Flutter workflows together.
+
+Platform-build path filtering includes `assets/**`, application source, package/build metadata, native bootstrap tooling, and the workflow itself so bundled asset changes receive native compile verification too.
 
 ## CI expectations
 
 Pull requests/pushes to `main` should fail when:
 
-- Release metadata is out of sync.
+- Release metadata or Flutter workflow pins are out of sync.
 - Dependency resolution fails.
 - Drift generation fails.
 - Formatting differs.
 - Analyzer reports an error/warning under configured policy.
 - Tests fail.
-- Required repository/documentation files are absent.
+- Required repository/documentation/automation files are absent.
+- The exhaustive tracked-file repository reference is missing, stale, or duplicated.
 - Tracked Markdown contains a broken repository-local link.
 - Lightweight secret scan finds a known credential pattern.
+- Native runner bootstrap can no longer apply/verify required platform patches during platform builds.
 
 Build workflows add native compile confidence.
 
