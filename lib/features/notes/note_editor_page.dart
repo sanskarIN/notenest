@@ -8,6 +8,7 @@ import 'package:notenest/core/utils/markdown_lite.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/data/repositories/note_repository.dart';
 import 'package:notenest/services/file_transfer_service.dart';
+import 'package:notenest/widgets/empty_state.dart';
 import 'package:notenest/widgets/note_color_swatch.dart';
 
 class NoteEditorPage extends StatefulWidget {
@@ -56,9 +57,12 @@ class _NoteEditorPageState extends State<NoteEditorPage>
   final AsyncSerialQueue _saveQueue = AsyncSerialQueue();
 
   Note? _note;
+  Object? _loadError;
   _SaveState _saveState = _SaveState.idle;
   bool _loading = true;
   bool _distractionFree = false;
+  bool _leaving = false;
+  bool _allowPop = false;
   int? _colorValue;
 
   static const List<({Color? color, String label})> _palette =
@@ -83,7 +87,7 @@ class _NoteEditorPageState extends State<NoteEditorPage>
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
-      unawaited(_save());
+      _queueBackgroundSave();
     }
   }
 
@@ -95,8 +99,8 @@ class _NoteEditorPageState extends State<NoteEditorPage>
     _body.removeListener(_changed);
     _folder.removeListener(_changed);
     _tags.removeListener(_changed);
-    if (_note != null) {
-      unawaited(_save());
+    if (_note != null && !_allowPop) {
+      _queueBackgroundSave();
     }
     _title.dispose();
     _body.dispose();
@@ -106,31 +110,60 @@ class _NoteEditorPageState extends State<NoteEditorPage>
   }
 
   Future<void> _load() async {
-    final Note note = await widget.repository.getById(widget.noteId);
-    if (!mounted) return;
-    _note = note;
-    _title.text = note.title;
-    _body.text = note.body;
-    _folder.text = note.folder;
-    _tags.text = widget.repository.decodeTags(note.tags).join(', ');
-    _colorValue = note.colorValue;
-    _title.addListener(_changed);
-    _body.addListener(_changed);
-    _folder.addListener(_changed);
-    _tags.addListener(_changed);
-    setState(() => _loading = false);
+    try {
+      final Note note = await widget.repository.getById(widget.noteId);
+      if (!mounted) return;
+      _note = note;
+      _title.text = note.title;
+      _body.text = note.body;
+      _folder.text = note.folder;
+      _tags.text = widget.repository.decodeTags(note.tags).join(', ');
+      _colorValue = note.colorValue;
+      _title.addListener(_changed);
+      _body.addListener(_changed);
+      _folder.addListener(_changed);
+      _tags.addListener(_changed);
+      setState(() {
+        _loading = false;
+        _loadError = null;
+      });
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = error;
+      });
+    }
+  }
+
+  Future<void> _retryLoad() async {
+    if (_loading) return;
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    await _load();
   }
 
   void _changed() {
-    if (_loading) return;
+    if (_loading || _leaving) return;
     setState(() => _saveState = _SaveState.idle);
-    _autosave.run(_save);
+    _autosave.run(() async {
+      await _save();
+    });
   }
 
-  Future<void> _save() {
-    if (_note == null) return Future<void>.value();
-    final _EditorDraft draft = _captureDraft();
-    return _saveQueue.add(() => _persistDraft(draft));
+  void _queueBackgroundSave() {
+    unawaited(_save().then<void>((_) {}));
+  }
+
+  Future<bool> _save() {
+    if (_note == null) return Future<bool>.value(false);
+    return _enqueueDraft(_captureDraft());
+  }
+
+  Future<bool> _enqueueDraft(_EditorDraft draft) {
+    return _saveQueue.add<bool>(() => _persistDraft(draft));
   }
 
   _EditorDraft _captureDraft() {
@@ -153,7 +186,7 @@ class _NoteEditorPageState extends State<NoteEditorPage>
         _colorValue == draft.colorValue;
   }
 
-  Future<void> _persistDraft(_EditorDraft draft) async {
+  Future<bool> _persistDraft(_EditorDraft draft) async {
     if (mounted && _matchesCurrentDraft(draft)) {
       setState(() => _saveState = _SaveState.saving);
     }
@@ -167,19 +200,38 @@ class _NoteEditorPageState extends State<NoteEditorPage>
         colorValue: draft.colorValue,
       );
       final Note savedNote = await widget.repository.getById(widget.noteId);
-      if (!mounted) return;
-      _note = savedNote;
-      setState(
-        () => _saveState =
-            _matchesCurrentDraft(draft) ? _SaveState.saved : _SaveState.idle,
-      );
+      if (mounted) {
+        _note = savedNote;
+        setState(
+          () => _saveState =
+              _matchesCurrentDraft(draft) ? _SaveState.saved : _SaveState.idle,
+        );
+      }
+      return true;
     } on Object {
-      if (!mounted) return;
-      setState(
-        () => _saveState =
-            _matchesCurrentDraft(draft) ? _SaveState.failed : _SaveState.idle,
-      );
+      if (mounted) {
+        setState(
+          () => _saveState =
+              _matchesCurrentDraft(draft) ? _SaveState.failed : _SaveState.idle,
+        );
+      }
+      return false;
     }
+  }
+
+  Future<void> _attemptLeave() async {
+    if (_leaving) return;
+    setState(() => _leaving = true);
+    final bool saved = await _save();
+    if (!mounted) return;
+    if (!saved) {
+      setState(() => _leaving = false);
+      _message('Could not save this note. Resolve the save problem before leaving.');
+      return;
+    }
+
+    setState(() => _allowPop = true);
+    Navigator.of(context).pop();
   }
 
   @override
@@ -187,75 +239,108 @@ class _NoteEditorPageState extends State<NoteEditorPage>
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    return Scaffold(
-      appBar: AppBar(
-        title: TextField(
-          controller: _title,
-          maxLines: 1,
-          textInputAction: TextInputAction.next,
-          style: Theme.of(context).textTheme.titleLarge,
-          decoration: const InputDecoration(
-            hintText: 'Untitled note',
-            filled: false,
-            border: InputBorder.none,
+    if (_loadError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Note')),
+        body: EmptyState(
+          icon: Icons.error_outline_rounded,
+          title: 'Could not open this note',
+          message:
+              'The note could not be loaded from local storage. You can retry without changing other notes.',
+          action: FilledButton.icon(
+            onPressed: _retryLoad,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Retry'),
           ),
         ),
-        actions: <Widget>[
-          _SaveIndicator(state: _saveState),
-          IconButton(
-            tooltip: _distractionFree
-                ? 'Show editor controls'
-                : 'Distraction-free editor',
-            onPressed: () => setState(() => _distractionFree = !_distractionFree),
-            icon: Icon(
-              _distractionFree
-                  ? Icons.fullscreen_exit_rounded
-                  : Icons.fullscreen_rounded,
+      );
+    }
+
+    return PopScope<void>(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (bool didPop, _) {
+        if (!didPop) unawaited(_attemptLeave());
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: TextField(
+            controller: _title,
+            maxLines: 1,
+            readOnly: _leaving,
+            textInputAction: TextInputAction.next,
+            style: Theme.of(context).textTheme.titleLarge,
+            decoration: const InputDecoration(
+              hintText: 'Untitled note',
+              filled: false,
+              border: InputBorder.none,
             ),
           ),
-          PopupMenuButton<String>(
-            tooltip: 'Note actions',
-            onSelected: _handleMenu,
-            itemBuilder: (BuildContext context) => const <PopupMenuEntry<String>>[
-              PopupMenuItem<String>(
-                value: 'versions',
-                child: Text('Version history'),
+          actions: <Widget>[
+            _SaveIndicator(state: _saveState),
+            IconButton(
+              tooltip: _distractionFree
+                  ? 'Show editor controls'
+                  : 'Distraction-free editor',
+              onPressed: _leaving
+                  ? null
+                  : () =>
+                      setState(() => _distractionFree = !_distractionFree),
+              icon: Icon(
+                _distractionFree
+                    ? Icons.fullscreen_exit_rounded
+                    : Icons.fullscreen_rounded,
               ),
-              PopupMenuItem<String>(
-                value: 'export',
-                child: Text('Export Markdown'),
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppTokens.maxEditorWidth),
-            child: Column(
-              children: <Widget>[
-                if (!_distractionFree) _metadata(),
-                if (!_distractionFree) _formatToolbar(),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                    child: TextField(
-                      controller: _body,
-                      expands: true,
-                      maxLines: null,
-                      minLines: null,
-                      keyboardType: TextInputType.multiline,
-                      textAlignVertical: TextAlignVertical.top,
-                      decoration: const InputDecoration(
-                        hintText: 'Start writing…\n\nMarkdown-lite supported: headings, emphasis, lists, and checklists.',
-                        filled: false,
-                        border: InputBorder.none,
-                      ),
-                    ),
-                  ),
+            ),
+            PopupMenuButton<String>(
+              tooltip: 'Note actions',
+              enabled: !_leaving,
+              onSelected: _handleMenu,
+              itemBuilder: (BuildContext context) =>
+                  const <PopupMenuEntry<String>>[
+                PopupMenuItem<String>(
+                  value: 'versions',
+                  child: Text('Version history'),
+                ),
+                PopupMenuItem<String>(
+                  value: 'export',
+                  child: Text('Export Markdown'),
                 ),
               ],
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: IgnorePointer(
+            ignoring: _leaving,
+            child: Center(
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxWidth: AppTokens.maxEditorWidth),
+                child: Column(
+                  children: <Widget>[
+                    if (!_distractionFree) _metadata(),
+                    if (!_distractionFree) _formatToolbar(),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                        child: TextField(
+                          controller: _body,
+                          expands: true,
+                          maxLines: null,
+                          minLines: null,
+                          keyboardType: TextInputType.multiline,
+                          textAlignVertical: TextAlignVertical.top,
+                          decoration: const InputDecoration(
+                            hintText: 'Start writing…\n\nMarkdown-lite supported: headings, emphasis, lists, and checklists.',
+                            filled: false,
+                            border: InputBorder.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -307,7 +392,9 @@ class _NoteEditorPageState extends State<NoteEditorPage>
                       setState(
                         () => _colorValue = swatch.color?.toARGB32(),
                       );
-                      _autosave.run(_save);
+                      _autosave.run(() async {
+                        await _save();
+                      });
                     },
                   ),
               ],
@@ -386,26 +473,40 @@ class _NoteEditorPageState extends State<NoteEditorPage>
   }
 
   Future<void> _handleMenu(String action) async {
-    switch (action) {
-      case 'versions':
-        await _showVersions();
-        break;
-      case 'export':
-        await _save();
-        if (_note != null) await widget.files.exportMarkdown(_note!);
-        break;
+    final bool saved = await _save();
+    if (!mounted) return;
+    if (!saved) {
+      _message('Save failed. The requested note action was not started.');
+      return;
+    }
+
+    try {
+      switch (action) {
+        case 'versions':
+          await _showVersions();
+          break;
+        case 'export':
+          final Note? note = _note;
+          if (note == null) return;
+          final bool exported = await widget.files.exportMarkdown(note);
+          if (exported) _message('Note exported successfully.');
+          break;
+      }
+    } on Object {
+      if (mounted) {
+        _message('The requested note action could not be completed.');
+      }
     }
   }
 
   Future<void> _showVersions() async {
-    await _save();
     final List<NoteVersion> versions =
         await widget.repository.versions(widget.noteId);
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (BuildContext context) => SafeArea(
+      builder: (BuildContext sheetContext) => SafeArea(
         child: versions.isEmpty
             ? const Padding(
                 padding: EdgeInsets.all(32),
@@ -420,12 +521,10 @@ class _NoteEditorPageState extends State<NoteEditorPage>
                     title: Text(version.title.isEmpty ? 'Untitled' : version.title),
                     subtitle: Text(version.capturedAt.toLocal().toString()),
                     trailing: TextButton(
-                      onPressed: () async {
-                        await widget.repository.restoreVersion(version.id);
-                        if (!context.mounted) return;
-                        Navigator.pop(context);
-                        await _reloadFromDatabase();
-                      },
+                      onPressed: () => _restoreVersion(
+                        sheetContext,
+                        version.id,
+                      ),
                       child: const Text('Restore'),
                     ),
                   );
@@ -433,6 +532,20 @@ class _NoteEditorPageState extends State<NoteEditorPage>
               ),
       ),
     );
+  }
+
+  Future<void> _restoreVersion(BuildContext sheetContext, int versionId) async {
+    try {
+      await widget.repository.restoreVersion(versionId);
+      if (!sheetContext.mounted) return;
+      Navigator.pop(sheetContext);
+      await _reloadFromDatabase();
+      if (mounted) _message('Version restored.');
+    } on Object {
+      if (mounted) {
+        _message('Could not restore that version. Your current note was kept.');
+      }
+    }
   }
 
   Future<void> _reloadFromDatabase() async {
@@ -447,6 +560,11 @@ class _NoteEditorPageState extends State<NoteEditorPage>
       _colorValue = note.colorValue;
       _saveState = _SaveState.saved;
     });
+  }
+
+  void _message(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   List<String> _parseTags(String value) => value
