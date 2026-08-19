@@ -94,10 +94,15 @@ Every behavior change should have the smallest useful regression coverage. Appro
 Run the quality gate before opening a pull request:
 
 ```bash
+python tool/check_version_sync.py
 dart run build_runner build --delete-conflicting-outputs
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --coverage
+python tool/check_repo.py
+python tool/check_repository_reference.py
+python tool/check_markdown_links.py
+python tool/security_scan.py
 ```
 
 If you change platform-specific code, also run the applicable release/debug build described in [docs/release.md](docs/release.md).
@@ -139,6 +144,14 @@ The PR template contains a detailed checklist.
 Documentation is part of the product. Commands must match the repository. Do not claim a workflow, platform build, test result, or screenshot exists unless it actually exists.
 
 When changing setup/build requirements, update all directly affected documents rather than leaving conflicting instructions.
+
+Every tracked file is cataloged in [docs/repository-reference.md](docs/repository-reference.md). If a change adds, removes, or renames a tracked path, update that catalog in the same commit/workstream and run:
+
+```bash
+python tool/check_repository_reference.py
+```
+
+The catalog checker rejects undocumented tracked files, stale entries, and duplicate path entries. This keeps repository documentation complete as the tree evolves.
 
 ## Reporting bugs
 
