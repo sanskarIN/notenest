@@ -1,6 +1,6 @@
 # NoteNest Setup Guide
 
-This guide starts from a clean machine and gets the repository ready for development. NoteNest targets Android, Windows, Linux, macOS, and is iOS-ready. Native builds must be produced on operating systems supported by Flutter for those targets.
+This guide starts from a clean machine and gets the repository ready for development and the current **2.0.12** release candidate. NoteNest targets Android, Windows, Linux, macOS, and is iOS-ready. Native builds must be produced on operating systems supported by Flutter for those targets.
 
 ## 1. Required tools
 
@@ -37,7 +37,7 @@ dart --version
 flutter doctor -v
 ```
 
-`flutter --version` should report **3.44.7** for the current NoteNest 1.0.0 release-candidate toolchain. Resolve `flutter doctor` errors relevant to the platforms you intend to use.
+`flutter --version` should report **3.44.7** for the current NoteNest 2.0.12 release-candidate toolchain. Resolve `flutter doctor` errors relevant to the platforms you intend to use.
 
 ### Updating Flutter
 
@@ -60,11 +60,11 @@ Recommended extensions:
 - Dart (publisher: Dart Code).
 - Flutter (publisher: Dart Code).
 
-Helpful built-in/workspace behavior:
+Helpful behavior:
 
 - Format on save using the Dart formatter.
 - Show analyzer diagnostics.
-- Do not use an extension that rewrites generated Drift files manually.
+- Do not manually edit generated Drift files.
 
 ### Android Studio
 
@@ -84,27 +84,44 @@ git status
 git branch --show-current
 ```
 
-For project commits, configure the requested email locally:
+For local project commits, configure the requested email:
 
 ```bash
 git config user.email "sanskarin@outlook.in"
 ```
 
-Optionally configure your display name if not already configured:
+Optionally configure your display name:
 
 ```bash
 git config user.name "Sanskar"
 ```
 
-## 6. Generate native platform runners
+## 6. Verify release metadata
 
-The repository intentionally generates runner templates from the installed Flutter SDK:
+Before dependency generation or release work, run:
+
+```bash
+python tool/check_version_sync.py
+```
+
+For the current candidate it verifies:
+
+- `pubspec.yaml` is `2.0.12+2012`.
+- `AppStrings.version` is `2.0.12`.
+- `CHANGELOG.md` contains the 2.0.12 section.
+- `docs/releases/2.0.12.md` exists and contains the exact package/visible version values.
+
+On Windows use `py` if that is your Python launcher.
+
+## 7. Generate native platform runners
+
+The repository intentionally generates runner templates from the pinned Flutter SDK:
 
 ```bash
 python tool/bootstrap_platforms.py
 ```
 
-On Windows, if `python` is not registered but the launcher is:
+On Windows:
 
 ```powershell
 py tool/bootstrap_platforms.py
@@ -118,7 +135,7 @@ The script runs Flutter's project generator for Android, iOS, Linux, macOS, and 
 
 The script is intended to be re-runnable after a clean checkout or intentional Flutter upgrade.
 
-## 7. Fetch dependencies
+## 8. Fetch dependencies
 
 ```bash
 flutter pub get
@@ -126,7 +143,7 @@ flutter pub get
 
 If dependency resolution fails after an SDK upgrade, do not immediately widen every version constraint. First inspect the solver message, Flutter/Dart version, and package compatibility.
 
-## 8. Generate Drift code
+## 9. Generate Drift code
 
 ```bash
 dart run build_runner build --delete-conflicting-outputs
@@ -140,9 +157,13 @@ For continuous generation while editing schema/query declarations:
 dart run build_runner watch --delete-conflicting-outputs
 ```
 
-## 9. Verify the repository
+## 10. Verify the repository
+
+Run the complete quality gate:
 
 ```bash
+python tool/check_version_sync.py
+dart run build_runner build --delete-conflicting-outputs
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --coverage
@@ -193,7 +214,7 @@ Build smoke test:
 flutter build apk --debug
 ```
 
-Release artifacts require your own secure signing configuration; never commit keystores/passwords.
+Release candidates should additionally compile the release artifacts documented in [`release.md`](release.md). Release artifacts require your own secure signing configuration; never commit keystores/passwords.
 
 ## Windows desktop setup
 
@@ -272,12 +293,21 @@ py --version
 
 The repository Python tools use only the standard library; no `pip install` is required.
 
+Current maintenance scripts include:
+
+- `tool/bootstrap_platforms.py`
+- `tool/check_version_sync.py`
+- `tool/check_repo.py`
+- `tool/check_markdown_links.py`
+- `tool/security_scan.py`
+
 ## Clean rebuild
 
 When generated/native state becomes suspicious:
 
 ```bash
 flutter clean
+python tool/check_version_sync.py
 python tool/bootstrap_platforms.py
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs
@@ -302,6 +332,7 @@ flutter pub outdated
 Upgrade deliberately, review changelogs/migrations, then:
 
 ```bash
+python tool/check_version_sync.py
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs
 dart format --output=none --set-exit-if-changed lib test
@@ -313,6 +344,20 @@ python tool/security_scan.py
 ```
 
 For native-plugin upgrades, rebuild on every affected target before release.
+
+## Runtime/plugin smoke checks for 2.0.12
+
+A compile/test pass does not replace real platform checks. Before stable 2.0.12, exercise at least:
+
+- Markdown/text file selection and bounded oversized-file rejection.
+- JSON backup selection, restore, and oversized-file rejection.
+- Repository/funding/release links and `mailto:` actions.
+- No-handler/external-link failure feedback where practical.
+- Optional local authentication supported/unsupported paths.
+- Settings persistence across restart.
+- Rapid settings changes and rapid note edits.
+
+Use fictional note data.
 
 ## Secrets and local configuration
 
@@ -326,11 +371,13 @@ Never commit:
 - API tokens.
 - Real note databases/backups.
 
-See [SECURITY.md](../SECURITY.md).
+See [`../SECURITY.md`](../SECURITY.md).
 
 ## Next steps
 
-- Development workflow: [development.md](development.md)
-- Architecture: [architecture.md](architecture.md)
-- Testing: [testing.md](testing.md)
-- Troubleshooting: [troubleshooting.md](troubleshooting.md)
+- Development workflow: [`development.md`](development.md)
+- Architecture: [`architecture.md`](architecture.md)
+- Testing: [`testing.md`](testing.md)
+- Release: [`release.md`](release.md)
+- 2.0.12 release candidate: [`releases/2.0.12.md`](releases/2.0.12.md)
+- Troubleshooting: [`troubleshooting.md`](troubleshooting.md)
