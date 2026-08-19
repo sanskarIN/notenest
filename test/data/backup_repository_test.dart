@@ -180,7 +180,8 @@ void main() {
     final List<Object?> rawNotes = payload['notes']! as List<Object?>;
     final Map<String, Object?> firstNote =
         rawNotes.single! as Map<String, Object?>;
-    firstNote['id'] = ' ${firstNote['id']} ';
+    final Object? originalId = firstNote['id'];
+    firstNote['id'] = ' $originalId ';
 
     expect(
       () => backups.restoreJson(jsonEncode(payload)),
