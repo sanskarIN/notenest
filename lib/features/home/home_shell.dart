@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:notenest/app/app_dependencies.dart';
 import 'package:notenest/core/constants/app_strings.dart';
+import 'package:notenest/core/theme/app_tokens.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/domain/models/note_filter.dart';
 import 'package:notenest/features/about/about_page.dart';
@@ -54,6 +57,11 @@ class _HomeShellState extends State<HomeShell> {
     ),
   ];
 
+  static const NavigationDestination _moreDestination = NavigationDestination(
+    icon: Icon(Icons.more_horiz_rounded),
+    label: AppStrings.more,
+  );
+
   @override
   void dispose() {
     _notes.dispose();
@@ -64,7 +72,8 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final bool useRail = constraints.maxWidth >= 760;
+        final bool useRail =
+            constraints.maxWidth >= AppTokens.compactNavigationBreakpoint;
         final Widget content = _content();
         return Scaffold(
           appBar: AppBar(
@@ -77,13 +86,16 @@ class _HomeShellState extends State<HomeShell> {
                     NavigationRail(
                       selectedIndex: _index,
                       onDestinationSelected: _select,
-                      extended: constraints.maxWidth >= 1120,
-                      labelType: constraints.maxWidth >= 1120
+                      extended: constraints.maxWidth >=
+                          AppTokens.extendedNavigationBreakpoint,
+                      labelType: constraints.maxWidth >=
+                              AppTokens.extendedNavigationBreakpoint
                           ? NavigationRailLabelType.none
                           : NavigationRailLabelType.selected,
                       destinations: _destinations
                           .map(
-                            (NavigationDestination item) => NavigationRailDestination(
+                            (NavigationDestination item) =>
+                                NavigationRailDestination(
                               icon: item.icon,
                               selectedIcon: item.selectedIcon,
                               label: Text(item.label),
@@ -98,20 +110,33 @@ class _HomeShellState extends State<HomeShell> {
               : content,
           floatingActionButton: _index == 0
               ? FloatingActionButton.extended(
-                  onPressed: _createNote,
+                  onPressed: () {
+                    unawaited(_createNote());
+                  },
                   icon: const Icon(Icons.add_rounded),
                   label: const Text(AppStrings.newNote),
                 )
               : null,
-          bottomNavigationBar: useRail
-              ? null
-              : NavigationBar(
-                  selectedIndex: _index,
-                  onDestinationSelected: _select,
-                  destinations: _destinations,
-                ),
+          bottomNavigationBar: useRail ? null : _compactNavigation(),
         );
       },
+    );
+  }
+
+  Widget _compactNavigation() {
+    return NavigationBar(
+      selectedIndex: _index <= 3 ? _index : 4,
+      onDestinationSelected: (int value) {
+        if (value == 4) {
+          unawaited(_showMoreDestinations());
+          return;
+        }
+        _select(value);
+      },
+      destinations: <NavigationDestination>[
+        ..._destinations.take(4),
+        _moreDestination,
+      ],
     );
   }
 
@@ -132,6 +157,35 @@ class _HomeShellState extends State<HomeShell> {
       );
     }
     return const AboutPage();
+  }
+
+  Future<void> _showMoreDestinations() async {
+    final int? destination = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.settings_rounded),
+              title: const Text(AppStrings.settings),
+              selected: _index == 4,
+              onTap: () => Navigator.pop(context, 4),
+            ),
+            ListTile(
+              leading: const Icon(Icons.info_rounded),
+              title: const Text(AppStrings.about),
+              selected: _index == 5,
+              onTap: () => Navigator.pop(context, 5),
+            ),
+            const SizedBox(height: AppTokens.space8),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || destination == null) return;
+    _select(destination);
   }
 
   Future<void> _createNote() async {
