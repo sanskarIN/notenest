@@ -19,7 +19,10 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  late final NotesController _notes = NotesController(widget.dependencies.notes);
+  late final NotesController _notes = NotesController(
+    widget.dependencies.notes,
+    logger: widget.dependencies.logger,
+  );
   int _index = 0;
 
   static const List<NavigationDestination> _destinations = <NavigationDestination>[
