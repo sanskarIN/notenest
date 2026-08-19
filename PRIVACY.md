@@ -1,12 +1,13 @@
 # NoteNest Privacy
 
 Last updated: 2026-08-19
+Current release-candidate target: **2.0.12**
 
 This document describes the privacy behavior of the open-source NoteNest code in this repository. A distributor who modifies the app, adds services, or publishes a store build is responsible for updating privacy disclosures so they match that build.
 
 ## Summary
 
-The core NoteNest application is designed to work without a NoteNest account, advertising network, analytics service, or project-operated cloud server. Note content is stored locally using Drift/SQLite. The user explicitly chooses when to import/export a file or open an external project/support link.
+Core NoteNest is designed to work without a NoteNest account, advertising network, analytics service, or project-operated cloud server. Note content is stored locally using Drift/SQLite. The user explicitly chooses when to import/export a file, enable operating-system-backed app lock, or open an external project/support/funding/release link.
 
 ## Data stored locally
 
@@ -31,9 +32,11 @@ These values support normal app functionality. Current project code does not upl
 
 Search is performed locally using SQLite FTS5. Indexed content includes note title, body, folder, and serialized tags. The search index is stored with the local database environment and maintained by database triggers.
 
+Collection-specific folder/tag filter options are also computed locally from the corresponding note collection.
+
 ## Import and export
 
-When the user chooses an import or export action, NoteNest uses the platform file picker. Depending on the operating system and file-picker implementation, the system may show storage providers available to the user, including providers managed by third parties. The user controls the selected destination/source.
+When the user chooses an import or export action, NoteNest uses the platform file picker. Depending on the operating system and provider, the picker may expose local or third-party/cloud storage locations. The user controls the selected source/destination.
 
 Supported project flows include:
 
@@ -42,13 +45,30 @@ Supported project flows include:
 - Exporting NoteNest data and version snapshots as JSON.
 - Restoring a validated NoteNest JSON backup.
 
+For native imports, NoteNest requests a cached file path rather than eager file bytes, then applies its own bounded read before decoding:
+
+- Markdown/text ceiling: 16 MiB.
+- JSON backup ceiling: 64 MiB.
+
+The platform picker/provider may still cache or access the file before NoteNest receives the path. That provider's privacy behavior is outside NoteNest's direct control.
+
 Exported files are no longer protected by NoteNest itself. Their privacy depends on where the user saves, copies, sends, or backs them up.
 
-## Backup contents
+## Backup contents and validation
 
 A NoteNest JSON backup can contain note content and version history. Treat backups as sensitive user files. The current backup format is readable JSON and must not be described as encrypted.
 
-Restore validation checks that the data identifies as a NoteNest backup, uses a supported schema version, and contains expected field types/timestamps before applying changes. Newer local notes are preserved when an older backup copy conflicts.
+Restore validation checks application identity, supported schema version, expected field types, serialized tags, identifiers/relationships, 32-bit color values, explicit UTC timestamps, and note timestamp ordering before database changes. Newer local notes are preserved when an older backup copy conflicts.
+
+These validation rules protect integrity/reliability; they do not make an exported JSON backup private or encrypted.
+
+## Preferences
+
+Non-sensitive app preferences are stored separately from note data, including appearance, text scale, reduced motion, onboarding completion, and whether app lock is enabled.
+
+NoteNest does not intentionally store note bodies, passwords, biometric templates, or authentication secrets in this preference store.
+
+The application treats reported preference-write failures as errors. Visible preference state is restored to the last persisted value when applicable; onboarding completion is persisted before leaving onboarding.
 
 ## Optional app lock
 
@@ -58,13 +78,16 @@ App lock is an access-control convenience. It is **not** a claim that the SQLite
 
 ## External links
 
-The About screen includes user-initiated links for:
+User-initiated external actions include:
 
 - GitHub/repository information.
+- GitHub Releases information.
 - Buy Me a Coffee funding.
-- Business/support email.
+- Business/support email actions.
 
-Opening one of these links hands the URL or email action to the operating system and the user's chosen external application. The privacy practices of the external service/app then apply.
+Opening one hands the URI/email action to the operating system and the user's chosen external application. The privacy practices of that external service/app then apply.
+
+NoteNest uses a small launcher service that contains platform launcher failures/exceptions and reports failure to the UI. It does not make the destination itself part of NoteNest's trusted local data boundary.
 
 ## Analytics and advertising
 
@@ -74,9 +97,9 @@ If a fork/distributor adds analytics, crash reporting that uploads data, ads, re
 
 ## Network access
 
-Core note creation, editing, organization, search, snapshots, and local settings are designed for offline use. NoteNest has no project-operated remote notes API in the current architecture.
+Core note creation, editing, organization, search, snapshots, settings, and backup processing are designed for offline use. NoteNest has no project-operated remote notes API in the current architecture.
 
-Platform package managers, operating systems, store clients, external browsers/mail clients, and development tooling may independently use the network; that is outside the core app's local note-processing behavior.
+External links are network-capable only because the user explicitly opens an external URI/application. Platform package managers, operating systems, store clients, external browsers/mail clients, storage providers, and development tooling may independently use the network; that behavior is outside the core app's local note processing.
 
 ## Permissions
 
@@ -98,18 +121,20 @@ Within the app:
 
 - Moving a note to trash keeps it recoverable locally.
 - Restoring removes the trash state.
-- Permanently deleting a note removes its current database row and, through the configured foreign-key behavior, its associated version rows.
+- Permanently deleting a note removes its current database row and, through configured foreign-key behavior, associated version rows.
 - Emptying trash permanently deletes all notes currently marked as trashed.
 
-Copies may still exist outside NoteNest if the user previously exported/backed up data or if the operating system/filesystem maintains backups.
+Copies may still exist outside NoteNest if the user previously exported/backed up data or if the operating system/filesystem/provider maintains backups.
 
 ## Data portability
 
 Users can export NoteNest data as JSON and individual notes as Markdown. The JSON format includes a version identifier so incompatible backup formats can be rejected instead of silently misinterpreted.
 
+Generated Markdown filenames are normalized for cross-platform filesystem compatibility. This filename normalization does not alter the note content stored inside the exported file.
+
 ## Security
 
-Security practices and responsible disclosure are documented in [SECURITY.md](SECURITY.md). Do not send private note data in a public issue to demonstrate a bug.
+Security practices and responsible disclosure are documented in [`SECURITY.md`](SECURITY.md). Do not send private note data in a public issue to demonstrate a bug.
 
 ## Changes to privacy behavior
 
