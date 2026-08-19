@@ -26,14 +26,17 @@ final class AppDependencies {
   final AppLockService appLock;
   final AppLogger logger;
 
-  static Future<AppDependencies> create() async {
-    const AppLogger logger = AppLogger();
-    final AppDatabase database = AppDatabase();
-    final NoteRepository notes = NoteRepository(database);
+  static Future<AppDependencies> create({
+    AppDatabase? database,
+    AppLockService? appLock,
+    AppLogger logger = const AppLogger(),
+  }) async {
+    final AppDatabase resolvedDatabase = database ?? AppDatabase();
+    final NoteRepository notes = NoteRepository(resolvedDatabase);
     final SettingsRepository settingsRepository = SettingsRepository();
     final AppSettingsController settings =
         AppSettingsController(settingsRepository);
-    final BackupRepository backups = BackupRepository(database);
+    final BackupRepository backups = BackupRepository(resolvedDatabase);
     final FileTransferService files = FileTransferService(
       backups: backups,
       notes: notes,
@@ -41,12 +44,12 @@ final class AppDependencies {
     await settings.load();
     logger.info('app.dependencies_ready');
     return AppDependencies._(
-      database: database,
+      database: resolvedDatabase,
       notes: notes,
       settings: settings,
       backups: backups,
       files: files,
-      appLock: AppLockService(),
+      appLock: appLock ?? AppLockService(),
       logger: logger,
     );
   }
