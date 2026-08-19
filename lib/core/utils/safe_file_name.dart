@@ -37,22 +37,23 @@ abstract final class SafeFileName {
     cleaned = _trimTrailingDotsAndSpaces(cleaned);
 
     if (cleaned.isEmpty) return fallback;
-    if (cleaned.length > maxLength) {
-      cleaned = cleaned.substring(0, maxLength);
-      cleaned = _trimTrailingDotsAndSpaces(cleaned);
-    }
+    cleaned = _truncateScalars(cleaned);
+    cleaned = _trimTrailingDotsAndSpaces(cleaned);
     if (cleaned.isEmpty) return fallback;
 
     final String firstSegment = cleaned.split('.').first.toUpperCase();
     if (_windowsReservedNames.contains(firstSegment)) {
-      cleaned = '_$cleaned';
-      if (cleaned.length > maxLength) {
-        cleaned = cleaned.substring(0, maxLength);
-        cleaned = _trimTrailingDotsAndSpaces(cleaned);
-      }
+      cleaned = _truncateScalars('_$cleaned');
+      cleaned = _trimTrailingDotsAndSpaces(cleaned);
     }
 
     return cleaned.isEmpty ? fallback : cleaned;
+  }
+
+  static String _truncateScalars(String value) {
+    final Runes runes = value.runes;
+    if (runes.length <= maxLength) return value;
+    return String.fromCharCodes(runes.take(maxLength));
   }
 
   static String _trimTrailingDotsAndSpaces(String value) {
