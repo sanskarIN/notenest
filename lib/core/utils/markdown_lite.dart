@@ -17,15 +17,20 @@ abstract final class MarkdownLite {
   }
 
   static String plainPreview(String markdown, {int maxLength = 220}) {
+    if (maxLength < 0) {
+      throw ArgumentError.value(maxLength, 'maxLength', 'must not be negative');
+    }
     final String text = markdown
         .replaceAll(RegExp(r'^#{1,6}\s+', multiLine: true), '')
         .replaceAll(RegExp(r'^\s*[-*]\s+\[[ xX]\]\s*', multiLine: true), '')
         .replaceAll(RegExp(r'[*_`>]'), '')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
-    if (text.length <= maxLength) {
+    final Runes runes = text.runes;
+    if (runes.length <= maxLength) {
       return text;
     }
-    return '${text.substring(0, maxLength).trimRight()}…';
+    final String truncated = String.fromCharCodes(runes.take(maxLength)).trimRight();
+    return '$truncated…';
   }
 }
