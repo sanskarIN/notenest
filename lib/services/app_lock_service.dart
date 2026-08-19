@@ -10,6 +10,8 @@ final class AppLockService {
   Future<bool> canAuthenticate() async {
     try {
       return await _authentication.isDeviceSupported();
+    } on LocalAuthException {
+      return false;
     } on PlatformException {
       return false;
     }
@@ -22,12 +24,11 @@ final class AppLockService {
       }
       return _authentication.authenticate(
         localizedReason: 'Unlock NoteNest to access your notes.',
-        options: const AuthenticationOptions(
-          biometricOnly: false,
-          stickyAuth: true,
-          useErrorDialogs: true,
-        ),
+        biometricOnly: false,
+        persistAcrossBackgrounding: true,
       );
+    } on LocalAuthException {
+      return false;
     } on PlatformException {
       return false;
     }
