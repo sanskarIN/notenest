@@ -1,8 +1,8 @@
 final class AsyncSerialQueue {
   Future<void> _tail = Future<void>.value();
 
-  Future<void> add(Future<void> Function() action) {
-    final Future<void> task = _tail.then((_) => action());
+  Future<T> add<T>(Future<T> Function() action) {
+    final Future<T> task = _tail.then<T>((_) => action());
     _tail = task.then<void>(
       (_) {},
       onError: (Object _, StackTrace __) {},
