@@ -160,6 +160,84 @@ void main() {
     expect(await repository.list(const NoteFilter()), hasLength(1));
   });
 
+  test('folder metadata is scoped to the requested collection', () async {
+    final Note active = await repository.create(
+      title: 'Active',
+      folder: 'Active folder',
+    );
+    final Note favorite = await repository.create(
+      title: 'Favorite',
+      folder: 'Favorite folder',
+    );
+    final Note archived = await repository.create(
+      title: 'Archived',
+      folder: 'Archive folder',
+    );
+    final Note trashed = await repository.create(
+      title: 'Trashed',
+      folder: 'Trash folder',
+    );
+
+    await repository.setFavorite(favorite.id, value: true);
+    await repository.archive(archived.id);
+    await repository.trash(trashed.id);
+
+    expect(
+      await repository.folders(collection: NoteCollection.all),
+      <String>{'Active folder', 'Favorite folder'},
+    );
+    expect(
+      await repository.folders(collection: NoteCollection.favorites),
+      <String>{'Favorite folder'},
+    );
+    expect(
+      await repository.folders(collection: NoteCollection.archive),
+      <String>{'Archive folder'},
+    );
+    expect(
+      await repository.folders(collection: NoteCollection.trash),
+      <String>{'Trash folder'},
+    );
+
+    expect((await repository.getById(active.id)).folder, 'Active folder');
+  });
+
+  test('tag metadata is scoped to the requested collection', () async {
+    final Note favorite = await repository.create(
+      title: 'Favorite',
+      tags: const <String>['fav-tag'],
+    );
+    final Note archived = await repository.create(
+      title: 'Archived',
+      tags: const <String>['archive-tag'],
+    );
+    final Note trashed = await repository.create(
+      title: 'Trashed',
+      tags: const <String>['trash-tag'],
+    );
+
+    await repository.setFavorite(favorite.id, value: true);
+    await repository.archive(archived.id);
+    await repository.trash(trashed.id);
+
+    expect(
+      await repository.tags(collection: NoteCollection.all),
+      <String>{'fav-tag'},
+    );
+    expect(
+      await repository.tags(collection: NoteCollection.favorites),
+      <String>{'fav-tag'},
+    );
+    expect(
+      await repository.tags(collection: NoteCollection.archive),
+      <String>{'archive-tag'},
+    );
+    expect(
+      await repository.tags(collection: NoteCollection.trash),
+      <String>{'trash-tag'},
+    );
+  });
+
   test('permanent delete cascades version history', () async {
     final Note created = await repository.create(title: 'First', body: 'One');
     await repository.saveContent(
