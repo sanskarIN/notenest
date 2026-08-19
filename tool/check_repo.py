@@ -38,6 +38,7 @@ REQUIRED_FILES = (
     "docs/troubleshooting.md",
     "docs/accessibility.md",
     "docs/performance.md",
+    "docs/repository-reference.md",
     "docs/adr/0001-flutter-drift-modular-monolith.md",
     "docs/adr/0002-offline-first-data.md",
     "docs/adr/0003-generated-platform-runners.md",
@@ -48,6 +49,7 @@ REQUIRED_FILES = (
     ".github/ISSUE_TEMPLATE/feature_request.yml",
     ".github/FUNDING.yml",
     "tool/check_markdown_links.py",
+    "tool/check_repository_reference.py",
     "tool/check_version_sync.py",
 )
 
