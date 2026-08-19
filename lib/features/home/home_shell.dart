@@ -128,10 +128,11 @@ class _HomeShellState extends State<HomeShell> {
         settings: widget.dependencies.settings,
         files: widget.dependencies.files,
         appLock: widget.dependencies.appLock,
+        externalLinks: widget.dependencies.externalLinks,
         onOpenAbout: () => _select(5),
       );
     }
-    return const AboutPage();
+    return AboutPage(externalLinks: widget.dependencies.externalLinks);
   }
 
   Future<void> _createNote() async {
