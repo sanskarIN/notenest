@@ -12,8 +12,6 @@ analyzer:
     missing_required_param: error
     missing_return: error
 
-dart_code_metrics: {}
-
 linter:
   rules:
     always_declare_return_types: true
