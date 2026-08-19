@@ -70,7 +70,7 @@ Treat the following as untrusted input:
 - File names and paths selected by users.
 - Future deep links, share intents, or synchronization payloads if those features are introduced.
 
-Current backup restore validates application identity, backup schema version, required value types, and timestamps before database changes. Restore writes occur transactionally, and newer local notes are not replaced by older imported copies.
+Current backup restore validates application identity, backup schema version, required value types, timestamps, serialized tags, and note/version relationships before database changes. Restore writes occur transactionally, and newer local notes are not replaced by older imported copies.
 
 ## Secrets
 
@@ -94,6 +94,7 @@ If a secret is committed, deleting the file in a later commit is insufficient. R
 - Dependencies are declared in `pubspec.yaml`.
 - Dependabot configuration tracks GitHub Actions and supported package ecosystems where GitHub can do so.
 - CI uses pinned major action versions from established providers and performs formatter/analyzer/test checks.
+- The Flutter SDK is pinned to the repository's release-candidate version in `.flutter-version` and CI/release workflows rather than following an unbounded moving stable channel.
 - Dependency changes should be reviewed for maintenance status, permissions, native behavior, and privacy impact.
 - Avoid adding a package for behavior that can be implemented safely and simply with existing dependencies or Flutter/Dart APIs.
 
@@ -103,12 +104,16 @@ Import/export code must:
 
 - Treat bytes as untrusted.
 - Require expected file types in the picker where practical.
+- Enforce the current pre-decode import bounds: 16 MiB for Markdown/text and 64 MiB for NoteNest JSON backups.
 - Validate UTF-8 decoding.
-- Parse JSON before writes.
+- Parse and validate JSON before writes.
 - Reject unsupported backup schema versions.
-- Bound future import sizes if a realistic denial-of-service risk is identified during profiling/testing.
+- Validate backup note/version relationships before opening the restore transaction.
 - Avoid executing imported content.
+- Normalize generated export filenames for cross-platform reserved characters/names.
 - Avoid interpolating untrusted values into SQL syntax; use Drift/query parameters.
+
+The size bounds are memory-safety/reliability guardrails, not a claim that every file below the limit is trustworthy. Structured validation still applies after decoding.
 
 ## Logging
 
@@ -135,8 +140,8 @@ Before a stable release:
 
 - [ ] Review dependency changes and advisories.
 - [ ] Search repository history/current tree for accidental secrets.
-- [ ] Run formatter, analyzer, tests, and supported release builds.
-- [ ] Exercise malicious/malformed backup inputs.
+- [ ] Run formatter, analyzer, tests, repository/link checks, and supported release builds.
+- [ ] Exercise malformed and oversized import/backup inputs.
 - [ ] Verify destructive actions require intended confirmation.
 - [ ] Verify restore keeps newer local data.
 - [ ] Review native permission/configuration changes.
