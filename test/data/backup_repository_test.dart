@@ -95,6 +95,55 @@ void main() {
     expect((await notes.getById(created.id)).title, 'Keep me');
   });
 
+  test('rejects timestamps without an explicit UTC marker', () async {
+    final Note created = await notes.create(title: 'Keep me');
+    final Map<String, Object?> payload =
+        jsonDecode(await backups.exportJson()) as Map<String, Object?>;
+    final List<Object?> rawNotes = payload['notes']! as List<Object?>;
+    final Map<String, Object?> firstNote =
+        rawNotes.single! as Map<String, Object?>;
+    firstNote['updatedAt'] = '2026-08-19T10:00:00.000';
+
+    expect(
+      () => backups.restoreJson(jsonEncode(payload)),
+      throwsA(isA<ValidationException>()),
+    );
+    expect((await notes.getById(created.id)).title, 'Keep me');
+  });
+
+  test('rejects note timestamps whose update precedes creation', () async {
+    final Note created = await notes.create(title: 'Keep me');
+    final Map<String, Object?> payload =
+        jsonDecode(await backups.exportJson()) as Map<String, Object?>;
+    final List<Object?> rawNotes = payload['notes']! as List<Object?>;
+    final Map<String, Object?> firstNote =
+        rawNotes.single! as Map<String, Object?>;
+    firstNote['createdAt'] = '2026-08-19T10:00:00.000Z';
+    firstNote['updatedAt'] = '2026-08-19T09:00:00.000Z';
+
+    expect(
+      () => backups.restoreJson(jsonEncode(payload)),
+      throwsA(isA<ValidationException>()),
+    );
+    expect((await notes.getById(created.id)).title, 'Keep me');
+  });
+
+  test('rejects out-of-range ARGB color values', () async {
+    final Note created = await notes.create(title: 'Keep me');
+    final Map<String, Object?> payload =
+        jsonDecode(await backups.exportJson()) as Map<String, Object?>;
+    final List<Object?> rawNotes = payload['notes']! as List<Object?>;
+    final Map<String, Object?> firstNote =
+        rawNotes.single! as Map<String, Object?>;
+    firstNote['colorValue'] = 0x100000000;
+
+    expect(
+      () => backups.restoreJson(jsonEncode(payload)),
+      throwsA(isA<ValidationException>()),
+    );
+    expect((await notes.getById(created.id)).title, 'Keep me');
+  });
+
   test('rejects malformed serialized tags before changing data', () async {
     final Note created = await notes.create(title: 'Keep me');
     final Map<String, Object?> payload =
@@ -117,6 +166,21 @@ void main() {
         jsonDecode(await backups.exportJson()) as Map<String, Object?>;
     final List<Object?> rawNotes = payload['notes']! as List<Object?>;
     rawNotes.add(Map<String, Object?>.from(rawNotes.single! as Map<String, Object?>));
+
+    expect(
+      () => backups.restoreJson(jsonEncode(payload)),
+      throwsA(isA<ValidationException>()),
+    );
+  });
+
+  test('rejects note ids with surrounding whitespace', () async {
+    await notes.create(title: 'Source');
+    final Map<String, Object?> payload =
+        jsonDecode(await backups.exportJson()) as Map<String, Object?>;
+    final List<Object?> rawNotes = payload['notes']! as List<Object?>;
+    final Map<String, Object?> firstNote =
+        rawNotes.single! as Map<String, Object?>;
+    firstNote['id'] = ' ${firstNote['id']} ';
 
     expect(
       () => backups.restoreJson(jsonEncode(payload)),
