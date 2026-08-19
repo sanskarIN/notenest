@@ -58,13 +58,16 @@ Current backup coverage includes:
 - Wrong app identity.
 - Unsupported backup schema.
 - Malformed JSON.
-- Invalid timestamps.
+- Missing/invalid root export timestamp.
+- Invalid note timestamps.
 - Timestamps missing explicit UTC `Z`.
 - `updatedAt` before `createdAt`.
 - Malformed serialized tags.
+- Tag canonicalization on import.
 - Out-of-range ARGB colors.
 - Duplicate note IDs.
 - IDs with surrounding whitespace.
+- Impossible archived+trashed and pinned+trashed lifecycle states.
 - Versions that reference missing notes.
 
 Settings repository tests use mocked `SharedPreferences` values for safe defaults and successful persistence behavior. Failure/rollback semantics are covered at the injectable `SettingsStore`/controller boundary.
@@ -76,9 +79,10 @@ Current deterministic widget coverage includes:
 - `test/widgets/onboarding_page_test.dart` — privacy/offline messaging, successful completion, and persistence-failure feedback.
 - `test/widgets/notes_page_empty_state_test.dart` — collection-specific empty states and prevention of mismatched create/import actions in Favorites, Archive, and Trash.
 - `test/widgets/note_editor_accessibility_test.dart` — reusable note-color swatch selected/reset cues, tap behavior, and minimum interaction target.
+- `test/widgets/note_editor_save_test.dart` — latest-draft persistence before normal back navigation and retryable missing-note load failure instead of an endless progress state.
 - `test/widgets/about_page_test.dart` — user-visible feedback when an external About link cannot be opened.
 
-Remaining useful widget coverage includes editor formatting actions, destructive confirmation behavior, Settings failure messages with injected stores/services, broader large-text layout checks, and explicit keyboard focus traversal.
+Remaining useful widget coverage includes editor formatting actions, destructive confirmation behavior, Settings failure messages with injected stores/services, note-browser mutation failure UI with a future injectable note store, broader large-text layout checks, and explicit keyboard focus traversal.
 
 ### Integration/end-to-end tests
 
@@ -86,18 +90,22 @@ Important journeys that should receive platform integration coverage as CI/devic
 
 1. First run → persist onboarding → create note → autosave → close/reopen.
 2. Failed onboarding preference write → remain on onboarding → retry.
-3. Edit note → snapshot → restore prior version.
-4. Search → result → editor.
-5. Change folder/tag filter → switch collection → verify stale filters clear.
-6. Archive → archive collection → collection-specific folder/tag filters → unarchive.
-7. Trash → trash collection → trashed folder/tag filters → restore/permanent-delete.
-8. Export backup → modify fictional library → restore backup.
-9. App-lock enable → background/resume → authenticate.
-10. Preference write failure → previous saved setting restored.
-11. Markdown import/export through platform picker adapters.
-12. Rapid editor changes followed by background/navigation → final submitted draft wins.
-13. Oversized file selection → safe rejection on supported picker/provider platforms.
-14. Repository/funding/mail/release external links → success and no-handler/failure feedback.
+3. Rapid edit → immediate Back → route remains until the latest draft is saved → reopen and verify newest content.
+4. Simulated save failure → Back remains blocked → failure message appears → content remains editable/retryable.
+5. Edit note → snapshot → restore prior version.
+6. Save failure before Version history/Export → requested action does not continue against stale persisted content.
+7. Search → result → editor.
+8. Change folder/tag filter → switch collection → verify stale filters clear.
+9. Archive → archive collection → collection-specific folder/tag filters → unarchive.
+10. Trash → trash collection → trashed folder/tag filters → restore/permanent-delete.
+11. Browser mutation/storage failure → concise feedback rather than uncaught asynchronous error.
+12. Export backup → modify fictional library → restore backup.
+13. App-lock enable → background/resume → authenticate.
+14. Preference write failure → previous saved setting restored.
+15. Markdown import/export through platform picker adapters.
+16. Oversized file selection → safe rejection on supported picker/provider platforms.
+17. Repository/funding/mail/release external links → success and no-handler/failure feedback.
+18. Bootstrap settings failure → startup fallback is shown and partially created local dependencies are cleaned up.
 
 Plugin-heavy behavior requires a real/emulated platform or a wrapper/fake boundary rather than relying only on widget tests.
 
@@ -191,13 +199,16 @@ Required coverage for the current backup schema includes:
 - Malformed JSON.
 - Wrong `app` identifier.
 - Unsupported backup schema version.
+- Valid explicit-UTC `exportedAt`.
 - Missing/wrong field types.
-- Explicit UTC timestamp validation.
+- Explicit UTC note/version timestamp validation.
 - `updatedAt >= createdAt` for notes.
 - Malformed serialized tags.
+- Canonicalized imported tags (trim, remove empty, deduplicate, sort).
 - Valid/null and invalid/out-of-range ARGB values.
 - Duplicate note IDs.
 - Whitespace-polluted note/version identifiers.
+- Impossible lifecycle states rejected.
 - Snapshot references to missing notes.
 - Newer-local-note conflict preservation.
 - Duplicate snapshot behavior.
@@ -227,7 +238,7 @@ Pure coverage keeps these invariants stable:
 - Trailing dots/spaces are removed.
 - Empty/invalid titles fall back to `untitled-note`.
 - Unicode titles remain usable.
-- Truncation does not split UTF-16 surrogate pairs; the output is constructed from complete Unicode code points.
+- Truncation does not split UTF-16 surrogate pairs; output is constructed from complete Unicode code points.
 
 Platform picker behavior must still be smoke-tested on real supported targets because native/cloud providers may perform their own caching before NoteNest receives a local path.
 
@@ -239,7 +250,7 @@ The service layer must cover:
 - Platform launcher returning `false`.
 - Platform/plugin launcher throwing.
 
-The widget layer should verify failure feedback without needing to invoke a real external application. Real platform smoke tests still need to exercise HTTP(S) and `mailto:` handlers.
+The widget layer should verify failure feedback without invoking a real external application. Real platform smoke tests still need to exercise HTTP(S) and `mailto:` handlers.
 
 ## Settings persistence tests
 
@@ -251,6 +262,7 @@ Coverage should verify:
 - Rapid writes preserve submission order.
 - Failed theme/text/motion/app-lock writes restore the last persisted value when the failed value is still current.
 - A stale failed write must not overwrite a newer visible value.
+- Plugin setter failure results are converted into storage failures.
 - Onboarding does not transition away until completion persistence succeeds.
 - Failed onboarding persistence remains retryable.
 
@@ -279,23 +291,28 @@ Collection-filter metadata should cover:
 
 Search input must never be concatenated into executable SQL syntax.
 
-## Snapshot and autosave tests
+## Snapshot, editor and autosave tests
 
-Version behavior should cover:
+Version/editor behavior should cover:
 
 - Changed content creates one pre-change snapshot.
 - Unchanged save creates no snapshot.
 - Restore makes the snapshot content current.
 - Permanent note deletion removes related snapshots.
 - Snapshot timestamps are UTC values.
+- Missing-note initial load becomes a retryable error state.
+- Editor save submissions remain ordered.
+- A stale save completion cannot mark a newer draft as saved.
+- Normal back navigation does not pop until the current draft save succeeds.
+- A failed save blocks normal back navigation and export/history actions.
 
-Editor save ordering uses a serial async queue so overlapping autosave/lifecycle/action saves cannot overtake each other. The queue primitive has deterministic ordering/failure-continuation tests; a platform/editor smoke test should still confirm the final visible draft persists after rapid edits and navigation/backgrounding.
+`AsyncSerialQueue` has deterministic ordering/failure-continuation tests. `note_editor_save_test.dart` protects save-before-pop at widget level. Real platform/editor smoke testing should still cover system back gestures/buttons, desktop back navigation, lifecycle backgrounding, process termination behavior, and real storage/plugin failures.
 
 If snapshot retention/pruning is introduced, add boundary tests around the retention policy.
 
 ## Migration tests
 
-Drift schema version 1 remains the initial schema even though the application release candidate is version 2.0.12. These are independent version domains.
+Drift schema version 1 remains the initial schema even though application release candidate is version 2.0.12. These are independent version domains.
 
 Starting with database schema version 2, every migration requires fixture-driven tests:
 
@@ -318,7 +335,7 @@ Automated checks should be complemented by manual review. Useful automated asser
 - Failure messages are user-visible and readable.
 - Large text does not overflow representative layouts.
 
-Current deterministic coverage verifies the custom note-color swatch's selected/reset cues and 48-logical-pixel target plus About failure feedback. Manual matrix is documented in [`accessibility.md`](accessibility.md).
+Current deterministic coverage verifies the custom note-color swatch's selected/reset cues and 48-logical-pixel target plus About failure feedback and editor load/save-before-pop states. Manual matrix is documented in [`accessibility.md`](accessibility.md).
 
 ## Performance testing
 
@@ -358,4 +375,4 @@ If a test must be temporarily quarantined to unblock an urgent fix, document why
 
 ## Regression rule
 
-Every confirmed bug should result in a regression test at the lowest layer that reliably reproduces the bug, unless automation is genuinely infeasible. When automation is genuinely unavailable, document the exact manual regression procedure in the related issue/PR/release handoff and consider adding a testable abstraction.
+Every confirmed bug should result in a regression test at the lowest layer that reliably reproduces the bug, unless automation is genuinely infeasible. When automation is unavailable, document the exact manual regression procedure in the related issue/PR/release handoff and consider adding a testable abstraction.
