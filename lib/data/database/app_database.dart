@@ -73,7 +73,6 @@ final class AppDatabase extends _$AppDatabase {
       ORDER BY bm25(notes_fts), n.updated_at DESC
       ''',
       variables: <Variable<Object>>[Variable<String>(query)],
-      readsFrom: <ResultSetImplementation<dynamic>>{notes},
     ).get();
 
     return rows
