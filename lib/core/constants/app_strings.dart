@@ -16,10 +16,74 @@ abstract final class AppStrings {
   static const String trash = 'Trash';
   static const String settings = 'Settings';
   static const String about = 'About';
-  static const String searchHint = 'Search notes';
+  static const String more = 'More';
   static const String newNote = 'New note';
+  static const String untitled = 'Untitled';
+  static const String untitledNote = 'Untitled note';
+
+  static const String searchHint = 'Search notes';
+  static const String clearSearch = 'Clear search';
+  static const String importMarkdown = 'Import Markdown';
+  static const String emptyTrash = 'Empty trash';
   static const String emptyTitle = 'No notes here yet';
-  static const String emptyBody = 'Create a note or adjust the current filters.';
+  static const String emptyBody =
+      'Create a note or adjust your search and filters to find what you need.';
+  static const String loadFailedTitle = 'Could not load notes';
+  static const String loadFailedBody =
+      'Your notes remain on this device. Try loading them again.';
+  static const String retry = 'Retry';
+  static const String allFolders = 'All folders';
+  static const String allTags = 'All tags';
+  static const String clearFilters = 'Clear filters';
+  static const String folder = 'Folder';
+  static const String tag = 'Tag';
+  static const String noteMovedToTrash = 'Note moved to trash.';
+  static const String undo = 'Undo';
+  static const String importFailedSafe =
+      'Import failed. The selected file was not changed.';
+  static const String emptyTrashQuestion = 'Empty trash?';
+  static const String emptyTrashWarning =
+      'This permanently deletes every note currently in trash.';
+  static const String deletePermanentlyQuestion = 'Delete permanently?';
+  static const String deletePermanentlyWarning =
+      'This note and its version history cannot be recovered.';
+  static const String cancel = 'Cancel';
+  static const String continueLabel = 'Continue';
+  static const String restore = 'Restore';
+
+  static const String editing = 'Editing';
+  static const String saving = 'Saving';
+  static const String savedLocally = 'Saved locally';
+  static const String saveFailed = 'Save failed';
+  static const String editorHint =
+      'Start writing…\n\nMarkdown-lite supported: headings, emphasis, lists, and checklists.';
+  static const String tags = 'Tags';
+  static const String tagsHint = 'school, ideas, todo';
+  static const String defaultColor = 'Default color';
+  static const String noteColor = 'Note color';
+  static const String heading = 'Heading';
+  static const String bold = 'Bold';
+  static const String italic = 'Italic';
+  static const String bulletList = 'Bullet list';
+  static const String checklistItem = 'Checklist item';
+  static const String distractionFree = 'Distraction-free editor';
+  static const String showEditorControls = 'Show editor controls';
+  static const String noteActions = 'Note actions';
+  static const String versionHistory = 'Version history';
+  static const String exportMarkdown = 'Export Markdown';
+  static const String markdownExported = 'Markdown exported successfully.';
+  static const String noSnapshots = 'No earlier snapshots yet.';
+
+  static const String onboardingOfflineTitle = 'Offline first';
+  static const String onboardingOfflineBody =
+      'Notes stay useful without an account or internet connection.';
+  static const String onboardingFindTitle = 'Fast to find';
+  static const String onboardingFindBody =
+      'Folders, tags, favorites, pinning, and full-text search keep ideas organized.';
+  static const String onboardingPrivacyTitle = 'Private by default';
+  static const String onboardingPrivacyBody =
+      'Your note database lives locally. Backup and app lock remain under your control.';
+  static const String onboardingStart = 'Start using NoteNest';
 
   static const String appearance = 'Appearance';
   static const String system = 'System';
@@ -74,13 +138,31 @@ abstract final class AppStrings {
   static const String restoreBackupQuestion = 'Restore backup?';
   static const String restoreBackupWarning =
       'The backup is validated before changes are applied. Newer local notes are preserved.';
-  static const String cancel = 'Cancel';
-  static const String restore = 'Restore';
+
+  static const String privacyByDesign = 'Privacy by design';
+  static const String privacyByDesignBody =
+      'NoteNest is offline-first. Core note content is stored locally in a Drift/SQLite database and does not require an account.';
+  static const String githubRepository = 'GitHub repository';
+  static const String buyMeACoffee = 'Buy Me a Coffee';
+  static const String businessEmailLabel = 'Business email';
+  static const String secondaryBusinessEmailLabel = 'Secondary business email';
+  static const String supportEmailLabel = 'Support email';
+  static const String mitLicense = 'MIT License';
+
+  static const String startFailedTitle = 'NoteNest could not start';
+  static const String startFailedBody =
+      'Your local note data was not intentionally changed. Close and reopen the app. If the problem continues, use the support information in the project documentation.';
 
   static const String exportBackupDialog = 'Export NoteNest backup';
   static const String restoreBackupDialog = 'Restore NoteNest backup';
   static const String exportMarkdownDialog = 'Export note as Markdown';
   static const String importMarkdownDialog = 'Import Markdown note';
+
+  static String allFilterValues(String title) =>
+      'All ${title.toLowerCase()}s';
+
+  static String permanentlyDeletedNotes(int count) =>
+      'Permanently deleted $count ${count == 1 ? 'note' : 'notes'}.';
 
   static String restoreReport({
     required int importedNotes,
