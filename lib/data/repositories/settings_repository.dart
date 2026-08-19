@@ -32,7 +32,8 @@ final class SettingsRepository {
       (await _prefs).getDouble(_fontScaleKey) ?? 1;
 
   Future<void> setFontScale(double value) async {
-    await (await _prefs).setDouble(_fontScaleKey, value.clamp(0.9, 1.4));
+    final double normalized = value.clamp(0.9, 1.4).toDouble();
+    await (await _prefs).setDouble(_fontScaleKey, normalized);
   }
 
   Future<bool> getReduceMotion() async =>
