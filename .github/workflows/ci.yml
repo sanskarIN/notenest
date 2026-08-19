@@ -37,6 +37,9 @@ jobs:
           dart --version
           python3 --version
 
+      - name: Verify version synchronization
+        run: python3 tool/check_version_sync.py
+
       - name: Resolve dependencies
         run: flutter pub get
 
