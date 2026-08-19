@@ -76,10 +76,20 @@ final class BackupRepository {
         final List<Note> existing = await (_db.select(_db.notes)
               ..where((Notes row) => row.id.equals(id)))
             .get();
-        if (existing.isNotEmpty &&
-            existing.single.updatedAt.isAfter(incoming.updatedAt.value)) {
-          skippedNewerNotes += 1;
-          continue;
+        if (existing.isNotEmpty) {
+          final Note local = existing.single;
+          final DateTime incomingUpdatedAt = incoming.updatedAt.value;
+          if (local.updatedAt.isAfter(incomingUpdatedAt)) {
+            skippedNewerNotes += 1;
+            continue;
+          }
+          if (local.updatedAt.isAtSameMomentAs(incomingUpdatedAt)) {
+            if (_matchesIncoming(local, incoming)) {
+              continue;
+            }
+            skippedNewerNotes += 1;
+            continue;
+          }
         }
         await _db.into(_db.notes).insertOnConflictUpdate(incoming);
         importedNotes += 1;
@@ -105,6 +115,19 @@ final class BackupRepository {
       skippedNewerNotes: skippedNewerNotes,
       importedVersions: importedVersions,
     );
+  }
+
+  bool _matchesIncoming(Note local, NotesCompanion incoming) {
+    return local.title == incoming.title.value &&
+        local.body == incoming.body.value &&
+        local.folder == incoming.folder.value &&
+        local.tags == incoming.tags.value &&
+        local.colorValue == incoming.colorValue.value &&
+        local.isPinned == incoming.isPinned.value &&
+        local.isFavorite == incoming.isFavorite.value &&
+        local.isArchived == incoming.isArchived.value &&
+        local.isTrashed == incoming.isTrashed.value &&
+        local.createdAt.isAtSameMomentAs(incoming.createdAt.value);
   }
 
   Future<void> _validateRelationships(
