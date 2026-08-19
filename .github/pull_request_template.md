@@ -11,10 +11,15 @@ Explain what changes for a NoteNest user. If there is no user-visible change, sa
 List the exact commands/checks run, for example:
 
 ```text
+python tool/check_version_sync.py
 dart run build_runner build --delete-conflicting-outputs
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --coverage
+python tool/check_repo.py
+python tool/check_repository_reference.py
+python tool/check_markdown_links.py
+python tool/security_scan.py
 flutter build <platform> ...
 ```
 
@@ -61,5 +66,7 @@ If changed, document:
 - [ ] UI changes remain usable with increased text size.
 - [ ] Icon-only actions have an accessible purpose/tooltip.
 - [ ] Documentation has been updated where behavior/setup changed.
+- [ ] `docs/repository-reference.md` reflects every tracked file added, removed, or renamed.
+- [ ] `python tool/check_repository_reference.py` passes.
 - [ ] CHANGELOG.md is updated for user-visible/release-relevant changes.
 - [ ] `what_changed.md` is updated when this work changes the continuation checkpoint.
