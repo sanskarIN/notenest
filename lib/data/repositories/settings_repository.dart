@@ -28,8 +28,10 @@ final class SettingsRepository {
     await (await _prefs).setString(_themeKey, encoded);
   }
 
-  Future<double> getFontScale() async =>
-      (await _prefs).getDouble(_fontScaleKey) ?? 1;
+  Future<double> getFontScale() async {
+    final double stored = (await _prefs).getDouble(_fontScaleKey) ?? 1;
+    return stored.clamp(0.9, 1.4).toDouble();
+  }
 
   Future<void> setFontScale(double value) async {
     final double normalized = value.clamp(0.9, 1.4).toDouble();
