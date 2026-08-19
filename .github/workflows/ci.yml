@@ -40,6 +40,14 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
+      - name: Upload resolved dependency lock
+        uses: actions/upload-artifact@v4
+        with:
+          name: resolved-pubspec-lock
+          path: pubspec.lock
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Generate Drift code
         run: dart run build_runner build --delete-conflicting-outputs
 
@@ -51,6 +59,9 @@ jobs:
 
       - name: Run tests with coverage
         run: flutter test --coverage
+
+      - name: Run Python tool tests
+        run: python3 -m unittest discover -s tool -p 'test_*.py'
 
       - name: Run repository policy checks
         run: python3 tool/check_repo.py
