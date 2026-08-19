@@ -8,6 +8,7 @@ import 'package:notenest/core/utils/markdown_lite.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/data/repositories/note_repository.dart';
 import 'package:notenest/services/file_transfer_service.dart';
+import 'package:notenest/widgets/note_color_swatch.dart';
 
 class NoteEditorPage extends StatefulWidget {
   const NoteEditorPage({
@@ -298,64 +299,21 @@ class _NoteEditorPageState extends State<NoteEditorPage>
               spacing: 4,
               children: <Widget>[
                 for (final ({Color? color, String label}) swatch in _palette)
-                  _colorSwatch(context, swatch),
+                  NoteColorSwatch(
+                    label: swatch.label,
+                    color: swatch.color,
+                    selected: _colorValue == swatch.color?.toARGB32(),
+                    onPressed: () {
+                      setState(
+                        () => _colorValue = swatch.color?.toARGB32(),
+                      );
+                      _autosave.run(_save);
+                    },
+                  ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _colorSwatch(
-    BuildContext context,
-    ({Color? color, String label}) swatch,
-  ) {
-    final Color? color = swatch.color;
-    final bool selected = _colorValue == color?.toARGB32();
-    final String label =
-        '${swatch.label} note color${selected ? ', selected' : ''}';
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: label,
-      child: Tooltip(
-        message: label,
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: () {
-            setState(() => _colorValue = color?.toARGB32());
-            _autosave.run(_save);
-          },
-          child: SizedBox.square(
-            dimension: AppTokens.minimumTouchTarget,
-            child: Center(
-              child: Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color ?? Theme.of(context).colorScheme.surface,
-                  border: Border.all(
-                    width: selected ? 3 : 1,
-                    color: selected
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.outline,
-                  ),
-                ),
-                child: selected
-                    ? Icon(
-                        Icons.check_rounded,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      )
-                    : color == null
-                        ? const Icon(Icons.format_color_reset_rounded, size: 17)
-                        : null,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
