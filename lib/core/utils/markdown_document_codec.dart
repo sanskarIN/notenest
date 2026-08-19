@@ -22,6 +22,7 @@ final class MarkdownDocument {
 
 abstract final class MarkdownDocumentCodec {
   static const int schemaVersion = 1;
+  static const String _closingMarker = '\n---\n';
 
   static String encode({
     required String title,
@@ -65,7 +66,7 @@ abstract final class MarkdownDocumentCodec {
       );
     }
 
-    final int closingMarker = normalized.indexOf('\n---\n', 4);
+    final int closingMarker = normalized.indexOf(_closingMarker, 4);
     if (closingMarker == -1) {
       return MarkdownDocument(
         title: fallbackTitle,
@@ -112,7 +113,11 @@ abstract final class MarkdownDocumentCodec {
     );
     final List<String> tags = _decodeTags(metadata['tags']);
     final DateTime? updatedAt = _decodeOptionalDate(metadata['updatedAt']);
-    final String body = normalized.substring(closingMarker + '\n---\n'.length);
+    int bodyStart = closingMarker + _closingMarker.length;
+    if (bodyStart < normalized.length && normalized[bodyStart] == '\n') {
+      bodyStart += 1;
+    }
+    final String body = normalized.substring(bodyStart);
 
     return MarkdownDocument(
       title: title,
