@@ -1,4 +1,5 @@
 abstract final class AppStrings {
+  // Release metadata is verified by tool/check_version_sync.py in CI.
   static const String appName = 'NoteNest';
   static const String tagline = 'Your thoughts, safely nested.';
   static const String credit = 'Made by the Sanskar';
