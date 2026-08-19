@@ -102,9 +102,11 @@ If a secret is committed, deleting the file in a later commit is insufficient. R
 
 Import/export code must:
 
-- Treat bytes as untrusted.
+- Treat selected files and their bytes as untrusted.
 - Require expected file types in the picker where practical.
-- Enforce the current pre-decode import bounds: 16 MiB for Markdown/text and 64 MiB for NoteNest JSON backups.
+- Avoid requesting eager `withData` loading for native imports.
+- Read the native cached file through a bounded reader that checks the reported file length and every streamed chunk before adding it to the final buffer.
+- Enforce the current import ceilings: 16 MiB for Markdown/text and 64 MiB for NoteNest JSON backups.
 - Validate UTF-8 decoding.
 - Parse and validate JSON before writes.
 - Reject unsupported backup schema versions.
@@ -113,7 +115,7 @@ Import/export code must:
 - Normalize generated export filenames for cross-platform reserved characters/names.
 - Avoid interpolating untrusted values into SQL syntax; use Drift/query parameters.
 
-The size bounds are memory-safety/reliability guardrails, not a claim that every file below the limit is trustworthy. Structured validation still applies after decoding.
+The size bounds are memory-safety/reliability guardrails, not a claim that every file below the limit is trustworthy. The platform picker may still perform its own caching before NoteNest receives a local file path, and structured content validation still applies after the bounded read and decoding steps.
 
 ## Logging
 
@@ -142,6 +144,7 @@ Before a stable release:
 - [ ] Search repository history/current tree for accidental secrets.
 - [ ] Run formatter, analyzer, tests, repository/link checks, and supported release builds.
 - [ ] Exercise malformed and oversized import/backup inputs.
+- [ ] Verify native imports use bounded reads rather than eager byte loading.
 - [ ] Verify destructive actions require intended confirmation.
 - [ ] Verify restore keeps newer local data.
 - [ ] Review native permission/configuration changes.
