@@ -8,6 +8,7 @@ with the locally installed Flutter version instead of committing stale templates
 from __future__ import annotations
 
 import plistlib
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -33,14 +34,61 @@ def patch_android() -> None:
     )
     activity.write_text(text, encoding="utf-8")
 
-    gradle = ROOT / "android/app/build.gradle.kts"
-    if gradle.exists():
-        gradle_text = gradle.read_text(encoding="utf-8")
-        gradle_text = gradle_text.replace(
-            "minSdk = flutter.minSdkVersion",
-            "minSdk = 24",
+    manifest = ROOT / "android/app/src/main/AndroidManifest.xml"
+    if not manifest.exists():
+        raise RuntimeError(f"Flutter did not generate expected file: {manifest}")
+    manifest_text = manifest.read_text(encoding="utf-8")
+    permission = (
+        '<uses-permission android:name="android.permission.USE_BIOMETRIC" />'
+    )
+    if permission not in manifest_text:
+        manifest_text = manifest_text.replace(
+            ">",
+            f">\n    {permission}",
+            1,
         )
-        gradle.write_text(gradle_text, encoding="utf-8")
+    manifest.write_text(manifest_text, encoding="utf-8")
+
+    gradle = ROOT / "android/app/build.gradle.kts"
+    if not gradle.exists():
+        raise RuntimeError(f"Flutter did not generate expected file: {gradle}")
+    gradle_text = gradle.read_text(encoding="utf-8")
+    gradle_text = gradle_text.replace(
+        "minSdk = flutter.minSdkVersion",
+        "minSdk = 24",
+    )
+    appcompat = 'implementation("androidx.appcompat:appcompat:1.7.1")'
+    if appcompat not in gradle_text:
+        if "dependencies {" in gradle_text:
+            gradle_text = gradle_text.replace(
+                "dependencies {",
+                f"dependencies {{\n    {appcompat}",
+                1,
+            )
+        else:
+            gradle_text = f"{gradle_text.rstrip()}\n\ndependencies {{\n    {appcompat}\n}}\n"
+    gradle.write_text(gradle_text, encoding="utf-8")
+
+    style_paths = sorted(
+        (ROOT / "android/app/src/main/res").glob("values*/styles.xml"),
+    )
+    if not style_paths:
+        raise RuntimeError("Flutter did not generate Android styles.xml files")
+    pattern = re.compile(
+        r'(<style\s+name="(?:LaunchTheme|NormalTheme)"\s+parent=")([^"]+)(")',
+    )
+    for style_path in style_paths:
+        style_text = style_path.read_text(encoding="utf-8")
+        appcompat_theme = (
+            "Theme.AppCompat.DayNight.NoActionBar"
+            if "values-night" in style_path.parent.name
+            else "Theme.AppCompat.Light.NoActionBar"
+        )
+        style_text = pattern.sub(
+            lambda match: f"{match.group(1)}{appcompat_theme}{match.group(3)}",
+            style_text,
+        )
+        style_path.write_text(style_text, encoding="utf-8")
 
 
 def patch_ios() -> None:
