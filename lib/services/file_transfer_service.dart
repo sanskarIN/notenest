@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:notenest/core/errors/app_exception.dart';
+import 'package:notenest/core/utils/markdown_document_codec.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/data/repositories/backup_repository.dart';
 import 'package:notenest/data/repositories/note_repository.dart';
@@ -42,13 +43,21 @@ final class FileTransferService {
     if (bytes == null) {
       throw const ImportExportException('Could not read the selected backup.');
     }
-    return _backups.restoreJson(utf8.decode(bytes, allowMalformed: false));
+    try {
+      return await _backups.restoreJson(utf8.decode(bytes, allowMalformed: false));
+    } on FormatException catch (error) {
+      throw ImportExportException('The selected backup is not valid UTF-8.', error);
+    }
   }
 
   Future<bool> exportMarkdown(Note note) async {
-    final String tags = _notes.decodeTags(note.tags).join(', ');
-    final String frontMatter = '''---\ntitle: ${_yamlValue(note.title)}\nfolder: ${_yamlValue(note.folder)}\ntags: ${_yamlValue(tags)}\nupdated: ${note.updatedAt.toUtc().toIso8601String()}\n---\n\n''';
-    final String payload = '$frontMatter${note.body}';
+    final String payload = MarkdownDocumentCodec.encode(
+      title: note.title,
+      body: note.body,
+      folder: note.folder,
+      tags: _notes.decodeTags(note.tags),
+      updatedAt: note.updatedAt,
+    );
     final String fileName = '${_safeFileName(note.title)}.md';
     final String? result = await FilePicker.saveFile(
       dialogTitle: 'Export note as Markdown',
@@ -79,9 +88,15 @@ final class FileTransferService {
     } on FormatException catch (error) {
       throw ImportExportException('The selected note is not valid UTF-8.', error);
     }
+    final MarkdownDocument document = MarkdownDocumentCodec.decode(
+      text,
+      fallbackTitle: p.basenameWithoutExtension(file.name),
+    );
     return _notes.create(
-      title: p.basenameWithoutExtension(file.name),
-      body: text,
+      title: document.title,
+      body: document.body,
+      folder: document.folder,
+      tags: document.tags,
     );
   }
 
@@ -100,7 +115,4 @@ final class FileTransferService {
     if (cleaned.isEmpty) return 'untitled-note';
     return cleaned.length <= 80 ? cleaned : cleaned.substring(0, 80).trimRight();
   }
-
-  String _yamlValue(String value) =>
-      '"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"';
 }
