@@ -29,14 +29,14 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 - Optional operating-system-backed app lock through `local_auth`.
 - Settings and About screens with project/support/funding information.
 - Editable NoteNest SVG logo source and labeled layout-reference artwork.
-- In-memory repository/database tests, backup-validation tests, settings tests, application-controller tests, feature-controller tests, Markdown helper/metadata tests, logger-redaction tests, import-bound/bounded-reader tests, safe-filename tests, async-save-order tests, external-link tests, onboarding coverage, collection-empty-state coverage, About-link failure coverage, editor load/save-before-pop coverage, and custom color-swatch accessibility coverage.
+- In-memory repository/database tests, backup-validation tests, settings tests, application-controller tests, feature-controller tests, Markdown helper/metadata tests, logger-redaction tests, import-bound/bounded-reader tests, safe-filename tests, async-save-order tests, external-link tests, onboarding coverage, collection-empty-state coverage, About-link failure coverage, editor load/save-before-pop coverage, editor first-line formatting-boundary coverage, and custom color-swatch accessibility coverage.
 - Reproducible native runner bootstrap script for Android, iOS, Linux, macOS, and Windows.
 - Repository documentation, contribution policy, security policy, privacy disclosure, support guide, ADRs, CI configuration, templates, and dependency automation.
 - Deterministic Markdown local-link checker integrated into the CI quality gate.
 - Exact Flutter SDK pin (`3.44.7`) synchronized across project, quality, platform-build, and release workflows.
 - Shared 48-logical-pixel minimum touch-target design token for custom controls.
 - Bounded native-file reader used by local note/backup imports.
-- `tool/check_version_sync.py` to keep package, visible app, changelog, and release-note versions synchronized.
+- `tool/check_version_sync.py` to keep package, visible app, changelog, release-note, and workflow Flutter SDK versions synchronized.
 - A centralized `ExternalLinkService` boundary with injectable launcher behavior for deterministic tests.
 - Injectable `SettingsStore` boundary for testing settings persistence and failures without a real platform preference plugin.
 - `docs/repository-reference.md`, an exhaustive responsibility/maintenance map for every tracked repository file.
@@ -47,6 +47,10 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 - Project semantic version advanced to **2.0.12** with Flutter build number **2012**.
 - About UI now reports version **2.0.12**.
 - CI verifies version synchronization before dependency resolution and Flutter compilation work.
+- Version synchronization also rejects a `.flutter-version`/workflow Flutter SDK mismatch.
+- Platform-build verification now runs when bundled `assets/**` change, not only when source/build/bootstrap files change.
+- Native-runner bootstrap validates that required Android authentication/minimum-SDK/AppCompat theme patches and the iOS Face ID usage description were actually applied; upstream template drift now fails the bootstrap instead of being silently accepted.
+- Repository policy checks now require the complete release/documentation/automation baseline, including the pinned SDK file, all release/security/platform workflows, canonical assets, GitHub guidance, bootstrap tooling, security scanner, and issue-template configuration.
 - External repository, funding, support-email, business-email, and release links share the same safe launcher behavior.
 - Folder/tag filter metadata is collection-scoped rather than global.
 - Switching between All Notes, Favorites, Archive, and Trash clears folder/tag selections that belong to the previous collection.
@@ -57,6 +61,8 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 
 ### Fixed
 
+- Root application teardown now disposes the settings controller and closes the Drift database through `AppDependencies.dispose()` when the `NoteNestApp` state is permanently removed.
+- Markdown-lite heading/list/checklist formatting at caret offset zero now targets the actual empty first line even when the note begins with a newline.
 - Serialized editor saves so overlapping autosave, lifecycle, export/history, and final navigation submissions cannot overtake one another and write an older submitted draft after a newer one.
 - Prevented stale save completions from reporting a newer unsaved draft as saved.
 - Replaced an endless editor loading spinner after note-load failure with a retryable local-storage error state.
