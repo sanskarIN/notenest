@@ -5,6 +5,7 @@ import 'package:notenest/data/repositories/backup_repository.dart';
 import 'package:notenest/data/repositories/note_repository.dart';
 import 'package:notenest/data/repositories/settings_repository.dart';
 import 'package:notenest/services/app_lock_service.dart';
+import 'package:notenest/services/external_link_service.dart';
 import 'package:notenest/services/file_transfer_service.dart';
 
 final class AppDependencies {
@@ -15,6 +16,7 @@ final class AppDependencies {
     required this.backups,
     required this.files,
     required this.appLock,
+    required this.externalLinks,
     required this.logger,
   });
 
@@ -24,6 +26,7 @@ final class AppDependencies {
   final BackupRepository backups;
   final FileTransferService files;
   final AppLockService appLock;
+  final ExternalLinkService externalLinks;
   final AppLogger logger;
 
   static Future<AppDependencies> create() async {
@@ -38,6 +41,7 @@ final class AppDependencies {
       backups: backups,
       notes: notes,
     );
+    final ExternalLinkService externalLinks = ExternalLinkService();
     await settings.load();
     logger.info('app.dependencies_ready');
     return AppDependencies._(
@@ -47,6 +51,7 @@ final class AppDependencies {
       backups: backups,
       files: files,
       appLock: AppLockService(),
+      externalLinks: externalLinks,
       logger: logger,
     );
   }
