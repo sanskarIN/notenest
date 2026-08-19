@@ -27,7 +27,7 @@ void main() {
       expect(find.byIcon(Icons.check_rounded), findsOneWidget);
       expect(
         tester.getSize(find.byType(NoteColorSwatch)),
-        const Size.square(AppTokens.minimumTouchTarget),
+        Size.square(AppTokens.minimumTouchTarget),
       );
 
       await tester.tap(find.byType(NoteColorSwatch));
