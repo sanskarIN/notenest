@@ -1,16 +1,21 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:notenest/core/logging/app_logger.dart';
 import 'package:notenest/core/utils/debouncer.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/data/repositories/note_repository.dart';
 import 'package:notenest/domain/models/note_filter.dart';
 
 final class NotesController extends ChangeNotifier {
-  NotesController(this._repository)
-      : _searchDebouncer = Debouncer(const Duration(milliseconds: 220));
+  NotesController(
+    this._repository, {
+    AppLogger logger = const AppLogger(),
+  })  : _logger = logger,
+        _searchDebouncer = Debouncer(const Duration(milliseconds: 220));
 
   final NoteRepository _repository;
+  final AppLogger _logger;
   final Debouncer _searchDebouncer;
 
   NoteFilter filter = const NoteFilter();
@@ -37,6 +42,13 @@ final class NotesController extends ChangeNotifier {
       error = null;
     } catch (caught) {
       error = caught;
+      _logger.error(
+        'notes.load_failed',
+        fields: <String, Object?>{
+          'errorType': caught.runtimeType.toString(),
+          'collection': filter.collection,
+        },
+      );
     } finally {
       loading = false;
       _notify();
