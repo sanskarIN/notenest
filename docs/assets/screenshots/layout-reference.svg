@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">NoteNest illustrative layout reference</title>
+  <desc id="desc">A clearly labeled non-runtime illustration showing navigation, search, note cards, and a new note button.</desc>
+  <rect width="1280" height="720" rx="24" fill="#f7f7fb"/>
+  <rect x="24" y="24" width="190" height="672" rx="22" fill="#ededfa"/>
+  <circle cx="70" cy="72" r="24" fill="#5b5bd6"/>
+  <text x="108" y="80" font-family="sans-serif" font-size="26" font-weight="700" fill="#262637">NoteNest</text>
+  <g font-family="sans-serif" font-size="18" fill="#343447">
+    <text x="54" y="150">All notes</text>
+    <text x="54" y="202">Favorites</text>
+    <text x="54" y="254">Archive</text>
+    <text x="54" y="306">Trash</text>
+    <text x="54" y="358">Settings</text>
+    <text x="54" y="410">About</text>
+  </g>
+  <rect x="240" y="24" width="1016" height="672" rx="22" fill="#ffffff"/>
+  <text x="278" y="76" font-family="sans-serif" font-size="30" font-weight="700" fill="#262637">All notes</text>
+  <rect x="278" y="104" width="810" height="58" rx="29" fill="#f0f0f5"/>
+  <text x="316" y="140" font-family="sans-serif" font-size="18" fill="#737386">Search notes</text>
+  <g>
+    <rect x="278" y="198" width="280" height="194" rx="22" fill="#f5f5ff" stroke="#d6d6eb"/>
+    <text x="302" y="238" font-family="sans-serif" font-size="21" font-weight="700" fill="#2b2b3c">Project ideas</text>
+    <text x="302" y="276" font-family="sans-serif" font-size="16" fill="#626278">Plan the next release...</text>
+    <rect x="302" y="326" width="88" height="32" rx="16" fill="#e4e4fa"/>
+    <text x="320" y="348" font-family="sans-serif" font-size="14" fill="#44445b">Projects</text>
+  </g>
+  <g>
+    <rect x="578" y="198" width="280" height="194" rx="22" fill="#fff4dc" stroke="#ead8b5"/>
+    <text x="602" y="238" font-family="sans-serif" font-size="21" font-weight="700" fill="#2b2b3c">Study list</text>
+    <text x="602" y="276" font-family="sans-serif" font-size="16" fill="#626278">- [ ] Revise chapter...</text>
+    <rect x="602" y="326" width="72" height="32" rx="16" fill="#f2e5c9"/>
+    <text x="622" y="348" font-family="sans-serif" font-size="14" fill="#44445b">School</text>
+  </g>
+  <g>
+    <rect x="878" y="198" width="280" height="194" rx="22" fill="#eef8ef" stroke="#cee4d0"/>
+    <text x="902" y="238" font-family="sans-serif" font-size="21" font-weight="700" fill="#2b2b3c">Weekend</text>
+    <text x="902" y="276" font-family="sans-serif" font-size="16" fill="#626278">Packing checklist...</text>
+    <rect x="902" y="326" width="72" height="32" rx="16" fill="#dceede"/>
+    <text x="922" y="348" font-family="sans-serif" font-size="14" fill="#44445b">Home</text>
+  </g>
+  <rect x="974" y="616" width="184" height="56" rx="28" fill="#5b5bd6"/>
+  <text x="1016" y="651" font-family="sans-serif" font-size="18" font-weight="700" fill="#ffffff">+ New note</text>
+  <rect x="0" y="674" width="1280" height="46" fill="#29293c"/>
+  <text x="640" y="704" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="700" fill="#ffffff">ILLUSTRATIVE LAYOUT REFERENCE — NOT A RUNTIME SCREENSHOT</text>
+</svg>
