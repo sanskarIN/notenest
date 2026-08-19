@@ -6,7 +6,8 @@ Flutter package version: **2.0.12+2012**
 Pinned Flutter SDK: **3.44.7**
 Active development branch: `main`
 Tracked-file documentation checkpoint: **103 tracked files cataloged**
-Verification PR: **#5 — open, but it predates the latest `main` continuation commits**
+Verification PR: **#6 — open, latest-main verification path**
+Superseded verification PR: **#5 — closed without merge**
 Stable tag status: **not yet tagged**
 
 ## Current release status
@@ -81,8 +82,13 @@ The work was kept in focused commits:
 - `7f9f0e0d814410c18e8bf732c505de4105c43db5` — `docs: enforce file-reference updates for contributors`
 - `758b0855889e292fdf2bedc024f25a3e97716bf9` — `docs: add repository-reference PR gate`
 - `3ebecd0f9dc74c6d82c431f3cd42dd2fda54d4aa` — `docs: record exhaustive reference and lifecycle hardening`
+- `4f8d0f584c193c3d10cead525e6b453b6de9d09f` — `docs: update 2.0.12 exhaustive handoff`
 
-The current handoff update is an additional documentation commit after those checkpoints.
+Verification branch commit created from that checkpoint:
+
+- `a989a304d85aa8ae2ce7eae34fc424337ab83320` — `ci: trigger latest 2.0.12 platform verification`
+
+The current handoff update is an additional `main` documentation commit after those checkpoints. PR #6 is the active verification path and its branch is kept aligned with the final `main` handoff plus only a non-functional `lib/main.dart` verification comment.
 
 ## Version metadata
 
@@ -410,22 +416,18 @@ The environment also does not provide the full Flutter/native build toolchain ne
 
 ## PR-based 2.0.12 verification
 
-A dedicated verification PR remains open:
+The original verification PR has been retired and replaced by a latest-main checkpoint:
 
-- PR: **#5 — `ci: verify NoteNest 2.0.12 release candidate`**
-- Head branch: `verify/2.0.12-ci`
-- Previously inspected PR head commit: `7118196855fb8d9b60743bc3b35eac68702955fd`
-- Previous runtime difference: one non-functional source comment plus a verification checkpoint document
+- PR **#5 — `ci: verify NoteNest 2.0.12 release candidate`** — **closed without merge** because it was based on the pre-continuation candidate.
+- PR **#6 — `ci: verify latest NoteNest 2.0.12 candidate`** — **open**.
+- PR #6 branch: `verify/2.0.12-latest`.
+- PR #6 started from `main` commit `4f8d0f584c193c3d10cead525e6b453b6de9d09f` before this final handoff synchronization.
+- The branch-only verification change is a non-functional `lib/main.dart` comment, deliberately matching the `lib/**` platform-build workflow path filter.
+- After this handoff commit, the verification branch is realigned with final `main` and the same non-functional comment is re-applied so PR #6 represents the exact latest candidate plus only that trigger change.
 
-At the earlier checkpoint, its PR-triggered workflows were queued:
+The previous PR #5 queued run IDs are historical only and must not be used as final release evidence.
 
-- **Platform builds** — run 86 / ID `32255557942` — `queued`
-- **CI** — run 169 / ID `32255558015` — `queued`
-- **Security checks** — run 152 / ID `32255558014` — `queued`
-
-Those exact PR results do **not** represent the current `main` after the lifecycle fix, exhaustive documentation, CI-policy updates, and subsequent handoff commits listed above. PR #5 must therefore not be treated as final evidence for the latest release candidate even if its older jobs later turn green.
-
-Final automated verification must target the latest exact `main`/release-candidate commit after this continuation, or a new verification branch created from it.
+PR #6 is the verification path that must receive completed CI, security, and native platform-build results for the final candidate. No green result is claimed until those jobs actually complete successfully.
 
 ## Commit-email limitation
 
@@ -443,7 +445,7 @@ git config user.email "sanskarin@outlook.in"
 
 These are verification/distribution tasks rather than intentionally omitted core functionality:
 
-1. Obtain completed green CI/security/platform-build results on the latest exact 2.0.12 candidate after this continuation.
+1. Obtain completed green CI/security/platform-build results on PR #6 for the latest exact 2.0.12 candidate after this continuation.
 2. Fix any formatter/analyzer/test/native failures those jobs reveal.
 3. Run the clean-checkout Python and Flutter quality gates on a Flutter-enabled host, including `tool/check_repository_reference.py`.
 4. Verify rapid-edit → immediate Back saves the newest draft before navigation.
