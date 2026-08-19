@@ -64,7 +64,7 @@ final class BackupRepository {
     final List<NoteVersionsCompanion> versions = rawVersions
         .map(_parseVersion)
         .toList(growable: false);
-    await _validateRelationships(notes, versions);
+    _validateRelationships(notes, versions);
 
     int importedNotes = 0;
     int skippedNewerNotes = 0;
@@ -130,10 +130,10 @@ final class BackupRepository {
         local.createdAt.isAtSameMomentAs(incoming.createdAt.value);
   }
 
-  Future<void> _validateRelationships(
+  void _validateRelationships(
     List<NotesCompanion> notes,
     List<NoteVersionsCompanion> versions,
-  ) async {
+  ) {
     final Set<String> incomingIds = <String>{};
     for (final NotesCompanion note in notes) {
       final String id = note.id.value.trim();
@@ -145,15 +145,11 @@ final class BackupRepository {
       }
     }
 
-    final Set<String> knownIds = <String>{...incomingIds};
-    final List<Note> localNotes = await _db.select(_db.notes).get();
-    knownIds.addAll(localNotes.map((Note note) => note.id));
-
     for (final NoteVersionsCompanion version in versions) {
       final String noteId = version.noteId.value.trim();
-      if (noteId.isEmpty || !knownIds.contains(noteId)) {
+      if (noteId.isEmpty || !incomingIds.contains(noteId)) {
         throw const ValidationException(
-          'Backup version references a note that does not exist.',
+          'Backup version must reference a note included in the same backup.',
         );
       }
     }
