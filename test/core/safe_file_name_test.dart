@@ -32,5 +32,14 @@ void main() {
         SafeFileName.maxLength,
       );
     });
+
+    test('does not split a surrogate pair at the length boundary', () {
+      final String title = '${List<String>.filled(79, 'a').join()}😀tail';
+      final String result = SafeFileName.fromTitle(title);
+
+      expect(result.runes.length, SafeFileName.maxLength);
+      expect(result.endsWith('😀'), isTrue);
+      expect(result.runes.last, '😀'.runes.single);
+    });
   });
 }
