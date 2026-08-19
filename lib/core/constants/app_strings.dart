@@ -30,4 +30,14 @@ abstract final class AppStrings {
   static const String trashEmptyTitle = 'Trash is empty';
   static const String trashEmptyBody =
       'Notes moved to trash stay here until restored or permanently deleted.';
+
+  static const String lockedTitle = 'NoteNest is locked';
+  static const String lockedBody =
+      'Use your device authentication to access local notes.';
+  static const String unlock = 'Unlock';
+  static const String authUnavailableTitle =
+      'Device authentication unavailable';
+  static const String authUnavailableLockBody =
+      'Device authentication is unavailable. Disable app lock to continue using your local notes on this device.';
+  static const String disableAppLock = 'Disable app lock';
 }
