@@ -33,14 +33,16 @@ Real device captures belong in [`docs/assets/screenshots/`](docs/assets/screensh
 ### Notes and organization
 
 - Create and edit notes with automatic local saving.
+- Serialize overlapping editor saves so an older autosave cannot overtake a newer submitted draft.
 - Pin important notes.
 - Mark notes as favorites.
 - Archive notes without deleting them.
 - Move notes to trash, restore them, delete one permanently, or empty trash.
 - Organize with folders and comma-separated tags.
-- Give notes optional colors.
+- Give notes optional colors with explicit selected-state semantics and a non-color checkmark cue.
 - Filter by collection, folder, and tag.
 - Fast full-text search backed by SQLite FTS5.
+- Collection-specific empty states avoid offering create/import actions whose result would be hidden by the current collection.
 
 ### Writing experience
 
@@ -48,6 +50,7 @@ Real device captures belong in [`docs/assets/screenshots/`](docs/assets/screensh
 - Markdown-lite helpers for headings, emphasis, bullet lists, and checklists.
 - Accessible text sizing and Material 3 typography.
 - Autosave debounce to avoid unnecessary writes.
+- Serialized save execution for deterministic draft ordering.
 - Version snapshots before changed content is persisted.
 - Restore an earlier version from note history.
 
@@ -55,8 +58,10 @@ Real device captures belong in [`docs/assets/screenshots/`](docs/assets/screensh
 
 - Import Markdown, Markdown-like text, and UTF-8 text files as notes.
 - Export a note as Markdown with small front matter metadata.
+- Normalize generated Markdown filenames for cross-platform invalid characters, trailing dots/spaces, and Windows reserved device names.
+- Bound local imports before decoding: 16 MiB for Markdown/text and 64 MiB for JSON backups.
 - Export all notes and snapshots as human-readable JSON.
-- Validate backup application identity, schema version, field types, and timestamps before restoring.
+- Validate backup application identity, schema version, field types, timestamps, serialized tags, duplicate note IDs, and note/version relationships before restoring.
 - Conflict-safe restore: a backup does not overwrite a newer local note.
 - Restore operations use a database transaction.
 
@@ -68,6 +73,7 @@ Real device captures belong in [`docs/assets/screenshots/`](docs/assets/screensh
 - No custom cryptography.
 - Secrets and signing material are excluded from source control.
 - Security policy and responsible-disclosure process are documented.
+- Imported local files are size-bounded before UTF-8/JSON processing.
 
 ### Product quality
 
@@ -76,8 +82,9 @@ Real device captures belong in [`docs/assets/screenshots/`](docs/assets/screensh
 - Light, dark, and system appearance modes.
 - Adjustable text scale and reduced-motion preference.
 - Keyboard- and semantics-friendly Material controls.
+- Custom color swatches use a 48 logical-pixel interaction target and explicit selected semantics.
 - Empty, loading, error, destructive-confirmation, and progress states.
-- English first, with Flutter localization delegates and centralized user-facing project strings ready for future localization work.
+- English first, with Flutter localization delegates and centralized project strings preparing future localization work.
 - Dedicated Settings and About areas.
 
 ## Supported platforms
@@ -90,7 +97,7 @@ Real device captures belong in [`docs/assets/screenshots/`](docs/assets/screensh
 | macOS | ✅ Primary | Responsive desktop layout and local SQLite storage. |
 | iOS | 🟡 Ready | Runner bootstrap and Face ID usage-description patch are provided; release signing requires an Apple environment. |
 
-Native runner templates are generated reproducibly with [`tool/bootstrap_platforms.py`](tool/bootstrap_platforms.py) so contributors use the Flutter version installed in their environment instead of relying on stale generated templates.
+Native runner templates are generated with [`tool/bootstrap_platforms.py`](tool/bootstrap_platforms.py). The current release-candidate Flutter SDK is pinned to **3.44.7** in [`.flutter-version`](.flutter-version) and the CI/platform/release workflows so clean builds do not silently move to a newer stable SDK.
 
 ## Technology stack
 
@@ -110,9 +117,10 @@ Native runner templates are generated reproducibly with [`tool/bootstrap_platfor
 
 ### 1. Install prerequisites
 
-Install Flutter and the native build requirements for the platform you intend to run. Then confirm Flutter is healthy:
+Install Flutter **3.44.7** for the current NoteNest release-candidate toolchain plus the native build requirements for the platform you intend to run. Then confirm Flutter is healthy and matches the project pin:
 
 ```bash
+flutter --version
 flutter doctor -v
 ```
 
@@ -206,7 +214,12 @@ dart run build_runner build --delete-conflicting-outputs
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --coverage
+python tool/check_repo.py
+python tool/check_markdown_links.py
+python tool/security_scan.py
 ```
+
+The repository checker verifies required project/documentation baselines, the Markdown checker validates repository-local documentation links, and the secret scanner looks for common credential patterns without requiring production credentials.
 
 The test strategy and test-suite map are documented in [`docs/testing.md`](docs/testing.md).
 
@@ -225,7 +238,7 @@ flutter build ios --release --no-codesign
 
 Only run commands supported by the host operating system. Android and Apple store releases additionally require signing identities that **must not** be committed to this repository.
 
-See [`docs/release.md`](docs/release.md) for versioning, clean-build verification, signing boundaries, artifacts, and release checklist.
+See [`docs/release.md`](docs/release.md) for versioning, clean-build verification, signing boundaries, artifacts, checksums, and the release checklist.
 
 ## Architecture overview
 
@@ -274,19 +287,20 @@ Read [`PRIVACY.md`](PRIVACY.md) before distributing a modified build, especially
 
 - Never commit signing keys, API keys, tokens, passwords, private endpoints, `.env` secrets, or real user databases.
 - Validate imported backup data before database writes.
-- Treat imported note files as untrusted text.
+- Treat imported note files as untrusted text and apply documented byte-size limits before decoding.
+- Use cross-platform-safe generated filenames for exported notes.
 - Use platform-maintained authentication rather than storing a custom password credential.
 - Report suspected vulnerabilities privately according to [`SECURITY.md`](SECURITY.md).
 
 ## Accessibility
 
-The project aims for WCAG-oriented practices rather than claiming formal certification. It uses semantic controls, tooltips, scalable typography, theme-aware colors, touch-friendly Material controls, reduced-motion preference, and responsive layouts. Manual screen-reader and keyboard checks are part of the release checklist.
+The project aims for WCAG-oriented practices rather than claiming formal certification. It uses semantic controls, tooltips, scalable typography, theme-aware colors, touch-friendly controls, explicit non-color selection cues, reduced-motion preference, and responsive layouts. Manual screen-reader and keyboard checks remain part of the release checklist.
 
 See [`docs/accessibility.md`](docs/accessibility.md).
 
 ## Performance
 
-The hot path for note discovery uses FTS5 rather than loading and substring-scanning note bodies in Dart. Note content writes are debounced, and list filtering is kept lightweight for the current local-first scope. Performance budgets and measurement guidance are in [`docs/performance.md`](docs/performance.md).
+The hot path for note discovery uses FTS5 rather than loading and substring-scanning note bodies in Dart. Note content writes are debounced and serialized, and list filtering is kept lightweight for the current local-first scope. Performance budgets and measurement guidance are in [`docs/performance.md`](docs/performance.md).
 
 ## Project documentation
 
