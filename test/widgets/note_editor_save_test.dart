@@ -76,6 +76,60 @@ void main() {
     expect((await repository.getById(note.id)).body, 'Newest draft before back');
   });
 
+  testWidgets('formatting at offset zero targets the empty first line', (
+    WidgetTester tester,
+  ) async {
+    final Note note = await repository.create(
+      title: 'Formatting boundary',
+      body: '\nSecond line',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (BuildContext context) => Scaffold(
+            body: Center(
+              child: FilledButton(
+                onPressed: () {
+                  unawaited(
+                    Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (BuildContext context) => NoteEditorPage(
+                          noteId: note.id,
+                          repository: repository,
+                          files: files,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Open formatting editor'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open formatting editor'));
+    await tester.pumpAndSettle();
+
+    final Finder textFields = find.byType(TextField);
+    expect(textFields, findsNWidgets(4));
+    final TextField bodyField = tester.widget<TextField>(textFields.last);
+    final TextEditingController bodyController = bodyField.controller!;
+    bodyController.selection = const TextSelection.collapsed(offset: 0);
+
+    await tester.tap(find.byTooltip('Heading'));
+    await tester.pump();
+
+    expect(bodyController.text, '## \nSecond line');
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('Open formatting editor'), findsOneWidget);
+  });
+
   testWidgets('a missing note shows a retryable load error instead of spinning', (
     WidgetTester tester,
   ) async {
