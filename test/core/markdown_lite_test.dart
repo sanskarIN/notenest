@@ -28,5 +28,20 @@ void main() {
         'Title Task',
       );
     });
+
+    test('truncates previews without splitting Unicode scalar values', () {
+      final String markdown = '${List<String>.filled(4, 'a').join()}😀tail';
+      final String preview = MarkdownLite.plainPreview(markdown, maxLength: 5);
+
+      expect(preview, 'aaaa😀…');
+      expect(preview.runes.length, 6);
+    });
+
+    test('rejects a negative preview length', () {
+      expect(
+        () => MarkdownLite.plainPreview('text', maxLength: -1),
+        throwsArgumentError,
+      );
+    });
   });
 }
