@@ -18,6 +18,16 @@ abstract final class AppStrings {
   static const String about = 'About';
   static const String searchHint = 'Search notes';
   static const String newNote = 'New note';
+  static const String importMarkdown = 'Import Markdown';
   static const String emptyTitle = 'No notes here yet';
   static const String emptyBody = 'Create a note or adjust the current filters.';
+  static const String favoritesEmptyTitle = 'No favorite notes yet';
+  static const String favoritesEmptyBody =
+      'Mark an active note as a favorite to find it here.';
+  static const String archiveEmptyTitle = 'Archive is empty';
+  static const String archiveEmptyBody =
+      'Archived notes stay available here until you restore or trash them.';
+  static const String trashEmptyTitle = 'Trash is empty';
+  static const String trashEmptyBody =
+      'Notes moved to trash stay here until restored or permanently deleted.';
 }
