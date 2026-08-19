@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:notenest/core/logging/app_logger.dart';
+import 'package:notenest/core/theme/app_tokens.dart';
 import 'package:notenest/core/utils/debouncer.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/data/repositories/note_repository.dart';
@@ -12,7 +13,7 @@ final class NotesController extends ChangeNotifier {
     this._repository, {
     AppLogger logger = const AppLogger(),
   })  : _logger = logger,
-        _searchDebouncer = Debouncer(const Duration(milliseconds: 220));
+        _searchDebouncer = Debouncer(AppTokens.searchDebounce);
 
   final NoteRepository _repository;
   final AppLogger _logger;
