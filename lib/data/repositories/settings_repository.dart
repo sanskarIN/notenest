@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:notenest/core/errors/app_exception.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract interface class SettingsStore {
@@ -49,7 +50,8 @@ final class SettingsRepository implements SettingsStore {
       ThemeMode.dark => 'dark',
       ThemeMode.system => 'system',
     };
-    await (await _prefs).setString(_themeKey, encoded);
+    final bool saved = await (await _prefs).setString(_themeKey, encoded);
+    _requireSaved(saved, 'theme');
   }
 
   @override
@@ -59,7 +61,8 @@ final class SettingsRepository implements SettingsStore {
   @override
   Future<void> setFontScale(double value) async {
     final double normalized = value.clamp(0.9, 1.4).toDouble();
-    await (await _prefs).setDouble(_fontScaleKey, normalized);
+    final bool saved = await (await _prefs).setDouble(_fontScaleKey, normalized);
+    _requireSaved(saved, 'text-size');
   }
 
   @override
@@ -68,7 +71,8 @@ final class SettingsRepository implements SettingsStore {
 
   @override
   Future<void> setReduceMotion({required bool value}) async {
-    await (await _prefs).setBool(_reduceMotionKey, value);
+    final bool saved = await (await _prefs).setBool(_reduceMotionKey, value);
+    _requireSaved(saved, 'reduced-motion');
   }
 
   @override
@@ -77,7 +81,8 @@ final class SettingsRepository implements SettingsStore {
 
   @override
   Future<void> setOnboardingComplete({required bool value}) async {
-    await (await _prefs).setBool(_onboardingKey, value);
+    final bool saved = await (await _prefs).setBool(_onboardingKey, value);
+    _requireSaved(saved, 'onboarding');
   }
 
   @override
@@ -86,6 +91,13 @@ final class SettingsRepository implements SettingsStore {
 
   @override
   Future<void> setAppLockEnabled({required bool value}) async {
-    await (await _prefs).setBool(_appLockKey, value);
+    final bool saved = await (await _prefs).setBool(_appLockKey, value);
+    _requireSaved(saved, 'app-lock');
+  }
+
+  void _requireSaved(bool saved, String setting) {
+    if (!saved) {
+      throw StorageException('Could not persist the $setting setting.');
+    }
   }
 }
