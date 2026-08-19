@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:notenest/core/constants/app_strings.dart';
 import 'package:notenest/core/errors/app_exception.dart';
 import 'package:notenest/core/utils/import_limits.dart';
 import 'package:notenest/core/utils/markdown_document_codec.dart';
@@ -24,7 +25,7 @@ final class FileTransferService {
   Future<bool> exportBackup() async {
     final String payload = await _backups.exportJson();
     final String? result = await FilePicker.saveFile(
-      dialogTitle: 'Export NoteNest backup',
+      dialogTitle: AppStrings.exportBackupDialog,
       fileName: 'notenest-backup-${_dateStamp()}.json',
       type: FileType.custom,
       allowedExtensions: <String>['json'],
@@ -35,7 +36,7 @@ final class FileTransferService {
 
   Future<RestoreReport?> importBackup() async {
     final FilePickerResult? result = await FilePicker.pickFiles(
-      dialogTitle: 'Restore NoteNest backup',
+      dialogTitle: AppStrings.restoreBackupDialog,
       type: FileType.custom,
       allowedExtensions: <String>['json'],
       withData: true,
@@ -63,7 +64,7 @@ final class FileTransferService {
     );
     final String fileName = '${SafeFileName.fromTitle(note.title)}.md';
     final String? result = await FilePicker.saveFile(
-      dialogTitle: 'Export note as Markdown',
+      dialogTitle: AppStrings.exportMarkdownDialog,
       fileName: fileName,
       type: FileType.custom,
       allowedExtensions: <String>['md'],
@@ -74,7 +75,7 @@ final class FileTransferService {
 
   Future<Note?> importMarkdown() async {
     final FilePickerResult? result = await FilePicker.pickFiles(
-      dialogTitle: 'Import Markdown note',
+      dialogTitle: AppStrings.importMarkdownDialog,
       type: FileType.custom,
       allowedExtensions: <String>['md', 'markdown', 'txt'],
       withData: true,
