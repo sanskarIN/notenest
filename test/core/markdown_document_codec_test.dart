@@ -26,6 +26,41 @@ void main() {
       expect(decoded.body, '# Body\n\n- [ ] नमस्ते\n\n--- inside body');
     });
 
+    test('preserves an intentional leading body newline', () {
+      const String body = '\nStarts after one intentional blank line.';
+      final String encoded = MarkdownDocumentCodec.encode(
+        title: 'Leading newline',
+        body: body,
+        folder: '',
+        tags: const <String>[],
+        updatedAt: DateTime.utc(2026, 8, 19),
+      );
+
+      final MarkdownDocument decoded = MarkdownDocumentCodec.decode(
+        encoded,
+        fallbackTitle: 'fallback',
+      );
+
+      expect(decoded.body, body);
+    });
+
+    test('round trips an empty body without adding content', () {
+      final String encoded = MarkdownDocumentCodec.encode(
+        title: 'Empty',
+        body: '',
+        folder: '',
+        tags: const <String>[],
+        updatedAt: DateTime.utc(2026, 8, 19),
+      );
+
+      final MarkdownDocument decoded = MarkdownDocumentCodec.decode(
+        encoded,
+        fallbackTitle: 'fallback',
+      );
+
+      expect(decoded.body, isEmpty);
+    });
+
     test('keeps ordinary Markdown unchanged with filename title fallback', () {
       const String markdown = '# Heading\n\nPlain body.';
 
