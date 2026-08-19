@@ -128,6 +128,7 @@ class _HomeShellState extends State<HomeShell> {
         settings: widget.dependencies.settings,
         files: widget.dependencies.files,
         appLock: widget.dependencies.appLock,
+        onOpenAbout: () => _select(5),
       );
     }
     return const AboutPage();
