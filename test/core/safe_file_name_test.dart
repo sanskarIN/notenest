@@ -26,8 +26,9 @@ void main() {
 
     test('preserves Unicode and enforces the maximum length', () {
       expect(SafeFileName.fromTitle('नोट्स 2026'), 'नोट्स 2026');
+      final String longTitle = List<String>.filled(120, 'a').join();
       expect(
-        SafeFileName.fromTitle('a' * 120).length,
+        SafeFileName.fromTitle(longTitle).length,
         SafeFileName.maxLength,
       );
     });
