@@ -17,6 +17,21 @@ Future features should:
 9. Avoid adding features merely to increase feature count.
 10. Keep security and migration compatibility explicit.
 
+## 1.0 release-candidate hardening already implemented
+
+The following engineering work is already present on `main`; it is listed here separately from the unchecked release-verification items below because implementation does not equal platform verification:
+
+- Exact Flutter SDK pin synchronized across `.flutter-version`, CI, native platform builds, and release packaging.
+- Repository completeness, Markdown local-link, and lightweight secret checks in the quality pipeline.
+- Serialized editor save submissions to prevent older autosaves overtaking newer drafts.
+- Import byte-size guards before decoding: 16 MiB for Markdown/text and 64 MiB for JSON backups.
+- Backup tag and note/version relationship validation before restore writes.
+- Cross-platform-safe Markdown export filename normalization.
+- Collection-specific empty states with context-appropriate actions.
+- Explicit non-color note-color selection cues and a shared 48 logical-pixel custom touch target.
+- Regression coverage for the above deterministic behaviors.
+- Release/setup/testing/security/accessibility documentation synchronized with the hardened behavior.
+
 ## Milestone: 1.0.0 — first stable release
 
 ### Required before stable
@@ -24,15 +39,18 @@ Future features should:
 - [ ] All configured CI jobs green from a clean checkout.
 - [ ] Drift generation and strict analyzer checks pass.
 - [ ] Unit, repository/database, backup, and widget tests pass.
+- [ ] Repository, Markdown-link, and lightweight secret checks pass on the release candidate.
 - [ ] Android build smoke test passes.
 - [ ] Windows, Linux, and macOS build jobs pass on their native runners.
 - [ ] iOS no-codesign build validation passes on macOS.
+- [ ] Verify serialized final-draft autosave behavior manually after rapid edits/background/navigation.
 - [ ] Verify backup export/restore manually using fictional data.
+- [ ] Verify oversized Markdown/backup import rejection through real platform file pickers.
 - [ ] Verify app-lock supported/unsupported flows on appropriate devices.
 - [ ] Replace layout illustration with verified runtime screenshots while keeping the reference only if useful.
 - [ ] Manual keyboard-navigation review on desktop.
 - [ ] Manual screen-reader semantics review on at least one mobile platform.
-- [ ] Manual large-text and reduced-motion review.
+- [ ] Manual large-text, note-color selection, and reduced-motion review.
 - [ ] Clean release notes and tagged version.
 - [ ] Confirm privacy/security documentation exactly matches the built release.
 
@@ -63,7 +81,7 @@ Candidate work:
 - Backup integrity metadata/checksum using maintained primitives for corruption detection (not as a security/encryption claim).
 - Backup dry-run report before restore.
 - Migration-fixture tests for every released schema version.
-- Crash-safe import staging for large backups if profiling demonstrates a need.
+- Crash-safe/streaming import staging for large backups if profiling demonstrates a need beyond the current bounded in-memory import model.
 
 ## Milestone: 1.3 — platform integration
 
@@ -95,12 +113,13 @@ No language should be listed as supported until the major user journeys have bee
 
 Potential improvements after baseline manual validation:
 
-- Automated semantics regression checks for key screens.
+- Automated semantics regression checks for more key screens.
 - Focus-order tests for desktop editor/navigation.
 - High-contrast theme preference if user testing identifies a need beyond system contrast behavior.
 - Adjustable editor line height/reading width.
-- More explicit non-color indicators for optional note color metadata.
 - Accessibility-focused golden checks only if stable across supported Flutter versions.
+
+The initial custom note-color control already has a non-color selected cue, selected semantics, and a 48 logical-pixel target; future custom controls should preserve that baseline.
 
 ## Privacy-preserving optional sync — research only
 
@@ -135,11 +154,12 @@ Until those questions have robust answers, local backup/export is preferred over
 Every release cycle also includes:
 
 - Dependency review.
-- Flutter/Dart compatibility review.
+- Flutter/Dart compatibility and exact-toolchain-pin review.
 - Native permission review.
 - Database migration review.
 - Accessibility regression review.
 - Backup/restore compatibility check.
+- Import-bound and export-filename regression review.
 - Documentation link/command review.
 - Security/privacy policy review.
 
