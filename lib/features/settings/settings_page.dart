@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:notenest/app/app_settings_controller.dart';
+import 'package:notenest/core/constants/app_strings.dart';
 import 'package:notenest/data/repositories/backup_repository.dart';
 import 'package:notenest/services/app_lock_service.dart';
 import 'package:notenest/services/file_transfer_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
     required this.settings,
     required this.files,
     required this.appLock,
+    required this.onOpenAbout,
     super.key,
   });
 
   final AppSettingsController settings;
   final FileTransferService files;
   final AppLockService appLock;
+  final VoidCallback onOpenAbout;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -113,9 +117,35 @@ class _SettingsPageState extends State<SettingsPage> {
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.restore_rounded),
           title: const Text('Restore backup'),
-          subtitle: const Text('Merge a NoteNest JSON backup without overwriting newer local notes.'),
+          subtitle: const Text(
+            'Merge a NoteNest JSON backup without overwriting newer local notes.',
+          ),
           enabled: !_busy,
           onTap: _restoreBackup,
+        ),
+        const Divider(height: 36),
+        Text('Updates', style: Theme.of(context).textTheme.titleLarge),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.system_update_alt_rounded),
+          title: const Text('Release updates'),
+          subtitle: const Text(
+            'Open the official NoteNest GitHub Releases page to review published versions.',
+          ),
+          trailing: const Icon(Icons.open_in_new_rounded),
+          onTap: _openReleases,
+        ),
+        const Divider(height: 36),
+        Text('About', style: Theme.of(context).textTheme.titleLarge),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.info_outline_rounded),
+          title: const Text('About NoteNest'),
+          subtitle: const Text(
+            'Version, license, privacy summary, support, source code, and funding.',
+          ),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: widget.onOpenAbout,
         ),
         if (_busy)
           const Padding(
@@ -152,8 +182,8 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       final bool saved = await widget.files.exportBackup();
       if (saved) _message('Backup exported successfully.');
-    } on Object catch (error) {
-      _message('Backup export failed: $error');
+    } on Object {
+      _message('Backup export failed. Your local notes were not changed.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -171,10 +201,21 @@ class _SettingsPageState extends State<SettingsPage> {
           'kept ${report.skippedNewerNotes} newer local notes.',
         );
       }
-    } on Object catch (error) {
-      _message('Backup restore failed: $error');
+    } on Object {
+      _message('Backup restore failed. No partial restore was kept.');
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _openReleases() async {
+    final Uri releases = Uri.parse('${AppStrings.repositoryUrl}/releases');
+    final bool opened = await launchUrl(
+      releases,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened) {
+      _message('Could not open the releases page on this device.');
     }
   }
 

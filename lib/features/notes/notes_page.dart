@@ -148,7 +148,7 @@ class _NotesPageState extends State<NotesPage> {
               crossAxisCount: columns,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: columns == 1 ? 1.55 : 1.05,
+              mainAxisExtent: columns == 1 ? 250 : 270,
             ),
             itemCount: controller.notes.length,
             itemBuilder: (BuildContext context, int index) {
@@ -164,7 +164,7 @@ class _NotesPageState extends State<NotesPage> {
                 onArchive: () => note.isArchived
                     ? controller.unarchive(note)
                     : controller.archive(note),
-                onTrash: () => controller.trash(note),
+                onTrash: () => _trashWithUndo(note),
                 onRestore: () => controller.restore(note),
                 onDeleteForever: () => _deleteForever(note),
               );
@@ -194,16 +194,35 @@ class _NotesPageState extends State<NotesPage> {
     if (mounted) await widget.controller.load(showLoading: false);
   }
 
+  Future<void> _trashWithUndo(Note note) async {
+    await widget.controller.trash(note);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Note moved to trash.'),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () {
+            unawaited(widget.controller.restore(note));
+          },
+        ),
+      ),
+    );
+  }
+
   Future<void> _importMarkdown() async {
     try {
       final Note? note = await widget.files.importMarkdown();
       if (note == null || !mounted) return;
       await widget.controller.load(showLoading: false);
       if (mounted) await _openEditor(note);
-    } on Object catch (error) {
+    } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Import failed: $error')),
+        const SnackBar(
+          content: Text('Import failed. The selected file was not changed.'),
+        ),
       );
     }
   }

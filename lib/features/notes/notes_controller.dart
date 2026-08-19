@@ -1,16 +1,22 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:notenest/core/logging/app_logger.dart';
+import 'package:notenest/core/theme/app_tokens.dart';
 import 'package:notenest/core/utils/debouncer.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/data/repositories/note_repository.dart';
 import 'package:notenest/domain/models/note_filter.dart';
 
 final class NotesController extends ChangeNotifier {
-  NotesController(this._repository)
-      : _searchDebouncer = Debouncer(const Duration(milliseconds: 220));
+  NotesController(
+    this._repository, {
+    AppLogger logger = const AppLogger(),
+  })  : _logger = logger,
+        _searchDebouncer = Debouncer(AppTokens.searchDebounce);
 
   final NoteRepository _repository;
+  final AppLogger _logger;
   final Debouncer _searchDebouncer;
 
   NoteFilter filter = const NoteFilter();
@@ -20,26 +26,40 @@ final class NotesController extends ChangeNotifier {
   bool loading = false;
   Object? error;
   bool _disposed = false;
+  int _loadGeneration = 0;
 
   Future<void> load({bool showLoading = true}) async {
+    final int generation = ++_loadGeneration;
+    final NoteFilter requestedFilter = filter;
     if (showLoading) {
       loading = true;
       error = null;
       _notify();
     }
     try {
-      final List<Note> nextNotes = await _repository.list(filter);
+      final List<Note> nextNotes = await _repository.list(requestedFilter);
       final Set<String> nextFolders = await _repository.folders();
       final Set<String> nextTags = await _repository.tags();
+      if (!_isCurrentLoad(generation)) return;
       notes = nextNotes;
       folders = nextFolders;
       tags = nextTags;
       error = null;
     } catch (caught) {
+      if (!_isCurrentLoad(generation)) return;
       error = caught;
+      _logger.error(
+        'notes.load_failed',
+        fields: <String, Object?>{
+          'errorType': caught.runtimeType.toString(),
+          'collection': requestedFilter.collection,
+        },
+      );
     } finally {
-      loading = false;
-      _notify();
+      if (_isCurrentLoad(generation)) {
+        loading = false;
+        _notify();
+      }
     }
   }
 
@@ -113,6 +133,10 @@ final class NotesController extends ChangeNotifier {
     return deleted;
   }
 
+  bool _isCurrentLoad(int generation) {
+    return !_disposed && generation == _loadGeneration;
+  }
+
   void _notify() {
     if (!_disposed) notifyListeners();
   }
@@ -120,6 +144,7 @@ final class NotesController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _loadGeneration += 1;
     _searchDebouncer.dispose();
     super.dispose();
   }

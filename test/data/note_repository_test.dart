@@ -30,6 +30,7 @@ void main() {
     expect(notes, hasLength(1));
     expect(notes.single.id, created.id);
     expect(notes.single.folder, 'Projects');
+    expect(repository.decodeTags(notes.single.tags), <String>['flutter', 'offline']);
   });
 
   test('saving changed content creates a version snapshot', () async {
@@ -49,7 +50,42 @@ void main() {
 
     expect(versions, hasLength(1));
     expect(versions.single.title, 'First');
+    expect(versions.single.body, 'One');
     expect(updated.title, 'Second');
+  });
+
+  test('saving unchanged content does not create duplicate snapshots', () async {
+    final Note created = await repository.create(title: 'Same', body: 'Content');
+
+    await repository.saveContent(
+      id: created.id,
+      title: 'Same',
+      body: 'Content',
+      folder: '',
+      tags: const <String>[],
+      colorValue: null,
+    );
+
+    expect(await repository.versions(created.id), isEmpty);
+  });
+
+  test('restoring a version makes earlier content current', () async {
+    final Note created = await repository.create(title: 'First', body: 'One');
+    await repository.saveContent(
+      id: created.id,
+      title: 'Second',
+      body: 'Two',
+      folder: '',
+      tags: const <String>[],
+      colorValue: null,
+    );
+    final NoteVersion version = (await repository.versions(created.id)).single;
+
+    await repository.restoreVersion(version.id);
+
+    final Note restored = await repository.getById(created.id);
+    expect(restored.title, 'First');
+    expect(restored.body, 'One');
   });
 
   test('full-text search finds note content', () async {
@@ -64,10 +100,54 @@ void main() {
     expect(results.single.title, 'School');
   });
 
+  test('full-text search safely handles quote punctuation', () async {
+    await repository.create(title: 'Quoted idea', body: 'A physics note');
+
+    final List<Note> results = await repository.list(
+      const NoteFilter(query: 'physics"'),
+    );
+
+    expect(results, hasLength(1));
+    expect(results.single.title, 'Quoted idea');
+  });
+
+  test('favorite collection contains only active favorites', () async {
+    final Note favorite = await repository.create(title: 'Favorite');
+    final Note archived = await repository.create(title: 'Archived favorite');
+    await repository.setFavorite(favorite.id, value: true);
+    await repository.setFavorite(archived.id, value: true);
+    await repository.archive(archived.id);
+
+    final List<Note> results = await repository.list(
+      const NoteFilter(collection: NoteCollection.favorites),
+    );
+
+    expect(results.map((Note note) => note.id), <String>[favorite.id]);
+  });
+
+  test('archive and unarchive move a note between collections', () async {
+    final Note created = await repository.create(title: 'Archive me');
+    await repository.archive(created.id);
+
+    expect(await repository.list(const NoteFilter()), isEmpty);
+    expect(
+      await repository.list(
+        const NoteFilter(collection: NoteCollection.archive),
+      ),
+      hasLength(1),
+    );
+
+    await repository.unarchive(created.id);
+    expect(await repository.list(const NoteFilter()), hasLength(1));
+  });
+
   test('trash is separated from active notes and can be restored', () async {
     final Note created = await repository.create(title: 'Temporary');
+    await repository.setPinned(created.id, value: true);
     await repository.trash(created.id);
 
+    final Note trashed = await repository.getById(created.id);
+    expect(trashed.isPinned, isFalse);
     expect(await repository.list(const NoteFilter()), isEmpty);
     expect(
       await repository.list(
@@ -78,5 +158,22 @@ void main() {
 
     await repository.restore(created.id);
     expect(await repository.list(const NoteFilter()), hasLength(1));
+  });
+
+  test('permanent delete cascades version history', () async {
+    final Note created = await repository.create(title: 'First', body: 'One');
+    await repository.saveContent(
+      id: created.id,
+      title: 'Second',
+      body: 'Two',
+      folder: '',
+      tags: const <String>[],
+      colorValue: null,
+    );
+    expect(await repository.versions(created.id), hasLength(1));
+
+    await repository.permanentlyDelete(created.id);
+
+    expect(await repository.versions(created.id), isEmpty);
   });
 }
