@@ -3,14 +3,15 @@ import 'package:notenest/app/app_settings_controller.dart';
 import 'package:notenest/core/constants/app_strings.dart';
 import 'package:notenest/data/repositories/backup_repository.dart';
 import 'package:notenest/services/app_lock_service.dart';
+import 'package:notenest/services/external_link_service.dart';
 import 'package:notenest/services/file_transfer_service.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
     required this.settings,
     required this.files,
     required this.appLock,
+    required this.externalLinks,
     required this.onOpenAbout,
     super.key,
   });
@@ -18,6 +19,7 @@ class SettingsPage extends StatefulWidget {
   final AppSettingsController settings;
   final FileTransferService files;
   final AppLockService appLock;
+  final ExternalLinkService externalLinks;
   final VoidCallback onOpenAbout;
 
   @override
@@ -133,7 +135,7 @@ class _SettingsPageState extends State<SettingsPage> {
             'Open the official NoteNest GitHub Releases page to review published versions.',
           ),
           trailing: const Icon(Icons.open_in_new_rounded),
-          onTap: _openReleases,
+          onTap: _busy ? null : _openReleases,
         ),
         const Divider(height: 36),
         Text('About', style: Theme.of(context).textTheme.titleLarge),
@@ -210,10 +212,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _openReleases() async {
     final Uri releases = Uri.parse('${AppStrings.repositoryUrl}/releases');
-    final bool opened = await launchUrl(
-      releases,
-      mode: LaunchMode.externalApplication,
-    );
+    final bool opened = await widget.externalLinks.open(releases);
     if (!opened) {
       _message('Could not open the releases page on this device.');
     }
