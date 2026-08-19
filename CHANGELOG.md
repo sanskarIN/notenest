@@ -39,6 +39,8 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 - `tool/check_version_sync.py` to keep package, visible app, changelog, and release-note versions synchronized.
 - A centralized `ExternalLinkService` boundary with injectable launcher behavior for deterministic tests.
 - Injectable `SettingsStore` boundary for testing settings persistence and failures without a real platform preference plugin.
+- `docs/repository-reference.md`, an exhaustive responsibility/maintenance map for every tracked repository file.
+- `tool/check_repository_reference.py`, integrated into CI, to reject undocumented, stale, or duplicate tracked-file catalog entries.
 
 ### Changed
 
@@ -68,6 +70,7 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 - Restricted Markdown import affordance to All Notes, where newly imported notes are immediately visible.
 - Fixed Trash folder/tag filtering by including trashed note metadata in the Trash collection's filter choices.
 - Prevented Favorites/Archive filter menus from advertising folders/tags that do not exist in the active collection.
+- Prevented a trashed note from being pinned through the repository boundary, keeping live lifecycle state consistent with backup validation rules.
 - Hardened Markdown export filenames against cross-platform invalid characters, trailing dots/spaces, excessive length, and Windows reserved device names.
 - Prevented filename truncation from splitting a UTF-16 surrogate pair/Unicode code point at the configured boundary.
 - Replaced color-only editor swatch selection with explicit selected semantics and a visible checkmark while keeping a comfortable interaction target.
