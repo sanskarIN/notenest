@@ -20,12 +20,16 @@ The app primarily uses standard Flutter Material controls, which provide baselin
 - Tooltips for icon-only note/editor actions.
 - A semantic label on note cards.
 - A semantic save-state indicator.
+- Note-color swatches with a 48 logical-pixel interaction target, explicit selected semantics, and a visible checkmark so selection is not color-only.
 - Material buttons/chips/list tiles rather than tiny custom hit areas.
 - Responsive `NavigationBar` and `NavigationRail`.
 - Adjustable app text scale.
 - Reduced-motion preference propagated through `MediaQuery.disableAnimations`.
 - Light/dark color schemes generated from a stable seed.
 - Text/icons accompanying destructive lifecycle actions.
+- Collection-specific empty states that avoid offering actions whose result would be hidden by the active collection.
+
+The reusable `NoteColorSwatch` widget has deterministic widget coverage for its selected cue and minimum touch target.
 
 ## Text scaling
 
@@ -56,6 +60,8 @@ Rules:
 - Do not place arbitrary user-chosen color directly behind low-contrast custom text without contrast handling.
 - Check both light and dark themes.
 - Check disabled controls remain distinguishable without appearing active.
+
+The editor palette now pairs its border-color change with a checkmark plus selected semantics. The default/no-color choice also has a reset icon when it is not selected.
 
 ## Keyboard navigation
 
@@ -94,6 +100,7 @@ Verify announcements for:
 - Search/filter controls.
 - Editor title/body fields.
 - Autosave state.
+- Note-color choices and selected state.
 - Version restore actions.
 - Theme/text-size/app-lock settings.
 - Import/export controls.
@@ -104,6 +111,8 @@ Decorative imagery should not create noisy repeated announcements. The logo can 
 ## Touch targets
 
 Use standard Material buttons, icon buttons, chips, switches, sliders, and list tiles. Do not shrink icon-only actions into visually compact regions that become difficult to tap.
+
+Custom editor color swatches use the shared `AppTokens.minimumTouchTarget` value of 48 logical pixels while retaining a smaller visual color circle inside that target.
 
 When adding custom gestures, provide a visible/focusable control alternative and semantic action.
 
@@ -185,7 +194,7 @@ Useful tests include:
 - Focus traversal tests for important desktop screens.
 - Test that destructive dialogs expose cancel/confirm actions.
 
-Golden tests should be added only where they remain stable and provide more value than maintenance noise across Flutter versions.
+Current automated accessibility-adjacent coverage includes the note-color selected cue/minimum target and collection-specific empty actions. Golden tests should be added only where they remain stable and provide more value than maintenance noise across Flutter versions.
 
 ## Accessibility bugs
 
@@ -197,6 +206,7 @@ When reporting, include platform, assistive technology, text scale, reproduction
 
 - [ ] Icon-only controls have a tooltip/accessible name.
 - [ ] Status is not color-only.
+- [ ] Custom interactive targets meet the shared minimum target unless a documented platform control owns a larger hit area.
 - [ ] Text can scale without critical clipping.
 - [ ] Narrow layout remains usable.
 - [ ] Wide layout does not create unreachable controls.
