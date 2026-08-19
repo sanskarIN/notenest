@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:notenest/app/app_settings_controller.dart';
 import 'package:notenest/core/constants/app_strings.dart';
@@ -72,8 +74,9 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ],
           selected: <ThemeMode>{settings.themeMode},
-          onSelectionChanged: (Set<ThemeMode> values) =>
-              settings.setThemeMode(values.single),
+          onSelectionChanged: (Set<ThemeMode> values) {
+            _queuePreference(() => settings.setThemeMode(values.single));
+          },
         ),
         const SizedBox(height: 28),
         Text('Accessibility', style: Theme.of(context).textTheme.titleLarge),
@@ -86,7 +89,9 @@ class _SettingsPageState extends State<SettingsPage> {
             max: 1.4,
             divisions: 5,
             label: '${(settings.fontScale * 100).round()}%',
-            onChanged: settings.setFontScale,
+            onChanged: (double value) {
+              _queuePreference(() => settings.setFontScale(value));
+            },
           ),
         ),
         SwitchListTile(
@@ -94,7 +99,9 @@ class _SettingsPageState extends State<SettingsPage> {
           title: const Text('Reduce motion'),
           subtitle: const Text('Prefer fewer non-essential interface animations.'),
           value: settings.reduceMotion,
-          onChanged: (bool value) => settings.setReduceMotion(value: value),
+          onChanged: (bool value) {
+            _queuePreference(() => settings.setReduceMotion(value: value));
+          },
         ),
         const Divider(height: 36),
         Text('Privacy', style: Theme.of(context).textTheme.titleLarge),
@@ -158,6 +165,18 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  void _queuePreference(Future<void> Function() action) {
+    unawaited(_savePreference(action));
+  }
+
+  Future<void> _savePreference(Future<void> Function() action) async {
+    try {
+      await action();
+    } on Object {
+      _message('Could not save this setting. The previous saved value was restored.');
+    }
+  }
+
   Future<void> _toggleAppLock(bool enable) async {
     setState(() => _busy = true);
     try {
@@ -174,6 +193,10 @@ class _SettingsPageState extends State<SettingsPage> {
         }
       }
       await widget.settings.setAppLockEnabled(value: enable);
+    } on Object {
+      _message(
+        'Could not save the app-lock setting. The previous saved value was restored.',
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
