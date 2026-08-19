@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:notenest/core/constants/app_strings.dart';
 import 'package:notenest/features/onboarding/onboarding_page.dart';
 
 void main() {
@@ -17,10 +18,10 @@ void main() {
       ),
     );
 
-    expect(find.text('Offline first'), findsOneWidget);
-    expect(find.text('Private by default'), findsOneWidget);
+    expect(find.text(AppStrings.onboardingOfflineTitle), findsOneWidget);
+    expect(find.text(AppStrings.onboardingPrivacyTitle), findsOneWidget);
 
-    await tester.tap(find.text('Start using NoteNest'));
+    await tester.tap(find.text(AppStrings.onboardingStart));
     await tester.pump();
 
     expect(completed, isTrue);
