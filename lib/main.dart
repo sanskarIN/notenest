@@ -3,6 +3,7 @@ import 'package:notenest/app/app.dart';
 import 'package:notenest/app/app_dependencies.dart';
 import 'package:notenest/core/constants/app_strings.dart';
 import 'package:notenest/core/logging/app_logger.dart';
+import 'package:notenest/core/theme/app_tokens.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,20 +34,20 @@ class _BootstrapFailureApp extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
               child: const Padding(
-                padding: EdgeInsets.all(32),
+                padding: EdgeInsets.all(AppTokens.space32),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     Icon(Icons.error_outline_rounded, size: 64),
-                    SizedBox(height: 20),
+                    SizedBox(height: AppTokens.space20),
                     Text(
-                      'NoteNest could not start',
+                      AppStrings.startFailedTitle,
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
                     ),
-                    SizedBox(height: 12),
+                    SizedBox(height: AppTokens.space12),
                     Text(
-                      'Your local note data was not intentionally changed. Close and reopen the app. If the problem continues, use the support information in the project documentation.',
+                      AppStrings.startFailedBody,
                       textAlign: TextAlign.center,
                     ),
                   ],
