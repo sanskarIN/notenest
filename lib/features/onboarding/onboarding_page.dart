@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:notenest/core/constants/app_strings.dart';
+import 'package:notenest/core/theme/app_tokens.dart';
 
 class OnboardingPage extends StatelessWidget {
   const OnboardingPage({required this.onComplete, super.key});
@@ -12,9 +13,9 @@ class OnboardingPage extends StatelessWidget {
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
+            constraints: const BoxConstraints(maxWidth: AppTokens.maxContentWidth),
             child: Padding(
-              padding: const EdgeInsets.all(28),
+              padding: const EdgeInsets.all(AppTokens.space28),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -24,7 +25,7 @@ class OnboardingPage extends StatelessWidget {
                     size: 72,
                     color: Theme.of(context).colorScheme.primary,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppTokens.space24),
                   Text(
                     AppStrings.appName,
                     textAlign: TextAlign.center,
@@ -32,38 +33,40 @@ class OnboardingPage extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                         ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppTokens.space8),
                   Text(
                     AppStrings.tagline,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: AppTokens.space32),
                   const _Benefit(
                     icon: Icons.offline_bolt_rounded,
-                    title: 'Offline first',
-                    message: 'Notes stay useful without an account or internet connection.',
+                    title: AppStrings.onboardingOfflineTitle,
+                    message: AppStrings.onboardingOfflineBody,
                   ),
                   const _Benefit(
                     icon: Icons.search_rounded,
-                    title: 'Fast to find',
-                    message: 'Folders, tags, favorites, pinning, and full-text search keep ideas organized.',
+                    title: AppStrings.onboardingFindTitle,
+                    message: AppStrings.onboardingFindBody,
                   ),
                   const _Benefit(
                     icon: Icons.privacy_tip_outlined,
-                    title: 'Private by default',
-                    message: 'Your note database lives locally. Backup and app lock remain under your control.',
+                    title: AppStrings.onboardingPrivacyTitle,
+                    message: AppStrings.onboardingPrivacyBody,
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: AppTokens.space28),
                   FilledButton.icon(
-                    onPressed: () async => onComplete(),
+                    onPressed: () async {
+                      await onComplete();
+                    },
                     icon: const Icon(Icons.arrow_forward_rounded),
                     label: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 14),
-                      child: Text('Start using NoteNest'),
+                      padding: EdgeInsets.symmetric(vertical: AppTokens.space12),
+                      child: Text(AppStrings.onboardingStart),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppTokens.space12),
                   const Text(
                     AppStrings.credit,
                     textAlign: TextAlign.center,
