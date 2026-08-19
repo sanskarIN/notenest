@@ -1,0 +1,49 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+.pub/
+build/
+coverage/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+
+# Drift / generated files
+lib/**/*.g.dart
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# IDEs
+.idea/
+*.iml
+.vscode/*.log
+.DS_Store
+Thumbs.db
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+key.properties
+
+# Platform generated transient files
+android/.gradle/
+android/local.properties
+ios/Pods/
+ios/.symlinks/
+macos/Pods/
+macos/.symlinks/
+linux/flutter/ephemeral/
+windows/flutter/ephemeral/
+
+# Test artifacts
+test-results/
+*.lcov
+
+# Logs
+*.log
