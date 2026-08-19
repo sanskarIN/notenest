@@ -80,14 +80,19 @@ class NoteCard extends StatelessWidget {
                         switch (action) {
                           case 'pin':
                             onPin();
+                            break;
                           case 'archive':
                             onArchive();
+                            break;
                           case 'trash':
                             onTrash();
+                            break;
                           case 'restore':
                             onRestore();
+                            break;
                           case 'delete':
                             onDeleteForever();
+                            break;
                         }
                       },
                       itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
