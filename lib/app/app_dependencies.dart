@@ -42,7 +42,15 @@ final class AppDependencies {
       notes: notes,
     );
     final ExternalLinkService externalLinks = ExternalLinkService();
-    await settings.load();
+
+    try {
+      await settings.load();
+    } on Object {
+      settings.dispose();
+      await database.close();
+      rethrow;
+    }
+
     logger.info('app.dependencies_ready');
     return AppDependencies._(
       database: database,
