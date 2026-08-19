@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:notenest/core/theme/app_tokens.dart';
 
 class EmptyState extends StatelessWidget {
   const EmptyState({
@@ -21,25 +22,25 @@ class EmptyState extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: AppTokens.largePagePadding,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               Icon(icon, size: 56, color: colors.primary),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppTokens.space20),
               Text(
                 title,
                 style: Theme.of(context).textTheme.headlineSmall,
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppTokens.space8),
               Text(
                 message,
                 style: Theme.of(context).textTheme.bodyLarge,
                 textAlign: TextAlign.center,
               ),
               if (action != null) ...<Widget>[
-                const SizedBox(height: 20),
+                const SizedBox(height: AppTokens.space20),
                 action!,
               ],
             ],
