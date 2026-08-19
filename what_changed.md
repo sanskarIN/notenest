@@ -5,91 +5,66 @@ Target application version: **2.0.12**
 Flutter package version: **2.0.12+2012**
 Pinned Flutter SDK: **3.44.7**
 Active development branch: `main`
+Verification PR: **#5 — open**
 Stable tag status: **not yet tagged**
 
 ## Current release status
 
-NoteNest is now prepared as a **2.0.12 release candidate**.
+NoteNest is prepared as a **2.0.12 release candidate**.
 
 The implementation, repository tooling, regression suite, public documentation, security/privacy documentation, and release documentation have been deeply hardened. A stable `v2.0.12` tag is intentionally not created yet because completed green Flutter/native CI evidence and the documented manual platform/accessibility checks are still required.
 
 Do not describe the current candidate as fully verified, bug-free, or stable until those checks pass on the exact release commit.
 
-## Version 2.0.12 metadata
+## Version metadata
 
-The release-candidate version surfaces now agree:
+The 2.0.12 version surfaces agree:
 
 - `pubspec.yaml`: `2.0.12+2012`
 - `AppStrings.version`: `2.0.12`
 - `CHANGELOG.md`: `## [2.0.12] - Release candidate`
 - `docs/releases/2.0.12.md`: exact package and visible version values
 
-`tool/check_version_sync.py` was added so future release bumps cannot silently update only one of these surfaces. CI runs the version synchronization check before Flutter dependency/build work.
+`tool/check_version_sync.py` was added so future release bumps cannot silently update only one version surface. CI runs it before Flutter dependency/build work. The checker also requires a positive build number and matching version-specific release notes.
 
-The checker also requires a positive build number and matching version-specific release notes.
+## Major 2.0.12 hardening
 
-## Major 2.0.12 engineering hardening
+### Editor data integrity
 
-### Editor save ordering and final-draft protection
-
-The editor now protects against overlapping asynchronous saves:
-
-- Every submitted save captures an immutable draft.
+- Every submitted editor save captures an immutable draft.
 - `AsyncSerialQueue` executes submitted writes in order.
-- A stale save completion cannot mark newer visible content as already saved.
-- Lifecycle/background saves use the same queue.
-- The serial queue now supports typed task results so callers can require a successful save.
+- The queue now supports typed task results.
+- Stale save completions cannot mark newer visible content as already saved.
+- Lifecycle/background saves use the same ordered queue.
+- Normal Back navigation captures and saves the current draft before allowing the route to pop.
+- A failed final save keeps the editor open with user-visible feedback.
+- The pop guard waits for a rebuilt `canPop` frame before the programmatic pop.
+- Version-history and Markdown-export actions require a successful current-draft save before they start.
+- Initial note-load failure shows a retryable error instead of an endless spinner.
+- Version-query, restore, and export errors are contained with user feedback.
 
-Normal back navigation is guarded:
-
-- The editor captures/saves the current draft before permitting the route to pop.
-- If the save fails, the editor stays open.
-- The user receives `Could not save this note. Resolve the save problem before leaving.`
-- The pop guard is rebuilt before the programmatic pop to avoid a stale `canPop` frame.
-
-Version-history and Markdown-export actions now require the current draft to save successfully before starting. This prevents those actions from proceeding against stale persisted content after a save failure.
-
-Initial note-load failures no longer leave an endless progress indicator. The editor shows a retryable `Could not open this note` state.
-
-Version-query, restore, and export failures are contained with user-visible feedback.
-
-Regression coverage includes:
+Regression coverage:
 
 - `test/core/async_serial_queue_test.dart`
 - `test/widgets/note_editor_save_test.dart`
 - `test/widgets/note_editor_accessibility_test.dart`
 
-### Notes browser mutation reliability
+### Notes browser reliability
 
-The notes browser now contains failures around:
+The notes browser contains failures around create/open/pin/favorite/archive/trash/undo/restore/permanent-delete/empty-trash operations and reports concise SnackBar feedback instead of leaking async storage errors.
 
-- Create note.
-- Open note.
-- Pin/unpin.
-- Favorite/unfavorite.
-- Archive/unarchive.
-- Move to trash.
-- Undo trash.
-- Restore.
-- Permanent delete.
-- Empty trash.
+The HomeShell floating-action new-note path has the same protection.
 
-Failures produce concise SnackBar feedback instead of leaking asynchronous storage errors through UI callbacks.
+### Collection-aware filter metadata
 
-The HomeShell floating-action new-note path received the same protection.
+Folder/tag choices use the same collection predicate as note listing:
 
-### Collection-aware folder/tag filtering
+- All Notes: active/non-archived metadata.
+- Favorites: active favorites only.
+- Archive: archived/non-trashed metadata.
+- Trash: trashed metadata.
 
-A concrete filtering defect was fixed: folder/tag metadata was previously effectively global and Trash metadata was excluded, which could make trashed folders/tags impossible to select while other collections advertised irrelevant choices.
-
-Final behavior:
-
-- All Notes metadata contains active/non-archived notes only.
-- Favorites metadata contains active favorites only.
-- Archive metadata contains archived/non-trashed notes only.
-- Trash metadata contains trashed notes.
-- Switching collection clears stale folder/tag selections from the previous collection.
-- The same `_matchesCollection` predicate is reused for note listing and filter metadata.
+Switching collection clears stale folder/tag selections from the previous collection.
 
 Regression coverage:
 
@@ -98,7 +73,7 @@ Regression coverage:
 
 ### Collection-specific empty states
 
-All Notes can create/import. Favorites, Archive, and Trash no longer offer creation/import actions whose results would be hidden by the current collection.
+All Notes can create/import. Favorites, Archive, and Trash no longer offer creation/import actions whose result would be hidden by the current collection.
 
 Regression coverage:
 
@@ -106,19 +81,19 @@ Regression coverage:
 
 ### Settings persistence ordering and rollback
 
-A new injectable `SettingsStore` boundary separates settings state from the `shared_preferences` plugin.
+A new injectable `SettingsStore` boundary separates settings state from the preference plugin.
 
 `AppSettingsController` now:
 
 - Loads settings atomically.
 - Serializes preference mutations.
 - Tracks the last successfully persisted value.
-- Rolls back a failed optimistic theme/text-size/reduced-motion/app-lock value when that failed value is still current.
+- Rolls back a failed optimistic theme/text-size/reduced-motion/app-lock value when appropriate.
 - Does not let an older failed write overwrite a newer requested value.
 
-`SettingsRepository` now treats a reported failed preference setter result as a real `StorageException` instead of silently assuming persistence succeeded.
+`SettingsRepository` treats a reported failed preference setter result as `StorageException` rather than silently assuming persistence succeeded.
 
-Settings UI catches persistence failures and reports that the previous saved value was restored.
+Settings UI reports persistence failure and explains that the previous saved value was restored.
 
 Regression coverage:
 
@@ -127,48 +102,37 @@ Regression coverage:
 
 ### Persistence-first onboarding
 
-Onboarding no longer marks completion optimistically before storage succeeds.
-
-Final behavior:
-
-- Completion is persisted first.
-- Only then is `onboardingComplete` changed and the app allowed to leave onboarding.
-- A failed write leaves onboarding visible and retryable.
-- The button enters a busy state while completion is being saved.
-- Failure produces `Could not save onboarding progress. Please try again.`
+- Completion is persisted before the app leaves onboarding.
+- A failed write keeps onboarding visible and retryable.
+- The completion button enters a busy state while saving.
+- Failure produces user-visible feedback.
 
 Regression coverage:
 
 - `test/app/app_settings_controller_test.dart`
 - `test/widgets/onboarding_page_test.dart`
 
-### Application bootstrap cleanup
+### Bootstrap cleanup
 
-The app already had a startup fallback UI for dependency-initialization failures. The dependency factory now also cleans up the partially created settings controller and database if initial settings loading fails before dependencies are returned.
+The app already had a startup failure UI. `AppDependencies.create()` now also disposes the settings controller and closes the database if initial settings loading fails before dependencies are returned.
 
-This avoids leaving locally created resources open during a failed bootstrap path.
+### Bounded native imports
 
-### Bounded native file imports
+Native Markdown/text and backup imports use `withData: false` and a cached path.
 
-Native Markdown/text and backup imports no longer request eager `file_picker` byte loading.
+`BoundedFileReader`:
 
-Current import pipeline:
+1. Checks reported file length.
+2. Reads incrementally from disk.
+3. Re-checks accumulated bytes after each chunk before adding them to the final buffer.
+4. Converts filesystem failures to `ImportExportException`.
 
-1. Picker returns a cached native path with `withData: false`.
-2. `BoundedFileReader` checks the reported file length.
-3. The file is read incrementally from disk.
-4. Accumulated byte length is validated after each chunk before it is added to the final buffer.
-5. Strict UTF-8 decoding happens only after the bounded read.
-6. Markdown/backup structured parsing happens after decoding.
-
-Current ceilings:
+Limits:
 
 - Markdown/text: **16 MiB**
 - NoteNest JSON backup: **64 MiB**
 
-Filesystem read failures become `ImportExportException`.
-
-The platform picker/provider can still perform its own caching before NoteNest receives a path, so real-device/provider testing remains required.
+Strict UTF-8 decoding and structured parsing occur only after the bounded read.
 
 Regression coverage:
 
@@ -177,42 +141,42 @@ Regression coverage:
 
 ### Backup/restore validation
 
-The backup parser now rejects malformed data before restore writes for all of these invariants:
+Before restore writes, the parser validates:
 
-- Root is a JSON object.
+- Root JSON object.
 - `app == "NoteNest"`.
-- Supported backup schema version.
-- Valid explicit-UTC root `exportedAt` timestamp.
-- `notes` and `versions` have expected list shape.
-- Required text/bool/integer/timestamp fields have expected types.
-- Serialized tags decode to text lists.
-- Imported tags are canonicalized by trimming, dropping empty values, deduplicating, sorting, and re-encoding.
-- Incoming note IDs are non-empty, unique, and free of surrounding whitespace.
-- Version note IDs are non-empty/free of surrounding whitespace and reference an incoming/existing note.
-- `colorValue` is null or a valid 32-bit ARGB integer from `0x00000000` through `0xFFFFFFFF`.
-- Note/version timestamps are explicit UTC values ending in `Z`.
-- Note `updatedAt` is not earlier than `createdAt`.
-- A note/version cannot be both archived and trashed.
-- A trashed note/version cannot be pinned.
+- Supported backup schema.
+- Valid explicit-UTC root `exportedAt`.
+- Notes/version list shape.
+- Required field types.
+- Serialized tag lists.
+- Canonical imported tags: trim, remove empty, deduplicate, sort, re-encode.
+- Non-empty unique note IDs without surrounding whitespace.
+- Version IDs without surrounding whitespace and valid note relationships.
+- `colorValue` null or within 32-bit ARGB range.
+- Explicit UTC note/version timestamps ending in `Z`.
+- Note `updatedAt >= createdAt`.
+- No archived+trashed state.
+- No pinned+trashed state.
 
-Only after validation does the restore transaction begin.
+Only after validation does the restore transaction begin. Newer local notes continue to win conflicts and duplicate snapshots are not added again.
 
-Conflict behavior still preserves a newer local note over an older imported copy, and duplicate snapshots are not added again.
+Regression coverage:
 
-Regression coverage is concentrated in `test/data/backup_repository_test.dart`.
+- `test/data/backup_repository_test.dart`
 
 ### Cross-platform/Unicode-safe Markdown export names
 
 `SafeFileName` now:
 
-- Replaces invalid/control filename characters.
+- Replaces invalid/control characters.
 - Normalizes whitespace.
 - Removes trailing dots/spaces.
 - Protects Windows reserved names such as `CON`, `NUL`, `COM1`, and `LPT9`.
 - Preserves Unicode.
-- Enforces the configured basename limit.
+- Enforces the basename limit.
 - Falls back to `untitled-note` when needed.
-- Truncates by Unicode code points instead of splitting a UTF-16 surrogate pair at the boundary.
+- Truncates by Unicode code points rather than splitting a surrogate pair at the boundary.
 
 Regression coverage:
 
@@ -220,21 +184,9 @@ Regression coverage:
 
 ### Safe external-link boundary
 
-`ExternalLinkService` centralizes external URI launching for:
+`ExternalLinkService` centralizes user-triggered repository, funding, business-email, support-email, and Releases links.
 
-- Repository link.
-- Buy Me a Coffee.
-- Business emails.
-- Support email.
-- GitHub Releases.
-
-The service:
-
-- Accepts an injectable launcher for tests.
-- Uses external-application launch mode by default.
-- Converts launcher refusal/exception into `false`.
-
-About and Settings show user-visible failure feedback instead of leaking launcher/plugin errors.
+It accepts an injectable launcher, uses external-application launch mode by default, and converts launcher refusal/exception into a safe `false` result. About and Settings show failure feedback.
 
 Regression coverage:
 
@@ -243,13 +195,13 @@ Regression coverage:
 
 ### Note-color accessibility
 
-The editor color selector uses:
+The custom editor palette uses:
 
-- Shared 48 logical-pixel minimum custom interaction target.
-- Explicit semantic selected state.
-- Visible checkmark for the selected color.
-- Reset icon for the default/no-color choice.
-- Descriptive tooltip/semantic labels.
+- 48 logical-pixel minimum custom target.
+- Explicit selected semantics.
+- Visible checkmark for selection.
+- Reset cue for the default/no-color choice.
+- Descriptive tooltips/semantic labels.
 
 Regression coverage:
 
@@ -259,18 +211,16 @@ Regression coverage:
 
 ### Exact Flutter pin
 
-Flutter `3.44.7` is pinned consistently in:
+Flutter `3.44.7` is pinned in:
 
 - `.flutter-version`
 - `.github/workflows/ci.yml`
 - `.github/workflows/platform-builds.yml`
 - `.github/workflows/release.yml`
 
-This avoids silently building the same source against a newly moved stable Flutter version.
-
 ### CI quality gate
 
-The configured quality sequence includes:
+Configured sequence includes:
 
 ```bash
 python3 tool/check_version_sync.py
@@ -286,15 +236,13 @@ python3 tool/security_scan.py
 
 ### Repository tools
 
-- `tool/bootstrap_platforms.py` — deterministic native-runner generation plus NoteNest local-auth platform patches.
-- `tool/check_version_sync.py` — package/UI/changelog/release-note version consistency.
-- `tool/check_repo.py` — required repository baseline, generated-file policy, unfinished source markers, important ignore rules.
-- `tool/check_markdown_links.py` — deterministic repository-local Markdown link validation.
-- `tool/security_scan.py` — lightweight tracked credential-pattern scan without echoing matched values.
+- `tool/bootstrap_platforms.py`
+- `tool/check_version_sync.py`
+- `tool/check_repo.py`
+- `tool/check_markdown_links.py`
+- `tool/security_scan.py`
 
-## 2.0.12 documentation synchronized
-
-Release/user documentation updated for this candidate includes:
+## Documentation synchronized for 2.0.12
 
 - `README.md`
 - `CHANGELOG.md`
@@ -309,7 +257,7 @@ Release/user documentation updated for this candidate includes:
 - `docs/releases/2.0.12.md`
 - `what_changed.md`
 
-Existing accessibility, performance, troubleshooting, support, contribution, code-of-conduct, GitHub-operations, and ADR documentation remains part of the repository baseline.
+Existing accessibility, performance, troubleshooting, support, contribution, code-of-conduct, GitHub-operations, and ADR documentation remains part of the baseline.
 
 ## Current regression inventory
 
@@ -346,9 +294,9 @@ Existing accessibility, performance, troubleshooting, support, contribution, cod
 - `test/widgets/notes_page_empty_state_test.dart`
 - `test/widgets/onboarding_page_test.dart`
 
-This inventory describes tests present in the repository. It does not claim a green Flutter test run until CI/a Flutter-enabled host actually executes them.
+This inventory describes tests present in the repository. It does not claim a green Flutter run until CI or a Flutter-enabled host executes them.
 
-## Static source-review results
+## Static source-review signals
 
 The final GitHub code-search pass found no indexed matches for:
 
@@ -356,17 +304,15 @@ The final GitHub code-search pass found no indexed matches for:
 - `FIXME:`
 - `HACK:`
 
-Earlier final hardening also removed the native import `withData: true` path and direct feature-level external launcher calls.
+Earlier final hardening removed the native import `withData: true` path and direct feature-level external launcher calls.
 
-Code-search results are a static signal only and are not a formatter/analyzer/test substitute.
+These are static signals, not formatter/analyzer/test substitutes.
 
-## Verification performed/blocked in this environment
+## Local verification limitation
 
-### Local clean-clone attempt
+A clean clone was attempted in the execution container so the repository's Python tools could run directly. The container could not resolve `github.com` because outbound DNS/network access is unavailable there.
 
-A clean clone was attempted in the execution container to run the Python repository quality tools directly. The container could not resolve `github.com` because outbound DNS/network access is unavailable there.
-
-Therefore the following local commands are **not claimed as executed successfully** in this environment:
+Therefore these local commands are not claimed as successfully executed in this environment:
 
 ```bash
 python tool/check_version_sync.py
@@ -375,59 +321,63 @@ python tool/check_markdown_links.py
 python tool/security_scan.py
 ```
 
-The connected GitHub API remained available for source inspection and repository edits.
+The connected GitHub API remained available for repository inspection and edits.
 
-### Flutter/native verification
+The environment also does not provide the full Flutter/native build toolchain needed to claim formatter/analyzer/tests/native builds or real-device verification.
 
-The execution environment does not provide a usable Flutter/Dart native build toolchain for this repository, so it cannot honestly claim:
+## PR-based 2.0.12 verification
 
-- `dart format` pass.
-- `flutter analyze` pass.
-- `flutter test` pass.
-- Android build pass.
-- Windows build pass.
-- Linux build pass.
-- macOS build pass.
-- iOS no-codesign build pass.
-- Real-device app-lock/file-picker/external-link checks.
-- Runtime screenshots.
-- Manual screen-reader/desktop-keyboard matrix.
+A dedicated verification PR is open:
 
-A PR-based verification branch is created after this handoff specifically so the configured GitHub Actions checks can be inspected through PR-triggered workflow status.
+- PR: **#5 — `ci: verify NoteNest 2.0.12 release candidate`**
+- Base: `main`
+- Head: `verify/2.0.12-ci`
+- PR head commit: `7118196855fb8d9b60743bc3b35eac68702955fd`
+- Runtime difference: one non-functional source comment plus a verification checkpoint document
+
+The `lib/**` source touch intentionally makes the native platform-build workflow eligible in addition to CI/security.
+
+Latest inspected PR-triggered workflow state:
+
+- **Platform builds** — run 86 / ID `32255557942` — `queued`
+- **CI** — run 169 / ID `32255558015` — `queued`
+- **Security checks** — run 152 / ID `32255558014` — `queued`
+- CI job `Format, analyze, test` — job ID `96076320065` — `queued`
+
+No green result is claimed while these jobs remain queued. PR #5 should not be merged merely to make the release appear verified.
 
 ## Commit-email limitation
 
 Requested project commit email: `sanskarin@outlook.in`.
 
-The connected GitHub file-write API does not expose a per-file author/committer email override. Connector-created commits use the connected integration identity.
+The connected GitHub contents API does not expose a per-file author/committer email override, so connector-created commits use the connected integration identity.
 
-For local Git work use:
+For local Git work:
 
 ```bash
 git config user.email "sanskarin@outlook.in"
 ```
 
-## Stable 2.0.12 release blockers
+## Remaining stable 2.0.12 blockers
 
-The remaining work is verification/release-environment work rather than intentionally omitted core functionality:
+These are verification/distribution tasks rather than intentionally omitted core functionality:
 
-1. Obtain completed green CI quality checks on the current candidate.
-2. Obtain completed Android/Windows/Linux/macOS/iOS compile/build checks where configured.
-3. Fix any actual formatter/analyzer/test/native failures those jobs reveal.
-4. Run the clean-checkout Python quality tools and Flutter quality gate on a Flutter-enabled host.
-5. Verify rapid-edit → immediate Back saves the newest draft before navigation.
-6. Verify a real/simulated editor storage failure blocks Back/export/history safely.
-7. Verify note-browser mutation failure feedback.
-8. Verify settings persistence ordering/rollback and persistence-first onboarding on representative targets.
-9. Verify collection-scoped filters, including Trash folder/tag metadata.
-10. Verify bounded oversized Markdown/backup rejection through real picker/provider behavior.
-11. Verify backup export/restore and malformed UTC/color/ID/lifecycle rejection with fictional data.
-12. Verify repository/funding/mail/release links and no-handler behavior.
-13. Verify app lock on supported and unsupported targets.
-14. Complete keyboard, screen-reader, large-text, light/dark, reduced-motion, and custom-color accessibility review.
-15. Replace illustrative layout artwork with verified runtime screenshots before making screenshot claims.
-16. Prepare signed/distribution artifacts where applicable and publish SHA-256 checksums.
-17. Create `v2.0.12` only on the exact commit that passed the release checklist.
+1. Obtain completed green CI/security/platform-build results on the current candidate.
+2. Fix any formatter/analyzer/test/native failures those jobs reveal.
+3. Run the clean-checkout Python and Flutter quality gates on a Flutter-enabled host.
+4. Verify rapid-edit → immediate Back saves the newest draft before navigation.
+5. Verify a real/simulated editor storage failure blocks Back/export/history safely.
+6. Verify note-browser mutation failure feedback.
+7. Verify settings persistence ordering/rollback and persistence-first onboarding on representative targets.
+8. Verify collection-scoped filters, including Trash metadata.
+9. Verify bounded oversized Markdown/backup rejection through real picker/provider behavior.
+10. Verify backup export/restore and malformed timestamp/color/ID/lifecycle rejection using fictional data.
+11. Verify repository/funding/mail/release links and no-handler behavior.
+12. Verify app lock on supported and unsupported targets.
+13. Complete keyboard, screen-reader, large-text, light/dark, reduced-motion, and custom-color accessibility review.
+14. Replace illustrative layout artwork with verified runtime screenshots before making screenshot claims.
+15. Prepare distribution signing status/artifacts and SHA-256 checksums.
+16. Create `v2.0.12` only on the exact commit that passed the full release checklist.
 
 ## Release-readiness statement
 
