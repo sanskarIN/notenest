@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:notenest/app/app_dependencies.dart';
 import 'package:notenest/core/constants/app_strings.dart';
@@ -98,7 +100,9 @@ class _HomeShellState extends State<HomeShell> {
               : content,
           floatingActionButton: _index == 0
               ? FloatingActionButton.extended(
-                  onPressed: _createNote,
+                  onPressed: () {
+                    unawaited(_createNote());
+                  },
                   icon: const Icon(Icons.add_rounded),
                   label: const Text(AppStrings.newNote),
                 )
@@ -136,18 +140,29 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Future<void> _createNote() async {
-    final Note note = await _notes.createNote();
-    if (!mounted) return;
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) => NoteEditorPage(
-          noteId: note.id,
-          repository: widget.dependencies.notes,
-          files: widget.dependencies.files,
+    try {
+      final Note note = await _notes.createNote();
+      if (!mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (BuildContext context) => NoteEditorPage(
+            noteId: note.id,
+            repository: widget.dependencies.notes,
+            files: widget.dependencies.files,
+          ),
         ),
-      ),
-    );
-    if (mounted) await _notes.load(showLoading: false);
+      );
+      if (mounted) await _notes.load(showLoading: false);
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not create or open a new note. Existing notes were not changed.',
+          ),
+        ),
+      );
+    }
   }
 
   void _select(int value) {
