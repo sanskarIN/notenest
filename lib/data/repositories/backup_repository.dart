@@ -20,6 +20,7 @@ final class BackupRepository {
   BackupRepository(this._db);
 
   static const int backupSchemaVersion = 1;
+  static const int _maxColorValue = 0xFFFFFFFF;
   final AppDatabase _db;
 
   Future<String> exportJson() async {
@@ -113,9 +114,15 @@ final class BackupRepository {
   ) async {
     final Set<String> incomingIds = <String>{};
     for (final NotesCompanion note in notes) {
-      final String id = note.id.value.trim();
+      final String rawId = note.id.value;
+      final String id = rawId.trim();
       if (id.isEmpty) {
         throw const ValidationException('Backup note id must not be empty.');
+      }
+      if (rawId != id) {
+        throw const ValidationException(
+          'Backup note id must not contain surrounding whitespace.',
+        );
       }
       if (!incomingIds.add(id)) {
         throw const ValidationException('Backup contains duplicate note ids.');
@@ -127,7 +134,13 @@ final class BackupRepository {
     knownIds.addAll(localNotes.map((Note note) => note.id));
 
     for (final NoteVersionsCompanion version in versions) {
-      final String noteId = version.noteId.value.trim();
+      final String rawNoteId = version.noteId.value;
+      final String noteId = rawNoteId.trim();
+      if (rawNoteId != noteId) {
+        throw const ValidationException(
+          'Backup version note id must not contain surrounding whitespace.',
+        );
+      }
       if (noteId.isEmpty || !knownIds.contains(noteId)) {
         throw const ValidationException(
           'Backup version references a note that does not exist.',
@@ -167,19 +180,26 @@ final class BackupRepository {
 
   NotesCompanion _parseNote(Object? raw) {
     final Map<String, Object?> map = _map(raw, 'note');
+    final DateTime createdAt = _date(map, 'createdAt');
+    final DateTime updatedAt = _date(map, 'updatedAt');
+    if (updatedAt.isBefore(createdAt)) {
+      throw const ValidationException(
+        'Backup note updatedAt must not be earlier than createdAt.',
+      );
+    }
     return NotesCompanion(
       id: Value<String>(_string(map, 'id')),
       title: Value<String>(_string(map, 'title')),
       body: Value<String>(_string(map, 'body')),
       folder: Value<String>(_string(map, 'folder')),
       tags: Value<String>(_tagsJson(map, 'tags')),
-      colorValue: Value<int?>(_nullableInt(map, 'colorValue')),
+      colorValue: Value<int?>(_nullableColor(map, 'colorValue')),
       isPinned: Value<bool>(_bool(map, 'isPinned')),
       isFavorite: Value<bool>(_bool(map, 'isFavorite')),
       isArchived: Value<bool>(_bool(map, 'isArchived')),
       isTrashed: Value<bool>(_bool(map, 'isTrashed')),
-      createdAt: Value<DateTime>(_date(map, 'createdAt')),
-      updatedAt: Value<DateTime>(_date(map, 'updatedAt')),
+      createdAt: Value<DateTime>(createdAt),
+      updatedAt: Value<DateTime>(updatedAt),
     );
   }
 
@@ -191,7 +211,7 @@ final class BackupRepository {
       body: Value<String>(_string(map, 'body')),
       folder: Value<String>(_string(map, 'folder')),
       tags: Value<String>(_tagsJson(map, 'tags')),
-      colorValue: Value<int?>(_nullableInt(map, 'colorValue')),
+      colorValue: Value<int?>(_nullableColor(map, 'colorValue')),
       isPinned: Value<bool>(_bool(map, 'isPinned')),
       isFavorite: Value<bool>(_bool(map, 'isFavorite')),
       isArchived: Value<bool>(_bool(map, 'isArchived')),
@@ -233,18 +253,28 @@ final class BackupRepository {
     throw ValidationException('Backup field "$key" must be true or false.');
   }
 
-  int? _nullableInt(Map<String, Object?> map, String key) {
+  int? _nullableColor(Map<String, Object?> map, String key) {
     final Object? value = map[key];
-    if (value == null || value is int) return value as int?;
-    throw ValidationException('Backup field "$key" must be an integer or null.');
+    if (value == null) return null;
+    if (value is! int || value < 0 || value > _maxColorValue) {
+      throw ValidationException(
+        'Backup field "$key" must be null or a 32-bit ARGB color integer.',
+      );
+    }
+    return value;
   }
 
   DateTime _date(Map<String, Object?> map, String key) {
     final String value = _string(map, key);
-    final DateTime? parsed = DateTime.tryParse(value);
-    if (parsed == null) {
-      throw ValidationException('Backup field "$key" is not a valid date.');
+    if (!value.endsWith('Z')) {
+      throw ValidationException(
+        'Backup field "$key" must be an explicit UTC timestamp ending in Z.',
+      );
     }
-    return parsed.toUtc();
+    final DateTime? parsed = DateTime.tryParse(value);
+    if (parsed == null || !parsed.isUtc) {
+      throw ValidationException('Backup field "$key" is not a valid UTC date.');
+    }
+    return parsed;
   }
 }
