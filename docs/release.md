@@ -9,8 +9,8 @@ Current release-candidate target: **2.0.12** (`2.0.12+2012`).
 - Release from a clean, reviewed commit.
 - Keep package version, visible app version, changelog, release notes, and documentation synchronized.
 - Use the Flutter SDK version pinned by `.flutter-version`; the current NoteNest 2.0.12 release-candidate pin is **3.44.7**.
-- Keep the exact Flutter version in CI, platform-build, and release workflows synchronized with `.flutter-version`.
-- Generate native runners using the documented script.
+- Keep the exact Flutter version in CI, platform-build, and release workflows synchronized with `.flutter-version`; the version-sync gate enforces this relationship.
+- Generate native runners using the documented script and treat a bootstrap patch-verification failure as a release blocker until the template change is reviewed.
 - Generate Drift code using the pinned project dependencies.
 - Run the full quality gate before packaging.
 - Build each native target on a supported host OS.
@@ -31,6 +31,7 @@ version: 2.0.12+2012
 - `AppStrings.version` must be exactly `2.0.12`.
 - `CHANGELOG.md` must contain a `## [2.0.12]` section.
 - `docs/releases/2.0.12.md` must exist and contain the exact package/visible version values.
+- `.flutter-version` must be an exact semantic SDK pin and every Flutter GitHub Actions workflow pin must match it.
 
 The repository enforces these relationships with:
 
@@ -46,9 +47,9 @@ Before a future release:
 4. Update `AppStrings.version`.
 5. Add/update the matching changelog section.
 6. Add `docs/releases/<version>.md`.
-7. Run `python tool/check_version_sync.py` before other release work.
-8. Confirm `README.md`, privacy/security docs, roadmap, and handoff still match behavior.
-9. Confirm `.flutter-version` and every Flutter GitHub Actions workflow use the same SDK version.
+7. Update `.flutter-version` and every Flutter workflow together if the SDK changes.
+8. Run `python tool/check_version_sync.py` before other release work.
+9. Confirm `README.md`, privacy/security docs, roadmap, and handoff still match behavior.
 
 ## Clean checkout verification
 
@@ -74,6 +75,8 @@ flutter pub get
 dart run build_runner build --delete-conflicting-outputs
 ```
 
+`tool/bootstrap_platforms.py` validates that the required Android authentication/minimum-SDK/AppCompat configuration and the iOS Face ID usage description were actually applied. If a future Flutter template changes those paths, the script is expected to fail instead of silently producing an incompletely patched runner.
+
 ## Quality gate
 
 Run:
@@ -85,11 +88,12 @@ dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --coverage
 python tool/check_repo.py
+python tool/check_repository_reference.py
 python tool/check_markdown_links.py
 python tool/security_scan.py
 ```
 
-`tool/check_version_sync.py` verifies package/UI/changelog/release-note synchronization. `tool/check_markdown_links.py` validates repository-local links in tracked Markdown without depending on live third-party sites. Run `flutter doctor -v` and record relevant host/toolchain versions for reproducibility.
+`tool/check_version_sync.py` verifies package/UI/changelog/release-note synchronization and Flutter workflow pin synchronization. `tool/check_repo.py` enforces the required repository/documentation/automation baseline. `tool/check_repository_reference.py` proves that every tracked path is represented exactly once in the exhaustive repository catalog. `tool/check_markdown_links.py` validates repository-local links in tracked Markdown without depending on live third-party sites. Run `flutter doctor -v` and record relevant host/toolchain versions for reproducibility.
 
 ## Manual product smoke test
 
@@ -97,24 +101,26 @@ Use fictional data and exercise:
 
 1. Fresh first run/onboarding.
 2. Create, edit, autosave, rapidly edit again, then close/reopen the note to confirm the newest draft wins.
-3. Folder, tags, color, pin, and favorite.
-4. Verify note-color selection has a visible selected cue and usable touch target.
-5. Full-text search.
-6. Archive/unarchive.
-7. Trash/restore.
-8. Permanent delete confirmation.
-9. Version snapshot/restore.
-10. Markdown import/export, including a title that would be a reserved/invalid filename on Windows.
-11. Oversized Markdown/text import rejection beyond 16 MiB.
-12. JSON backup export and conflict-safe restore.
-13. Oversized JSON backup rejection beyond 64 MiB.
-14. Theme modes.
-15. Large text.
-16. Reduced motion.
-17. Repository/funding/business/support email links from About.
-18. Release-updates link from Settings.
-19. External-link failure feedback on a platform/device where an external handler is unavailable.
-20. Optional app lock on a supported device and safe failure on unsupported targets.
+3. Place the caret at offset zero in a note that starts with an empty line and verify Heading/Bullet/Checklist formatting applies to that first line.
+4. Folder, tags, color, pin, and favorite.
+5. Verify note-color selection has a visible selected cue and usable touch target.
+6. Full-text search.
+7. Archive/unarchive.
+8. Trash/restore.
+9. Permanent delete confirmation.
+10. Version snapshot/restore.
+11. Markdown import/export, including a title that would be a reserved/invalid filename on Windows.
+12. Oversized Markdown/text import rejection beyond 16 MiB.
+13. JSON backup export and conflict-safe restore.
+14. Oversized JSON backup rejection beyond 64 MiB.
+15. Theme modes.
+16. Large text.
+17. Reduced motion.
+18. Repository/funding/business/support email links from About.
+19. Release-updates link from Settings.
+20. External-link failure feedback on a platform/device where an external handler is unavailable.
+21. Optional app lock on a supported device and safe failure on unsupported targets.
+22. Controlled root-app teardown where practical to confirm owned settings/database resources dispose without lifecycle errors.
 
 Do not use real personal notes for release testing.
 
@@ -262,7 +268,7 @@ Avoid marketing claims such as “bug-free” or “fully secure.” State what 
 
 ## Release workflow automation
 
-GitHub Actions generates compile-validation artifacts for supported targets. The workflow uses the same exact Flutter SDK version as the project pin so a tagged build cannot silently move to a newer stable SDK.
+GitHub Actions generates compile-validation artifacts for supported targets. The workflow uses the same exact Flutter SDK version as the project pin so a tagged build cannot silently move to a newer stable SDK. The separate platform-build workflow is also path-filtered for bundled `assets/**`, source, build metadata, and runner-bootstrap changes so asset-only changes cannot bypass compile verification.
 
 Automated artifacts still require review. Store signing secrets should be configured only in appropriate protected CI secrets/environments and only when a distribution workflow is intentionally added. The project does not embed any real release signing secret.
 
@@ -285,9 +291,13 @@ If a solo-maintainer workflow needs direct maintenance pushes, choose rules that
 - [x] `AppStrings.version` set to `2.0.12`.
 - [x] Matching changelog section prepared.
 - [x] Matching `docs/releases/2.0.12.md` prepared.
-- [x] Version synchronization checker added to CI.
+- [x] Version/toolchain synchronization checker added to CI.
+- [x] Repository-reference checker added to CI.
+- [x] Native bootstrap now verifies required platform patches instead of silently accepting template drift.
+- [x] Platform-build workflow includes bundled asset changes in its verification paths.
 - [ ] `python tool/check_version_sync.py` passes on clean checkout/CI.
 - [ ] `.flutter-version` matches CI/platform/release workflow Flutter versions on the verified candidate.
+- [ ] `python tool/check_repository_reference.py` passes on the exact candidate.
 - [ ] `flutter --version` matches the project pin on verification hosts.
 - [ ] `what_changed.md` finalized for 2.0.12 verification results.
 - [ ] Clean checkout/setup succeeds.
@@ -306,6 +316,8 @@ If a solo-maintainer workflow needs direct maintenance pushes, choose rules that
 - [ ] iOS no-codesign compile verified on macOS.
 - [ ] Manual primary journeys verified.
 - [ ] Serialized autosave final-draft behavior manually verified.
+- [ ] First-line editor formatting boundary manually smoke-tested.
+- [ ] Root dependency teardown lifecycle manually/automatically verified where practical.
 - [ ] Bounded oversized import rejection manually verified through real picker/provider behavior.
 - [ ] External-link success/failure paths verified on representative targets.
 - [ ] Accessibility checks recorded.
