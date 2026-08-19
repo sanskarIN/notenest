@@ -112,7 +112,9 @@ class _NotesPageState extends State<NotesPage> {
         title: 'Could not load notes',
         message: 'Your notes remain on this device. Try loading them again.',
         action: FilledButton.icon(
-          onPressed: controller.load,
+          onPressed: () {
+            unawaited(controller.load());
+          },
           icon: const Icon(Icons.refresh_rounded),
           label: const Text('Retry'),
         ),
@@ -146,18 +148,57 @@ class _NotesPageState extends State<NotesPage> {
               final Note note = controller.notes[index];
               return NoteCard(
                 note: note,
-                onOpen: () => _openEditor(note),
-                onFavorite: () => controller.setFavorite(
-                  note,
-                  value: !note.isFavorite,
-                ),
-                onPin: () => controller.setPinned(note, value: !note.isPinned),
-                onArchive: () => note.isArchived
-                    ? controller.unarchive(note)
-                    : controller.archive(note),
-                onTrash: () => _trashWithUndo(note),
-                onRestore: () => controller.restore(note),
-                onDeleteForever: () => _deleteForever(note),
+                onOpen: () {
+                  unawaited(_openEditor(note));
+                },
+                onFavorite: () {
+                  unawaited(
+                    _runNoteAction(
+                      () => controller.setFavorite(
+                        note,
+                        value: !note.isFavorite,
+                      ),
+                      failureMessage: 'Could not update the favorite state.',
+                    ),
+                  );
+                },
+                onPin: () {
+                  unawaited(
+                    _runNoteAction(
+                      () => controller.setPinned(
+                        note,
+                        value: !note.isPinned,
+                      ),
+                      failureMessage: 'Could not update the pin state.',
+                    ),
+                  );
+                },
+                onArchive: () {
+                  unawaited(
+                    _runNoteAction(
+                      () => note.isArchived
+                          ? controller.unarchive(note)
+                          : controller.archive(note),
+                      failureMessage: note.isArchived
+                          ? 'Could not restore this note from Archive.'
+                          : 'Could not archive this note.',
+                    ),
+                  );
+                },
+                onTrash: () {
+                  unawaited(_trashWithUndo(note));
+                },
+                onRestore: () {
+                  unawaited(
+                    _runNoteAction(
+                      () => controller.restore(note),
+                      failureMessage: 'Could not restore this note.',
+                    ),
+                  );
+                },
+                onDeleteForever: () {
+                  unawaited(_deleteForever(note));
+                },
               );
             },
           );
@@ -204,26 +245,39 @@ class _NotesPageState extends State<NotesPage> {
   }
 
   Future<void> _createNote() async {
-    final Note note = await widget.controller.createNote();
-    if (!mounted) return;
-    await _openEditor(note);
+    try {
+      final Note note = await widget.controller.createNote();
+      if (!mounted) return;
+      await _openEditor(note);
+    } on Object {
+      _message('Could not create a new note. Your existing notes were not changed.');
+    }
   }
 
   Future<void> _openEditor(Note note) async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) => NoteEditorPage(
-          noteId: note.id,
-          repository: widget.repository,
-          files: widget.files,
+    try {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (BuildContext context) => NoteEditorPage(
+            noteId: note.id,
+            repository: widget.repository,
+            files: widget.files,
+          ),
         ),
-      ),
-    );
-    if (mounted) await widget.controller.load(showLoading: false);
+      );
+      if (mounted) await widget.controller.load(showLoading: false);
+    } on Object {
+      _message('Could not open this note. Try again.');
+    }
   }
 
   Future<void> _trashWithUndo(Note note) async {
-    await widget.controller.trash(note);
+    try {
+      await widget.controller.trash(note);
+    } on Object {
+      _message('Could not move this note to trash.');
+      return;
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -232,10 +286,17 @@ class _NotesPageState extends State<NotesPage> {
         action: SnackBarAction(
           label: 'Undo',
           onPressed: () {
-            unawaited(widget.controller.restore(note));
+            unawaited(_undoTrash(note));
           },
         ),
       ),
+    );
+  }
+
+  Future<void> _undoTrash(Note note) async {
+    await _runNoteAction(
+      () => widget.controller.restore(note),
+      failureMessage: 'Could not undo the trash action.',
     );
   }
 
@@ -246,12 +307,7 @@ class _NotesPageState extends State<NotesPage> {
       await widget.controller.load(showLoading: false);
       if (mounted) await _openEditor(note);
     } on Object {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Import failed. The selected file was not changed.'),
-        ),
-      );
+      _message('Import failed. The selected file was not changed.');
     }
   }
 
@@ -261,11 +317,12 @@ class _NotesPageState extends State<NotesPage> {
       message: 'This permanently deletes every note currently in trash.',
     );
     if (!confirmed) return;
-    final int count = await widget.controller.emptyTrash();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Permanently deleted $count notes.')),
-    );
+    try {
+      final int count = await widget.controller.emptyTrash();
+      _message('Permanently deleted $count notes.');
+    } on Object {
+      _message('Could not empty trash. Some notes may still be present.');
+    }
   }
 
   Future<void> _deleteForever(Note note) async {
@@ -273,7 +330,22 @@ class _NotesPageState extends State<NotesPage> {
       title: 'Delete permanently?',
       message: 'This note and its version history cannot be recovered.',
     );
-    if (confirmed) await widget.controller.permanentlyDelete(note);
+    if (!confirmed) return;
+    await _runNoteAction(
+      () => widget.controller.permanentlyDelete(note),
+      failureMessage: 'Could not permanently delete this note.',
+    );
+  }
+
+  Future<void> _runNoteAction(
+    Future<void> Function() action, {
+    required String failureMessage,
+  }) async {
+    try {
+      await action();
+    } on Object {
+      _message(failureMessage);
+    }
   }
 
   Future<bool> _confirm({required String title, required String message}) async {
@@ -295,6 +367,11 @@ class _NotesPageState extends State<NotesPage> {
           ),
         ) ??
         false;
+  }
+
+  void _message(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
