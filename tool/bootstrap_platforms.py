@@ -3,6 +3,8 @@
 
 This script is intentionally idempotent so a clean clone can generate runner files
 with the locally installed Flutter version instead of committing stale templates.
+It also validates every required patch so upstream Flutter template drift fails
+loudly instead of producing a runner that only looks successfully configured.
 """
 
 from __future__ import annotations
@@ -32,6 +34,13 @@ def patch_android() -> None:
         "class MainActivity : FlutterActivity()",
         "class MainActivity : FlutterFragmentActivity()",
     )
+    required_import = "import io.flutter.embedding.android.FlutterFragmentActivity"
+    required_class = "class MainActivity : FlutterFragmentActivity()"
+    if required_import not in text or required_class not in text:
+        raise RuntimeError(
+            "Android MainActivity template changed; could not enforce "
+            "FlutterFragmentActivity for local_auth.",
+        )
     activity.write_text(text, encoding="utf-8")
 
     manifest = ROOT / "android/app/src/main/AndroidManifest.xml"
@@ -47,6 +56,8 @@ def patch_android() -> None:
             f">\n    {permission}",
             1,
         )
+    if permission not in manifest_text:
+        raise RuntimeError("Could not add Android USE_BIOMETRIC permission.")
     manifest.write_text(manifest_text, encoding="utf-8")
 
     gradle = ROOT / "android/app/build.gradle.kts"
@@ -57,6 +68,11 @@ def patch_android() -> None:
         "minSdk = flutter.minSdkVersion",
         "minSdk = 24",
     )
+    if "minSdk = 24" not in gradle_text:
+        raise RuntimeError(
+            "Android Gradle template changed; could not enforce minSdk = 24.",
+        )
+
     appcompat = 'implementation("androidx.appcompat:appcompat:1.7.1")'
     if appcompat not in gradle_text:
         if "dependencies {" in gradle_text:
@@ -67,6 +83,8 @@ def patch_android() -> None:
             )
         else:
             gradle_text = f"{gradle_text.rstrip()}\n\ndependencies {{\n    {appcompat}\n}}\n"
+    if appcompat not in gradle_text:
+        raise RuntimeError("Could not add Android AppCompat dependency.")
     gradle.write_text(gradle_text, encoding="utf-8")
 
     style_paths = sorted(
@@ -84,10 +102,14 @@ def patch_android() -> None:
             if "values-night" in style_path.parent.name
             else "Theme.AppCompat.Light.NoActionBar"
         )
-        style_text = pattern.sub(
+        style_text, replacements = pattern.subn(
             lambda match: f"{match.group(1)}{appcompat_theme}{match.group(3)}",
             style_text,
         )
+        if replacements == 0 or appcompat_theme not in style_text:
+            raise RuntimeError(
+                f"Android style template changed; could not patch {style_path}.",
+            )
         style_path.write_text(style_text, encoding="utf-8")
 
 
@@ -101,6 +123,8 @@ def patch_ios() -> None:
         "NSFaceIDUsageDescription",
         "Use Face ID to unlock your private NoteNest notes when app lock is enabled.",
     )
+    if not data.get("NSFaceIDUsageDescription"):
+        raise RuntimeError("Could not configure the iOS Face ID usage description.")
     with plist_path.open("wb") as target:
         plistlib.dump(data, target, sort_keys=False)
 
@@ -118,7 +142,7 @@ def main() -> None:
     )
     patch_android()
     patch_ios()
-    print("NoteNest platform runners are ready.")
+    print("NoteNest platform runners are ready and native requirements verified.")
 
 
 if __name__ == "__main__":
