@@ -48,7 +48,7 @@ Descriptions below explain both what each file does and why it matters when modi
 
 - `.editorconfig` — Defines repository-wide UTF-8/LF, final-newline, whitespace, and two-space indentation behavior, while preserving meaningful Markdown trailing spaces and Makefile tabs. Change this only when editor-format policy changes for the whole repository.
 - `.env.example` — Documents the only current build-channel placeholder (`NOTENEST_BUILD_CHANNEL=stable`) and explicitly states that core offline NoteNest requires no runtime secrets. Never turn this into a place for real credentials.
-- `.flutter-version` — Pins the project Flutter SDK to 3.44.7 so local tooling and automation can use the same framework revision. Keep this synchronized with every workflow that declares a Flutter version.
+- `.flutter-version` — Pins the project Flutter SDK to 3.44.7 so local tooling and automation can use the same framework revision. `tool/check_version_sync.py` now rejects any CI/platform/release Flutter action pin that drifts from this file.
 - `.gitattributes` — Normalizes repository text to LF, preserves CRLF for Windows shell scripts, and marks common image formats as binary. This prevents accidental cross-platform line-ending churn.
 - `.gitignore` — Excludes Flutter/Dart outputs, generated Drift files, local SQLite files, IDE noise, `.env` secrets, signing material, native transient directories, coverage/test artifacts, and logs while retaining `.env.example`. Security-sensitive ignore rules are also enforced by `tool/check_repo.py`.
 - `analysis_options.yaml` — Dart/Flutter static-analysis policy: Flutter lints plus strict casts/inference/raw types and async/context/formatting-oriented project rules; generated `.g.dart` files are excluded. Prefer fixing code over weakening these rules globally.
@@ -73,8 +73,8 @@ Descriptions below explain both what each file does and why it matters when modi
 - `.github/ISSUE_TEMPLATE/feature_request.yml` — Structured feature-request form for proposed NoteNest improvements. It should continue to prompt for user value, privacy/offline implications, and enough context for maintainers to assess scope.
 - `.github/dependabot.yml` — Configures automated dependency update proposals for the repository. Review its ecosystem/schedule whenever dependency-management or workflow policy changes.
 - `.github/pull_request_template.md` — Default pull-request checklist and reviewer context for code, tests, documentation, security, accessibility, and release-impact review. Keep it synchronized with the enforced quality gate.
-- `.github/workflows/ci.yml` — Primary Linux quality workflow for pushes/PRs: pins Flutter 3.44.7, verifies versions, resolves packages, generates Drift code, checks formatting/analyzer/tests, then runs repository/documentation/security policy tools and uploads coverage. Any new deterministic repository gate should be wired here.
-- `.github/workflows/platform-builds.yml` — Cross-platform compile workflow triggered by relevant source/build changes; generates runners and compiles Android, Linux, Windows, macOS, and unsigned iOS using Flutter 3.44.7. It catches native/plugin integration failures that Linux-only unit tests cannot prove away.
+- `.github/workflows/ci.yml` — Primary Linux quality workflow for pushes/PRs: pins Flutter 3.44.7, verifies application/release/toolchain versions, resolves packages, generates Drift code, checks formatting/analyzer/tests, then runs repository/reference/documentation/security policy tools and uploads coverage. Any new deterministic repository gate should be wired here.
+- `.github/workflows/platform-builds.yml` — Cross-platform compile workflow triggered by bundled assets plus relevant source/build/bootstrap changes; generates runners and compiles Android, Linux, Windows, macOS, and unsigned iOS using Flutter 3.44.7. It catches native/plugin integration failures that Linux-only unit tests cannot prove away and prevents asset-only changes from bypassing native compile verification.
 - `.github/workflows/release.yml` — Tag/manual artifact workflow that packages Android, Linux, Windows, macOS, and unsigned iOS outputs with the pinned toolchain. It is packaging automation, not permission to publish an unverified tag or unsigned store build.
 - `.github/workflows/security.yml` — Dedicated security-oriented GitHub Actions workflow for repository security checks. Keep it deterministic, least-privilege, and consistent with `SECURITY.md` and the tracked-file secret policy.
 
@@ -93,18 +93,18 @@ Descriptions below explain both what each file does and why it matters when modi
 - `docs/development.md` — Day-to-day engineering guide covering module dependency direction, database/schema work, repositories/controllers, autosave, settings, imports/backups, links, app lock, dependencies, versioning, testing, accessibility, docs, and commit discipline. Keep commands synchronized with CI.
 - `docs/github.md` — Repository-hosting operations guide for issues, pull requests, branches, checks, releases, and GitHub-side maintenance. Update when automation, review, or repository-management practices change.
 - `docs/performance.md` — Performance goals, pressure points, measurement guidance, and optimization rules for note listing/search/editor/import/snapshot behavior. Use profiling evidence before adding complexity.
-- `docs/release.md` — Release engineering procedure and checklist: version synchronization, generated code, automated checks, native builds, manual verification, signing/artifacts/checksums, and tag discipline. A tag is not considered ready merely because packaging automation exists.
+- `docs/release.md` — Release engineering procedure and checklist: application/toolchain version synchronization, generated code, repository/reference checks, native builds, manual verification, signing/artifacts/checksums, and tag discipline. A tag is not considered ready merely because packaging automation exists.
 - `docs/releases/2.0.12.md` — Version-specific engineering/release notes for the 2.0.12 candidate (`2.0.12+2012`), including hardening and verification requirements. `tool/check_version_sync.py` treats this version-specific document as a required release surface.
 - `docs/repository-reference.md` — This exhaustive tracked-file catalog and maintenance map. `tool/check_repository_reference.py` requires every tracked path—including this file—to appear exactly once here, so additions/deletions/renames must update the catalog in the same change.
 - `docs/setup.md` — Clean-clone prerequisite and setup instructions across supported development hosts, including pinned Flutter, native toolchains, runner generation, package resolution, code generation, and first run. Update whenever bootstrap prerequisites or commands change.
-- `docs/testing.md` — Testing strategy and regression inventory spanning core/service, controller, repository/database, widget, integration, accessibility, performance, migration, import/backup, and platform-build verification. It distinguishes tests present from checks actually executed successfully.
+- `docs/testing.md` — Testing strategy and regression inventory spanning core/service, controller, repository/database, widget, integration, accessibility, performance, migration, import/backup, repository/toolchain policy, and platform-build verification. It distinguishes tests present from checks actually executed successfully.
 - `docs/troubleshooting.md` — Symptom-oriented setup/build/runtime troubleshooting with recovery steps that avoid risking real user data. Extend it when recurring installation, code-generation, platform, database, or plugin failures are diagnosed.
 
 ### Application composition and core
 
 - `lib/main.dart` — Process entry point: initializes Flutter bindings, creates `AppDependencies`, launches `NoteNestApp`, and falls back to a minimal safe bootstrap-failure UI with redacted logging if initialization throws.
-- `lib/app/app.dart` — Application shell: MaterialApp configuration, theme/text scale/localization, reduced-motion media setting, onboarding routing, and lifecycle-aware app-lock gate. It consumes dependencies but intentionally does not own note persistence.
-- `lib/app/app_dependencies.dart` — Explicit composition root that creates the database, repositories, settings controller, backup/file/app-lock/link services, and logger; it also cleans partially created resources if initial settings loading fails and owns final disposal.
+- `lib/app/app.dart` — Application shell: MaterialApp configuration, theme/text scale/localization, reduced-motion media setting, onboarding routing, lifecycle-aware app-lock gate, settings-listener ownership, and final delegation to `AppDependencies.dispose()` when the root state is permanently removed.
+- `lib/app/app_dependencies.dart` — Explicit composition root that creates the database, repositories, settings controller, backup/file/app-lock/link services, and logger; it cleans partially created resources if initial settings loading fails and owns the final settings/database disposal operation invoked by the root app.
 - `lib/app/app_settings_controller.dart` — App-wide settings state with atomic loading and serialized persistence through `AsyncSerialQueue`; optimistic theme/font/motion/app-lock changes roll back to the last persisted value on applicable failures, while onboarding is persistence-first.
 - `lib/core/constants/app_strings.dart` — Central project/product strings including app identity, 2.0.12 visible version, contacts, repository/funding URLs, navigation labels, and collection-specific empty-state text. Version/contact changes should update the corresponding documentation and synchronization checks.
 - `lib/core/errors/app_exception.dart` — Small sealed exception taxonomy (`StorageException`, `ValidationException`, `ImportExportException`, `AuthenticationException`) used to translate lower-level failures into domain-meaningful boundaries without leaking raw implementation detail.
@@ -132,7 +132,7 @@ Descriptions below explain both what each file does and why it matters when modi
 
 - `lib/features/about/about_page.dart` — About/project-information UI showing identity/version/privacy/license/contact/repository/funding details. User-triggered external actions go through `ExternalLinkService` and surface launch failure safely.
 - `lib/features/home/home_shell.dart` — Responsive top-level feature shell selecting compact bottom navigation or wider navigation rail, routing major areas, and protecting the floating new-note path from uncaught repository/navigation failures.
-- `lib/features/notes/note_editor_page.dart` — Primary note-editing UI: note loading, immutable draft capture, debounced/serialized autosave, save-before-pop, lifecycle saves, Markdown-lite actions, metadata/color editing, version history, export, and retryable error feedback. Data integrity here depends on `NoteRepository` and `AsyncSerialQueue` contracts.
+- `lib/features/notes/note_editor_page.dart` — Primary note-editing UI: note loading, immutable draft capture, debounced/serialized autosave, save-before-pop, lifecycle saves, Markdown-lite actions including correct first-line targeting at caret offset zero, metadata/color editing, version history, export, and retryable error feedback. Data integrity here depends on `NoteRepository` and `AsyncSerialQueue` contracts.
 - `lib/features/notes/notes_controller.dart` — Feature controller for note browser state, collection/query/folder/tag filters, async loads/errors, generation protection against stale completions, and collection-scoped filter metadata. Collection switches clear incompatible folder/tag selections.
 - `lib/features/notes/notes_page.dart` — Notes-browser presentation for search/filter controls, responsive card grid, collection-specific empty/loading/error states, import where visible, and guarded note mutations including archive/trash/restore/delete/undo flows.
 - `lib/features/onboarding/onboarding_page.dart` — Privacy-first first-run UI whose completion callback is awaited; it remains visible/retryable while persistence fails and presents a busy/failure state instead of pretending onboarding was saved.
@@ -155,23 +155,23 @@ Descriptions below explain both what each file does and why it matters when modi
 - `test/core/markdown_lite_test.dart` — Pure editor-helper tests for supported Markdown-lite transformations/preview behavior without widget/platform dependencies.
 - `test/core/safe_file_name_test.dart` — Filename-safety tests for invalid characters, reserved Windows names, trailing dots/spaces, fallback/length rules, Unicode preservation, and surrogate/code-point-safe truncation.
 - `test/data/backup_repository_test.dart` — In-memory Drift regression suite for backup round trips, conflict resolution, schema/app/type/ID/tag/timestamp/color/lifecycle validation, relationship checks, and restore safety before/inside transactions.
-- `test/data/note_repository_test.dart` — In-memory Drift tests for create/list/search, snapshot/restore/cascade behavior, collection lifecycle/filter metadata, quote-safe FTS input, and live lifecycle invariants. It now explicitly verifies that a trashed note cannot be pinned.
+- `test/data/note_repository_test.dart` — In-memory Drift tests for create/list/search, snapshot/restore/cascade behavior, collection lifecycle/filter metadata, quote-safe FTS input, and live lifecycle invariants. It explicitly verifies that a trashed note cannot be pinned.
 - `test/data/settings_repository_test.dart` — Settings repository tests covering safe defaults and successful preference persistence; failure ordering/rollback is exercised through the injectable store/controller tests.
 - `test/features/notes/notes_controller_test.dart` — Controller regression coverage for collection changes clearing stale filters and loading folder/tag metadata from the active collection rather than globally.
 - `test/services/external_link_service_test.dart` — Service tests for successful URL launch, launcher refusal, and thrown launcher exceptions, proving feature UI can handle a simple safe result.
 - `test/widgets/about_page_test.dart` — Widget regression verifying About surfaces user-visible feedback when an external project action cannot be opened.
 - `test/widgets/note_editor_accessibility_test.dart` — Widget/semantics tests for the custom note-color swatch’s selection/reset cues, tap behavior, labels, and minimum interaction target.
-- `test/widgets/note_editor_save_test.dart` — Widget regression coverage for latest-draft save before normal back navigation and retryable initial note-load failure instead of an endless spinner.
+- `test/widgets/note_editor_save_test.dart` — Widget regression coverage for latest-draft save before normal back navigation, retryable initial note-load failure instead of an endless spinner, and first-line Markdown formatting when the caret is at offset zero.
 - `test/widgets/notes_page_empty_state_test.dart` — Widget tests for All Notes/Favorites/Archive/Trash empty states, ensuring only actions whose results are visible in the current collection are offered.
 - `test/widgets/onboarding_page_test.dart` — Widget tests for offline/privacy onboarding messaging, successful persisted completion, busy behavior, and visible/retryable persistence failure.
 
 ### Repository tooling
 
-- `tool/bootstrap_platforms.py` — Idempotent native-runner bootstrap: runs `flutter create` for Android/iOS/Linux/macOS/Windows, patches Android for FragmentActivity/biometric permission/minSdk/AppCompat themes, and adds the iOS Face ID usage description. Flutter must be on PATH.
+- `tool/bootstrap_platforms.py` — Idempotent native-runner bootstrap: runs `flutter create` for Android/iOS/Linux/macOS/Windows, applies Android FragmentActivity/biometric permission/minSdk/AppCompat configuration plus the iOS Face ID usage description, then verifies those required patches and fails loudly if upstream Flutter template drift prevents them. Flutter must be on PATH.
 - `tool/check_markdown_links.py` — Deterministic tracked-Markdown local-link validator covering inline/reference/HTML links while ignoring external-network validation and fenced examples. It rejects missing local targets and links escaping the repository.
-- `tool/check_repo.py` — Fast repository policy gate checking required files/text, forbidden unfinished source markers, generated `.g.dart` tracking, and security-relevant ignore rules. Its required-file set should include every mandatory documentation/tooling baseline.
+- `tool/check_repo.py` — Fast repository policy gate checking the complete required release/documentation/automation baseline, required README text, forbidden unfinished Dart markers, generated `.g.dart` tracking, and security-relevant ignore rules.
 - `tool/check_repository_reference.py` — Exhaustive documentation-coverage gate: compares `git ls-files` with path entries in this document, rejecting missing, stale, or duplicate catalog entries. Run it whenever any tracked path is added, removed, or renamed.
-- `tool/check_version_sync.py` — Release-metadata consistency gate that validates semantic/build version shape and keeps `pubspec.yaml`, visible `AppStrings.version`, `CHANGELOG.md`, and `docs/releases/<version>.md` synchronized.
+- `tool/check_version_sync.py` — Release/toolchain consistency gate that validates semantic/build version shape, keeps `pubspec.yaml`, visible `AppStrings.version`, `CHANGELOG.md`, and `docs/releases/<version>.md` synchronized, validates `.flutter-version`, and rejects mismatched Flutter action pins in CI/platform/release workflows.
 - `tool/security_scan.py` — Lightweight deterministic scan of tracked repository files for credential/secret-like patterns. It complements—not replaces—dependency, platform, and human security review.
 
 ## Generated and intentionally untracked material
@@ -179,7 +179,7 @@ Descriptions below explain both what each file does and why it matters when modi
 The exhaustive count above is for committed files only. Several important runtime/build files are deliberately generated or local:
 
 - Drift/build-runner output such as `lib/data/database/app_database.g.dart` is generated from tracked Drift source. The project forbids committing generated `.g.dart` files and regenerates them with `dart run build_runner build --delete-conflicting-outputs`.
-- `android/`, `ios/`, `linux/`, `macos/`, and `windows/` runners are generated by `tool/bootstrap_platforms.py` from the pinned Flutter SDK and then patched for NoteNest native requirements. ADR 0003 explains this policy.
+- `android/`, `ios/`, `linux/`, `macos/`, and `windows/` runners are generated by `tool/bootstrap_platforms.py` from the pinned Flutter SDK and then patched/verified for NoteNest native requirements. ADR 0003 explains this policy.
 - `.dart_tool/`, `build/`, `coverage/`, native ephemeral directories, logs, and package caches are reproducible/local outputs and are ignored.
 - `.env`, signing keys/certificates, key properties, personal SQLite databases, exported personal backups, and other secrets/private data must never be committed.
 
@@ -192,7 +192,7 @@ Use the closest source of truth and update all coupled surfaces in one workstrea
 | Change | Primary source(s) | Coupled checks/docs |
 |---|---|---|
 | App semantic/build version | `pubspec.yaml`, `AppStrings.version` | `CHANGELOG.md`, matching `docs/releases/<version>.md`, `tool/check_version_sync.py` |
-| Flutter SDK pin | `.flutter-version` | CI, platform-build, and release workflows |
+| Flutter SDK pin | `.flutter-version` | CI, platform-build, and release workflows + `tool/check_version_sync.py` |
 | Database fields/schema | `tables.dart`, `app_database.dart` | repository code, generated Drift output, migration tests, architecture/backup compatibility |
 | Note lifecycle rules | `note_repository.dart` | backup validation, controller/widget behavior, repository tests, architecture/testing docs |
 | Backup interchange rules | `backup_repository.dart` | backup tests, architecture/security/privacy/release notes |
@@ -200,7 +200,7 @@ Use the closest source of truth and update all coupled surfaces in one workstrea
 | Native/plugin integration | services + `bootstrap_platforms.py` | setup/troubleshooting docs, platform-build workflow, manual platform smoke tests |
 | External links/contact surfaces | `AppStrings`, `ExternalLinkService` | About/Settings, README/support docs, service/widget tests |
 | Accessibility/UI tokens | `app_tokens.dart`, reusable widgets | accessibility docs and widget/manual accessibility checks |
-| Repository quality policy | `tool/*.py`, `analysis_options.yaml` | CI workflow, contributing/development/testing docs |
+| Repository quality policy | `tool/*.py`, `analysis_options.yaml` | CI workflow, contributing/development/testing/release docs |
 | Tracked file set | Git index | this document + `tool/check_repository_reference.py` |
 
 ## Repository invariants worth preserving
@@ -211,22 +211,27 @@ The file map should be read together with the deeper architecture/testing docume
 - Search uses parameterized SQLite FTS5 input rather than executable string concatenation.
 - Changed note content is snapshotted transactionally before the current row is updated.
 - Submitted editor writes are ordered; normal navigation waits for the current draft to save successfully.
-- Trashing a note clears pin/archive state, and the repository now rejects attempts to pin a trashed note.
+- Markdown prefix formatting at caret offset zero targets the actual first line, including an empty first line before a leading newline.
+- Trashing a note clears pin/archive state, and the repository rejects attempts to pin a trashed note.
 - Folder/tag filter metadata uses the same collection lifecycle predicate as note listing.
 - Settings mutations are serialized, and failed optimistic writes roll back when the failed value is still current.
 - Onboarding completion is persisted before leaving onboarding.
+- Root application teardown delegates owned settings/database cleanup to `AppDependencies.dispose()`.
 - Imported native files are size-bounded before NoteNest creates the final buffer.
 - Backup input is validated before restore writes begin; newer local notes win timestamp conflicts.
 - App lock delegates to the operating system and is not represented as database encryption.
 - External URI/plugin failures are contained behind `ExternalLinkService`.
 - Logging redacts fields likely to contain note, user, credential, or file data.
-- Generated runners and Drift output are reproducible rather than treated as hand-maintained source.
+- Generated runners and Drift output are reproducible rather than treated as hand-maintained source; runner bootstrap verifies required native patches rather than silently accepting template drift.
+- The exact Flutter action pins in quality/platform/release automation must match `.flutter-version`.
+- Platform-build path filtering includes bundled assets so asset-only changes receive compile verification.
 
 ## How to audit this reference
 
-After any repository structure change:
+After any repository structure or release-toolchain change:
 
 ```bash
+python tool/check_version_sync.py
 python tool/check_repository_reference.py
 python tool/check_repo.py
 python tool/check_markdown_links.py
