@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:notenest/core/errors/app_exception.dart';
 import 'package:notenest/core/utils/import_limits.dart';
 import 'package:notenest/core/utils/markdown_document_codec.dart';
+import 'package:notenest/core/utils/safe_file_name.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/data/repositories/backup_repository.dart';
 import 'package:notenest/data/repositories/note_repository.dart';
@@ -60,7 +61,7 @@ final class FileTransferService {
       tags: _notes.decodeTags(note.tags),
       updatedAt: note.updatedAt,
     );
-    final String fileName = '${_safeFileName(note.title)}.md';
+    final String fileName = '${SafeFileName.fromTitle(note.title)}.md';
     final String? result = await FilePicker.saveFile(
       dialogTitle: 'Export note as Markdown',
       fileName: fileName,
@@ -108,14 +109,5 @@ final class FileTransferService {
     return '${now.year.toString().padLeft(4, '0')}'
         '${now.month.toString().padLeft(2, '0')}'
         '${now.day.toString().padLeft(2, '0')}';
-  }
-
-  String _safeFileName(String value) {
-    final String cleaned = value
-        .trim()
-        .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F]'), '-')
-        .replaceAll(RegExp(r'\s+'), ' ');
-    if (cleaned.isEmpty) return 'untitled-note';
-    return cleaned.length <= 80 ? cleaned : cleaned.substring(0, 80).trimRight();
   }
 }
