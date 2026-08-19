@@ -458,7 +458,7 @@ class _NoteEditorPageState extends State<NoteEditorPage>
         ? _body.selection.baseOffset.clamp(0, _body.text.length).toInt()
         : _body.text.length;
     final int lineStart =
-        _body.text.lastIndexOf('\n', caret == 0 ? 0 : caret - 1) + 1;
+        caret == 0 ? 0 : _body.text.lastIndexOf('\n', caret - 1) + 1;
     final int lineEndCandidate = _body.text.indexOf('\n', caret);
     final int lineEnd =
         lineEndCandidate == -1 ? _body.text.length : lineEndCandidate;
