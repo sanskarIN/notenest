@@ -29,7 +29,7 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 - Optional operating-system-backed app lock through `local_auth`.
 - Settings and About screens with project/support/funding information.
 - Editable NoteNest SVG logo source and labeled layout-reference artwork.
-- In-memory repository/database tests, backup-validation tests, settings tests, application-controller tests, feature-controller tests, Markdown helper/metadata tests, logger-redaction tests, import-bound/bounded-reader tests, safe-filename tests, async-save-order tests, external-link tests, onboarding coverage, collection-empty-state coverage, About-link failure coverage, and custom color-swatch accessibility coverage.
+- In-memory repository/database tests, backup-validation tests, settings tests, application-controller tests, feature-controller tests, Markdown helper/metadata tests, logger-redaction tests, import-bound/bounded-reader tests, safe-filename tests, async-save-order tests, external-link tests, onboarding coverage, collection-empty-state coverage, About-link failure coverage, editor load/save-before-pop coverage, and custom color-swatch accessibility coverage.
 - Reproducible native runner bootstrap script for Android, iOS, Linux, macOS, and Windows.
 - Repository documentation, contribution policy, security policy, privacy disclosure, support guide, ADRs, CI configuration, templates, and dependency automation.
 - Deterministic Markdown local-link checker integrated into the CI quality gate.
@@ -46,15 +46,24 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 - About UI now reports version **2.0.12**.
 - CI verifies version synchronization before dependency resolution and Flutter compilation work.
 - External repository, funding, support-email, business-email, and release links share the same safe launcher behavior.
-- Folder/tag filter metadata is now collection-scoped rather than global.
+- Folder/tag filter metadata is collection-scoped rather than global.
 - Switching between All Notes, Favorites, Archive, and Trash clears folder/tag selections that belong to the previous collection.
 - Onboarding completion is persisted before the UI leaves onboarding.
 - Settings mutations are serialized through the same ordered async primitive used for other ordering-sensitive work.
+- Normal editor back navigation now waits for the current draft save to finish successfully before the route is allowed to pop.
+- Version-history and Markdown-export actions require the current draft to save successfully before the action starts.
 
 ### Fixed
 
 - Serialized editor saves so overlapping autosave, lifecycle, export/history, and final navigation submissions cannot overtake one another and write an older submitted draft after a newer one.
 - Prevented stale save completions from reporting a newer unsaved draft as saved.
+- Replaced an endless editor loading spinner after note-load failure with a retryable local-storage error state.
+- Prevented normal editor back navigation from silently leaving before the current draft save finishes; a failed save keeps the editor open with feedback.
+- Prevented Markdown export/version-history actions from continuing against stale persisted content when the pre-action save fails.
+- Contained version-query/restore/export failures with user-visible feedback.
+- Contained Notes browser create/open/pin/favorite/archive/trash/restore/delete/undo failures instead of leaking async errors through UI callbacks.
+- Contained the HomeShell new-note action when note creation/opening fails.
+- Cleaned up the settings controller/database if application dependency bootstrap fails while loading settings.
 - Corrected Favorites, Archive, and Trash empty states so they no longer offer create/import actions whose result would not appear in the active collection.
 - Restricted Markdown import affordance to All Notes, where newly imported notes are immediately visible.
 - Fixed Trash folder/tag filtering by including trashed note metadata in the Trash collection's filter choices.
@@ -73,7 +82,10 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 ### Security
 
 - Backup restore rejects malformed/non-NoteNest/unsupported-schema data before applying writes.
+- Restore validation requires a valid explicit-UTC root `exportedAt` timestamp.
 - Restore validation rejects malformed serialized tags, duplicate note IDs, IDs containing surrounding whitespace, and version entries that reference unknown notes.
+- Imported serialized tags are normalized back to NoteNest trim/deduplicate/sort invariants before storage.
+- Restore validation rejects impossible lifecycle states such as archived+trashed and pinned+trashed note/version records.
 - Restore validation requires explicit UTC timestamps ending in `Z` and rejects a note whose `updatedAt` precedes `createdAt`.
 - Restore validation accepts `colorValue` only when null or within the 32-bit ARGB integer range.
 - Restore operations preserve newer local note revisions.
@@ -94,7 +106,7 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 - A Flutter-enabled environment is required to produce runtime screenshots and final native artifacts.
 - Store/distribution signing credentials are intentionally not part of the repository.
 - Completed green GitHub Actions/native verification is still required against the 2.0.12 candidate before a stable tag is created.
-- Real-device/platform checks remain required for local authentication, file pickers/providers, settings persistence, external links, keyboard navigation, screen readers, large text, reduced motion, and runtime screenshots.
+- Real-device/platform checks remain required for editor save-before-pop behavior, local authentication, file pickers/providers, settings persistence, external links, keyboard navigation, screen readers, large text, reduced motion, and runtime screenshots.
 
 The `v2.0.12` tag must only be created after all configured CI jobs pass from a clean checkout, primary platform build checks complete, verified runtime screenshots replace the illustrative reference, and final manual accessibility/release checks are recorded in `what_changed.md`.
 
