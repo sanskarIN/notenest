@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:notenest/core/theme/app_tokens.dart';
+import 'package:notenest/core/utils/async_serial_queue.dart';
 import 'package:notenest/core/utils/debouncer.dart';
 import 'package:notenest/core/utils/markdown_lite.dart';
 import 'package:notenest/data/database/app_database.dart';
@@ -25,13 +27,32 @@ class NoteEditorPage extends StatefulWidget {
 
 enum _SaveState { idle, saving, saved, failed }
 
+final class _EditorDraft {
+  const _EditorDraft({
+    required this.title,
+    required this.body,
+    required this.folder,
+    required this.tagsText,
+    required this.tags,
+    required this.colorValue,
+  });
+
+  final String title;
+  final String body;
+  final String folder;
+  final String tagsText;
+  final List<String> tags;
+  final int? colorValue;
+}
+
 class _NoteEditorPageState extends State<NoteEditorPage>
     with WidgetsBindingObserver {
   final TextEditingController _title = TextEditingController();
   final TextEditingController _body = TextEditingController();
   final TextEditingController _folder = TextEditingController();
   final TextEditingController _tags = TextEditingController();
-  final Debouncer _autosave = Debouncer(const Duration(milliseconds: 650));
+  final Debouncer _autosave = Debouncer(AppTokens.autosaveDebounce);
+  final AsyncSerialQueue _saveQueue = AsyncSerialQueue();
 
   Note? _note;
   _SaveState _saveState = _SaveState.idle;
@@ -72,18 +93,8 @@ class _NoteEditorPageState extends State<NoteEditorPage>
     _body.removeListener(_changed);
     _folder.removeListener(_changed);
     _tags.removeListener(_changed);
-    final Note? note = _note;
-    if (note != null) {
-      unawaited(
-        widget.repository.saveContent(
-          id: widget.noteId,
-          title: _title.text,
-          body: _body.text,
-          folder: _folder.text,
-          tags: _parseTags(_tags.text),
-          colorValue: _colorValue,
-        ),
-      );
+    if (_note != null) {
+      unawaited(_save());
     }
     _title.dispose();
     _body.dispose();
@@ -114,23 +125,58 @@ class _NoteEditorPageState extends State<NoteEditorPage>
     _autosave.run(_save);
   }
 
-  Future<void> _save() async {
-    if (_note == null) return;
-    if (mounted) setState(() => _saveState = _SaveState.saving);
+  Future<void> _save() {
+    if (_note == null) return Future<void>.value();
+    final _EditorDraft draft = _captureDraft();
+    return _saveQueue.add(() => _persistDraft(draft));
+  }
+
+  _EditorDraft _captureDraft() {
+    final String tagsText = _tags.text;
+    return _EditorDraft(
+      title: _title.text,
+      body: _body.text,
+      folder: _folder.text,
+      tagsText: tagsText,
+      tags: _parseTags(tagsText),
+      colorValue: _colorValue,
+    );
+  }
+
+  bool _matchesCurrentDraft(_EditorDraft draft) {
+    return _title.text == draft.title &&
+        _body.text == draft.body &&
+        _folder.text == draft.folder &&
+        _tags.text == draft.tagsText &&
+        _colorValue == draft.colorValue;
+  }
+
+  Future<void> _persistDraft(_EditorDraft draft) async {
+    if (mounted && _matchesCurrentDraft(draft)) {
+      setState(() => _saveState = _SaveState.saving);
+    }
     try {
       await widget.repository.saveContent(
         id: widget.noteId,
-        title: _title.text,
-        body: _body.text,
-        folder: _folder.text,
-        tags: _parseTags(_tags.text),
-        colorValue: _colorValue,
+        title: draft.title,
+        body: draft.body,
+        folder: draft.folder,
+        tags: draft.tags,
+        colorValue: draft.colorValue,
       );
+      final Note savedNote = await widget.repository.getById(widget.noteId);
       if (!mounted) return;
-      _note = await widget.repository.getById(widget.noteId);
-      if (mounted) setState(() => _saveState = _SaveState.saved);
+      _note = savedNote;
+      setState(
+        () => _saveState =
+            _matchesCurrentDraft(draft) ? _SaveState.saved : _SaveState.idle,
+      );
     } on Object {
-      if (mounted) setState(() => _saveState = _SaveState.failed);
+      if (!mounted) return;
+      setState(
+        () => _saveState =
+            _matchesCurrentDraft(draft) ? _SaveState.failed : _SaveState.idle,
+      );
     }
   }
 
@@ -184,7 +230,7 @@ class _NoteEditorPageState extends State<NoteEditorPage>
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 980),
+            constraints: const BoxConstraints(maxWidth: AppTokens.maxEditorWidth),
             child: Column(
               children: <Widget>[
                 if (!_distractionFree) _metadata(),
