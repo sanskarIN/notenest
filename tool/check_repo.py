@@ -48,6 +48,7 @@ REQUIRED_FILES = (
     ".github/ISSUE_TEMPLATE/feature_request.yml",
     ".github/FUNDING.yml",
     "tool/check_markdown_links.py",
+    "tool/check_version_sync.py",
 )
 
 REQUIRED_README_TEXT = (
