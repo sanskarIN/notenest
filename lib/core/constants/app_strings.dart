@@ -16,6 +16,7 @@ abstract final class AppStrings {
   static const String trash = 'Trash';
   static const String settings = 'Settings';
   static const String about = 'About';
+  static const String more = 'More';
   static const String searchHint = 'Search notes';
   static const String newNote = 'New note';
   static const String importMarkdown = 'Import Markdown';
