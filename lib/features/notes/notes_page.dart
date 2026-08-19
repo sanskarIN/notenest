@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:notenest/core/constants/app_strings.dart';
+import 'package:notenest/core/theme/app_tokens.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/data/repositories/note_repository.dart';
 import 'package:notenest/domain/models/note_filter.dart';
@@ -54,7 +55,12 @@ class _NotesPageState extends State<NotesPage> {
     return Column(
       children: <Widget>[
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          padding: const EdgeInsets.fromLTRB(
+            AppTokens.space16,
+            AppTokens.space16,
+            AppTokens.space16,
+            AppTokens.space8,
+          ),
           child: Row(
             children: <Widget>[
               Expanded(
@@ -66,7 +72,7 @@ class _NotesPageState extends State<NotesPage> {
                   trailing: <Widget>[
                     if (_searchController.text.isNotEmpty)
                       IconButton(
-                        tooltip: 'Clear search',
+                        tooltip: AppStrings.clearSearch,
                         onPressed: () {
                           _searchController.clear();
                           controller.setQuery('');
@@ -78,18 +84,24 @@ class _NotesPageState extends State<NotesPage> {
                 ),
               ),
               if (controller.filter.collection == NoteCollection.all) ...<Widget>[
-                const SizedBox(width: 8),
+                const SizedBox(width: AppTokens.space8),
                 IconButton.filledTonal(
                   tooltip: AppStrings.importMarkdown,
-                  onPressed: _importMarkdown,
+                  onPressed: () {
+                    unawaited(_importMarkdown());
+                  },
                   icon: const Icon(Icons.file_open_rounded),
                 ),
               ],
               if (controller.filter.collection == NoteCollection.trash) ...<Widget>[
-                const SizedBox(width: 8),
+                const SizedBox(width: AppTokens.space8),
                 IconButton.filledTonal(
-                  tooltip: 'Empty trash',
-                  onPressed: controller.notes.isEmpty ? null : _emptyTrash,
+                  tooltip: AppStrings.emptyTrash,
+                  onPressed: controller.notes.isEmpty
+                      ? null
+                      : () {
+                          unawaited(_emptyTrash());
+                        },
                   icon: const Icon(Icons.delete_sweep_rounded),
                 ),
               ],
@@ -109,12 +121,14 @@ class _NotesPageState extends State<NotesPage> {
     if (controller.error != null && controller.notes.isEmpty) {
       return EmptyState(
         icon: Icons.error_outline_rounded,
-        title: 'Could not load notes',
-        message: 'Your notes remain on this device. Try loading them again.',
+        title: AppStrings.loadFailedTitle,
+        message: AppStrings.loadFailedBody,
         action: FilledButton.icon(
-          onPressed: controller.load,
+          onPressed: () {
+            unawaited(controller.load());
+          },
           icon: const Icon(Icons.refresh_rounded),
-          label: const Text('Retry'),
+          label: const Text(AppStrings.retry),
         ),
       );
     }
@@ -127,37 +141,54 @@ class _NotesPageState extends State<NotesPage> {
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           final int columns = switch (constraints.maxWidth) {
-            >= 1200 => 4,
-            >= 850 => 3,
-            >= 560 => 2,
+            >= AppTokens.gridFourColumnBreakpoint => 4,
+            >= AppTokens.gridThreeColumnBreakpoint => 3,
+            >= AppTokens.gridTwoColumnBreakpoint => 2,
             _ => 1,
           };
           return GridView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: AppTokens.pagePadding,
             physics: const AlwaysScrollableScrollPhysics(),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              mainAxisExtent: columns == 1 ? 250 : 270,
+              crossAxisSpacing: AppTokens.space12,
+              mainAxisSpacing: AppTokens.space12,
+              mainAxisExtent: columns == 1
+                  ? AppTokens.compactNoteCardExtent
+                  : AppTokens.regularNoteCardExtent,
             ),
             itemCount: controller.notes.length,
             itemBuilder: (BuildContext context, int index) {
               final Note note = controller.notes[index];
               return NoteCard(
                 note: note,
-                onOpen: () => _openEditor(note),
-                onFavorite: () => controller.setFavorite(
-                  note,
-                  value: !note.isFavorite,
-                ),
-                onPin: () => controller.setPinned(note, value: !note.isPinned),
-                onArchive: () => note.isArchived
-                    ? controller.unarchive(note)
-                    : controller.archive(note),
-                onTrash: () => _trashWithUndo(note),
-                onRestore: () => controller.restore(note),
-                onDeleteForever: () => _deleteForever(note),
+                onOpen: () {
+                  unawaited(_openEditor(note));
+                },
+                onFavorite: () {
+                  unawaited(
+                    controller.setFavorite(note, value: !note.isFavorite),
+                  );
+                },
+                onPin: () {
+                  unawaited(controller.setPinned(note, value: !note.isPinned));
+                },
+                onArchive: () {
+                  unawaited(
+                    note.isArchived
+                        ? controller.unarchive(note)
+                        : controller.archive(note),
+                  );
+                },
+                onTrash: () {
+                  unawaited(_trashWithUndo(note));
+                },
+                onRestore: () {
+                  unawaited(controller.restore(note));
+                },
+                onDeleteForever: () {
+                  unawaited(_deleteForever(note));
+                },
               );
             },
           );
@@ -195,7 +226,9 @@ class _NotesPageState extends State<NotesPage> {
       message: message,
       action: collection == NoteCollection.all
           ? FilledButton.icon(
-              onPressed: _createNote,
+              onPressed: () {
+                unawaited(_createNote());
+              },
               icon: const Icon(Icons.add_rounded),
               label: const Text(AppStrings.newNote),
             )
@@ -228,9 +261,9 @@ class _NotesPageState extends State<NotesPage> {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Note moved to trash.'),
+        content: const Text(AppStrings.noteMovedToTrash),
         action: SnackBarAction(
-          label: 'Undo',
+          label: AppStrings.undo,
           onPressed: () {
             unawaited(widget.controller.restore(note));
           },
@@ -248,30 +281,28 @@ class _NotesPageState extends State<NotesPage> {
     } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Import failed. The selected file was not changed.'),
-        ),
+        const SnackBar(content: Text(AppStrings.importFailedSafe)),
       );
     }
   }
 
   Future<void> _emptyTrash() async {
     final bool confirmed = await _confirm(
-      title: 'Empty trash?',
-      message: 'This permanently deletes every note currently in trash.',
+      title: AppStrings.emptyTrashQuestion,
+      message: AppStrings.emptyTrashWarning,
     );
     if (!confirmed) return;
     final int count = await widget.controller.emptyTrash();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Permanently deleted $count notes.')),
+      SnackBar(content: Text(AppStrings.permanentlyDeletedNotes(count))),
     );
   }
 
   Future<void> _deleteForever(Note note) async {
     final bool confirmed = await _confirm(
-      title: 'Delete permanently?',
-      message: 'This note and its version history cannot be recovered.',
+      title: AppStrings.deletePermanentlyQuestion,
+      message: AppStrings.deletePermanentlyWarning,
     );
     if (confirmed) await widget.controller.permanentlyDelete(note);
   }
@@ -285,11 +316,11 @@ class _NotesPageState extends State<NotesPage> {
             actions: <Widget>[
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: const Text(AppStrings.cancel),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Continue'),
+                child: const Text(AppStrings.continueLabel),
               ),
             ],
           ),
@@ -309,44 +340,57 @@ class _FilterRow extends StatelessWidget {
     final List<String> tags = controller.tags.toList()..sort();
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTokens.space16,
+        vertical: AppTokens.space8,
+      ),
       child: Row(
         children: <Widget>[
           FilterChip(
-            label: Text(controller.filter.folder ?? 'All folders'),
+            label: Text(controller.filter.folder ?? AppStrings.allFolders),
             selected: controller.filter.folder != null,
-            onSelected: (_) => _showFilterMenu(
-              context,
-              title: 'Folder',
-              values: folders,
-              selected: controller.filter.folder,
-              onSelected: controller.setFolder,
-            ),
+            onSelected: (_) {
+              unawaited(
+                _showFilterMenu(
+                  context,
+                  title: AppStrings.folder,
+                  values: folders,
+                  selected: controller.filter.folder,
+                  onSelected: controller.setFolder,
+                ),
+              );
+            },
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppTokens.space8),
           FilterChip(
-            label: Text(controller.filter.tag == null
-                ? 'All tags'
-                : '#${controller.filter.tag}'),
-            selected: controller.filter.tag != null,
-            onSelected: (_) => _showFilterMenu(
-              context,
-              title: 'Tag',
-              values: tags,
-              selected: controller.filter.tag,
-              onSelected: controller.setTag,
+            label: Text(
+              controller.filter.tag == null
+                  ? AppStrings.allTags
+                  : '#${controller.filter.tag}',
             ),
+            selected: controller.filter.tag != null,
+            onSelected: (_) {
+              unawaited(
+                _showFilterMenu(
+                  context,
+                  title: AppStrings.tag,
+                  values: tags,
+                  selected: controller.filter.tag,
+                  onSelected: controller.setTag,
+                ),
+              );
+            },
           ),
           if (controller.filter.folder != null || controller.filter.tag != null)
             Padding(
-              padding: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.only(left: AppTokens.space8),
               child: TextButton.icon(
                 onPressed: () {
                   controller.setFolder(null);
                   controller.setTag(null);
                 },
                 icon: const Icon(Icons.filter_alt_off_rounded),
-                label: const Text('Clear filters'),
+                label: const Text(AppStrings.clearFilters),
               ),
             ),
         ],
@@ -369,7 +413,7 @@ class _FilterRow extends StatelessWidget {
           shrinkWrap: true,
           children: <Widget>[
             ListTile(
-              title: Text('All ${title.toLowerCase()}s'),
+              title: Text(AppStrings.allFilterValues(title)),
               leading: selected == null
                   ? const Icon(Icons.check_rounded)
                   : const SizedBox(width: 24),
