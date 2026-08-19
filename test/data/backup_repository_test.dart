@@ -59,6 +59,48 @@ void main() {
     expect(current.body, 'New body');
   });
 
+  test('preserves local data when equal timestamps contain different content',
+      () async {
+    final Note created = await notes.create(
+      title: 'Local title',
+      body: 'Local body',
+    );
+    final Map<String, Object?> payload =
+        jsonDecode(await backups.exportJson()) as Map<String, Object?>;
+    final List<Object?> rawNotes = payload['notes']! as List<Object?>;
+    final Map<String, Object?> incoming =
+        rawNotes.single! as Map<String, Object?>;
+    incoming['title'] = 'Incoming title';
+    incoming['body'] = 'Incoming body';
+
+    final RestoreReport report = await backups.restoreJson(jsonEncode(payload));
+    final Note current = await notes.getById(created.id);
+
+    expect(report.importedNotes, 0);
+    expect(report.skippedNewerNotes, 1);
+    expect(current.title, 'Local title');
+    expect(current.body, 'Local body');
+  });
+
+  test('treats an identical equal timestamp note as a no-op', () async {
+    final Note created = await notes.create(
+      title: 'Same title',
+      body: 'Same body',
+      folder: 'Folder',
+      tags: const <String>['same'],
+    );
+    final String payload = await backups.exportJson();
+
+    final RestoreReport report = await backups.restoreJson(payload);
+    final Note current = await notes.getById(created.id);
+
+    expect(report.importedNotes, 0);
+    expect(report.skippedNewerNotes, 0);
+    expect(current.title, 'Same title');
+    expect(current.body, 'Same body');
+    expect(current.folder, 'Folder');
+  });
+
   test('rejects a backup from another application', () async {
     const String payload =
         '{"app":"Other","schemaVersion":1,"notes":[],"versions":[]}';
