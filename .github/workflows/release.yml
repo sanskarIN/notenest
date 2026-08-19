@@ -13,7 +13,7 @@ jobs:
   android:
     name: Package Android
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -29,10 +29,19 @@ jobs:
       - run: flutter pub get
       - run: dart run build_runner build --delete-conflicting-outputs
       - run: flutter build apk --release
+      - run: flutter build appbundle --release
+      - name: Stage Android artifacts and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/notenest-${GITHUB_REF_NAME}-android.apk"
+          cp build/app/outputs/bundle/release/app-release.aab "dist/notenest-${GITHUB_REF_NAME}-android.aab"
+          (cd dist && sha256sum notenest-* > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
-          name: notenest-${{ github.ref_name }}-android-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: notenest-${{ github.ref_name }}-android
+          path: dist/**
           if-no-files-found: error
           retention-days: 30
 
@@ -55,10 +64,19 @@ jobs:
       - run: flutter pub get
       - run: dart run build_runner build --delete-conflicting-outputs
       - run: flutter build linux --release
+      - name: Stage Linux archive and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle_dir="$(find build/linux -type d -path '*/release/bundle' -print -quit)"
+          test -n "$bundle_dir"
+          mkdir -p dist
+          tar -C "$bundle_dir" -czf "dist/notenest-${GITHUB_REF_NAME}-linux-x64.tar.gz" .
+          (cd dist && sha256sum notenest-* > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
           name: notenest-${{ github.ref_name }}-linux
-          path: build/linux/*/release/bundle/**
+          path: dist/**
           if-no-files-found: error
           retention-days: 30
 
@@ -77,17 +95,31 @@ jobs:
       - run: flutter pub get
       - run: dart run build_runner build --delete-conflicting-outputs
       - run: flutter build windows --release
+      - name: Stage Windows archive and checksum
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $releaseDir = Get-ChildItem -Path build/windows -Directory -Recurse |
+            Where-Object { $_.Name -eq 'Release' -and $_.FullName -match 'runner' } |
+            Select-Object -First 1
+          if (-not $releaseDir) { throw 'Windows Release directory was not found.' }
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          $archive = "dist/notenest-${env:GITHUB_REF_NAME}-windows-x64.zip"
+          Compress-Archive -Path "$($releaseDir.FullName)/*" -DestinationPath $archive -Force
+          $hash = Get-FileHash -Path $archive -Algorithm SHA256
+          "$($hash.Hash.ToLower())  $([IO.Path]::GetFileName($archive))" |
+            Set-Content -Path dist/SHA256SUMS.txt -Encoding utf8
       - uses: actions/upload-artifact@v4
         with:
           name: notenest-${{ github.ref_name }}-windows
-          path: build/windows/*/runner/Release/**
+          path: dist/**
           if-no-files-found: error
           retention-days: 30
 
   apple:
     name: Package macOS and compile iOS
     runs-on: macos-latest
-    timeout-minutes: 50
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -100,15 +132,21 @@ jobs:
       - run: dart run build_runner build --delete-conflicting-outputs
       - run: flutter build macos --release
       - run: flutter build ios --release --no-codesign
+      - name: Stage Apple compile artifacts and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          macos_app="$(find build/macos/Build/Products/Release -maxdepth 1 -name '*.app' -print -quit)"
+          ios_app="$(find build/ios/iphoneos -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$macos_app"
+          test -n "$ios_app"
+          mkdir -p dist
+          ditto -c -k --sequesterRsrc --keepParent "$macos_app" "dist/notenest-${GITHUB_REF_NAME}-macos.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$ios_app" "dist/notenest-${GITHUB_REF_NAME}-ios-no-codesign.zip"
+          (cd dist && shasum -a 256 notenest-* > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
-          name: notenest-${{ github.ref_name }}-macos
-          path: build/macos/Build/Products/Release/*.app/**
-          if-no-files-found: error
-          retention-days: 30
-      - uses: actions/upload-artifact@v4
-        with:
-          name: notenest-${{ github.ref_name }}-ios-no-codesign
-          path: build/ios/iphoneos/*.app/**
+          name: notenest-${{ github.ref_name }}-apple
+          path: dist/**
           if-no-files-found: error
           retention-days: 30
