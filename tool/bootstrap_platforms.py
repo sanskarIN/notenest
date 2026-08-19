@@ -38,14 +38,18 @@ def patch_android() -> None:
     if not manifest.exists():
         raise RuntimeError(f"Flutter did not generate expected file: {manifest}")
     manifest_text = manifest.read_text(encoding="utf-8")
-    permission = (
-        '<uses-permission android:name="android.permission.USE_BIOMETRIC" />'
-    )
+    permission = '<uses-permission android:name="android.permission.USE_BIOMETRIC" />'
     if permission not in manifest_text:
-        manifest_text = manifest_text.replace(
-            ">",
-            f">\n    {permission}",
-            1,
+        manifest_start = manifest_text.find("<manifest")
+        if manifest_start == -1:
+            raise RuntimeError("AndroidManifest.xml does not contain a manifest root")
+        manifest_open_end = manifest_text.find(">", manifest_start)
+        if manifest_open_end == -1:
+            raise RuntimeError("AndroidManifest.xml manifest root is malformed")
+        manifest_text = (
+            manifest_text[: manifest_open_end + 1]
+            + f"\n    {permission}"
+            + manifest_text[manifest_open_end + 1 :]
         )
     manifest.write_text(manifest_text, encoding="utf-8")
 
