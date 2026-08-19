@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:notenest/core/constants/app_strings.dart';
 import 'package:notenest/core/theme/app_tokens.dart';
 import 'package:notenest/core/utils/async_serial_queue.dart';
 import 'package:notenest/core/utils/debouncer.dart';
@@ -58,17 +60,18 @@ class _NoteEditorPageState extends State<NoteEditorPage>
   Note? _note;
   _SaveState _saveState = _SaveState.idle;
   bool _loading = true;
+  bool _loadFailed = false;
   bool _distractionFree = false;
   int? _colorValue;
 
   static const List<({Color? color, String label})> _palette =
       <({Color? color, String label})>[
-    (label: 'Default', color: null),
-    (label: 'Red', color: Color(0xFFFFD7D7)),
-    (label: 'Amber', color: Color(0xFFFFE7B3)),
-    (label: 'Green', color: Color(0xFFD9F2D9)),
-    (label: 'Blue', color: Color(0xFFD8EBFF)),
-    (label: 'Purple', color: Color(0xFFE8DBFF)),
+    (label: AppStrings.defaultColor, color: null),
+    (label: AppStrings.redColor, color: Color(0xFFFFD7D7)),
+    (label: AppStrings.amberColor, color: Color(0xFFFFE7B3)),
+    (label: AppStrings.greenColor, color: Color(0xFFD9F2D9)),
+    (label: AppStrings.blueColor, color: Color(0xFFD8EBFF)),
+    (label: AppStrings.purpleColor, color: Color(0xFFE8DBFF)),
   ];
 
   @override
@@ -106,19 +109,39 @@ class _NoteEditorPageState extends State<NoteEditorPage>
   }
 
   Future<void> _load() async {
-    final Note note = await widget.repository.getById(widget.noteId);
-    if (!mounted) return;
-    _note = note;
-    _title.text = note.title;
-    _body.text = note.body;
-    _folder.text = note.folder;
-    _tags.text = widget.repository.decodeTags(note.tags).join(', ');
-    _colorValue = note.colorValue;
-    _title.addListener(_changed);
-    _body.addListener(_changed);
-    _folder.addListener(_changed);
-    _tags.addListener(_changed);
-    setState(() => _loading = false);
+    try {
+      final Note note = await widget.repository.getById(widget.noteId);
+      if (!mounted) return;
+      _note = note;
+      _title.text = note.title;
+      _body.text = note.body;
+      _folder.text = note.folder;
+      _tags.text = widget.repository.decodeTags(note.tags).join(', ');
+      _colorValue = note.colorValue;
+      _title.addListener(_changed);
+      _body.addListener(_changed);
+      _folder.addListener(_changed);
+      _tags.addListener(_changed);
+      setState(() {
+        _loading = false;
+        _loadFailed = false;
+      });
+    } on Object {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadFailed = true;
+      });
+    }
+  }
+
+  Future<void> _retryLoad() async {
+    if (_loading) return;
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+    });
+    await _load();
   }
 
   void _changed() {
@@ -187,6 +210,41 @@ class _NoteEditorPageState extends State<NoteEditorPage>
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    if (_loadFailed) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(
+          child: Padding(
+            padding: AppTokens.largePagePadding,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Icon(Icons.error_outline_rounded, size: 56),
+                const SizedBox(height: AppTokens.space16),
+                Text(
+                  AppStrings.noteLoadFailedTitle,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: AppTokens.space8),
+                const Text(
+                  AppStrings.noteLoadFailedBody,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppTokens.space16),
+                FilledButton.icon(
+                  onPressed: () {
+                    unawaited(_retryLoad());
+                  },
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text(AppStrings.retry),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: TextField(
@@ -195,7 +253,7 @@ class _NoteEditorPageState extends State<NoteEditorPage>
           textInputAction: TextInputAction.next,
           style: Theme.of(context).textTheme.titleLarge,
           decoration: const InputDecoration(
-            hintText: 'Untitled note',
+            hintText: AppStrings.untitledNote,
             filled: false,
             border: InputBorder.none,
           ),
@@ -204,8 +262,8 @@ class _NoteEditorPageState extends State<NoteEditorPage>
           _SaveIndicator(state: _saveState),
           IconButton(
             tooltip: _distractionFree
-                ? 'Show editor controls'
-                : 'Distraction-free editor',
+                ? AppStrings.showEditorControls
+                : AppStrings.distractionFree,
             onPressed: () => setState(() => _distractionFree = !_distractionFree),
             icon: Icon(
               _distractionFree
@@ -214,16 +272,18 @@ class _NoteEditorPageState extends State<NoteEditorPage>
             ),
           ),
           PopupMenuButton<String>(
-            tooltip: 'Note actions',
-            onSelected: _handleMenu,
+            tooltip: AppStrings.noteActions,
+            onSelected: (String action) {
+              unawaited(_handleMenu(action));
+            },
             itemBuilder: (BuildContext context) => const <PopupMenuEntry<String>>[
               PopupMenuItem<String>(
                 value: 'versions',
-                child: Text('Version history'),
+                child: Text(AppStrings.versionHistory),
               ),
               PopupMenuItem<String>(
                 value: 'export',
-                child: Text('Export Markdown'),
+                child: Text(AppStrings.exportMarkdown),
               ),
             ],
           ),
@@ -248,7 +308,7 @@ class _NoteEditorPageState extends State<NoteEditorPage>
                       keyboardType: TextInputType.multiline,
                       textAlignVertical: TextAlignVertical.top,
                       decoration: const InputDecoration(
-                        hintText: 'Start writing…\n\nMarkdown-lite supported: headings, emphasis, lists, and checklists.',
+                        hintText: AppStrings.editorHint,
                         filled: false,
                         border: InputBorder.none,
                       ),
@@ -274,29 +334,30 @@ class _NoteEditorPageState extends State<NoteEditorPage>
                 child: TextField(
                   controller: _folder,
                   decoration: const InputDecoration(
-                    labelText: 'Folder',
+                    labelText: AppStrings.folder,
                     prefixIcon: Icon(Icons.folder_outlined),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppTokens.space12),
               Expanded(
                 child: TextField(
                   controller: _tags,
                   decoration: const InputDecoration(
-                    labelText: 'Tags',
-                    hintText: 'school, ideas, todo',
+                    labelText: AppStrings.tags,
+                    hintText: AppStrings.tagsHint,
                     prefixIcon: Icon(Icons.tag_rounded),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppTokens.space12),
           Align(
             alignment: Alignment.centerLeft,
             child: Wrap(
-              spacing: 4,
+              spacing: AppTokens.space4,
+              runSpacing: AppTokens.space4,
               children: <Widget>[
                 for (final ({Color? color, String label}) swatch in _palette)
                   NoteColorSwatch(
@@ -304,9 +365,7 @@ class _NoteEditorPageState extends State<NoteEditorPage>
                     color: swatch.color,
                     selected: _colorValue == swatch.color?.toARGB32(),
                     onPressed: () {
-                      setState(
-                        () => _colorValue = swatch.color?.toARGB32(),
-                      );
+                      setState(() => _colorValue = swatch.color?.toARGB32());
                       _autosave.run(_save);
                     },
                   ),
@@ -321,31 +380,31 @@ class _NoteEditorPageState extends State<NoteEditorPage>
   Widget _formatToolbar() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: AppTokens.space16),
       child: Row(
         children: <Widget>[
           IconButton(
-            tooltip: 'Heading',
+            tooltip: AppStrings.heading,
             onPressed: () => _prefixCurrentLine('## '),
             icon: const Icon(Icons.title_rounded),
           ),
           IconButton(
-            tooltip: 'Bold',
+            tooltip: AppStrings.bold,
             onPressed: () => _wrapSelection('**'),
             icon: const Icon(Icons.format_bold_rounded),
           ),
           IconButton(
-            tooltip: 'Italic',
+            tooltip: AppStrings.italic,
             onPressed: () => _wrapSelection('_'),
             icon: const Icon(Icons.format_italic_rounded),
           ),
           IconButton(
-            tooltip: 'Bullet list',
+            tooltip: AppStrings.bulletList,
             onPressed: () => _prefixCurrentLine('- '),
             icon: const Icon(Icons.format_list_bulleted_rounded),
           ),
           IconButton(
-            tooltip: 'Checklist item',
+            tooltip: AppStrings.checklistItem,
             onPressed: () => _prefixCurrentLine('- [ ] '),
             icon: const Icon(Icons.checklist_rounded),
           ),
@@ -356,12 +415,18 @@ class _NoteEditorPageState extends State<NoteEditorPage>
 
   void _wrapSelection(String marker) {
     final TextSelection selection = _body.selection;
-    final int start = selection.isValid ? selection.start : _body.text.length;
-    final int end = selection.isValid ? selection.end : start;
+    final int rawStart = selection.isValid ? selection.start : _body.text.length;
+    final int rawEnd = selection.isValid ? selection.end : rawStart;
+    final int start = rawStart <= rawEnd ? rawStart : rawEnd;
+    final int end = rawStart <= rawEnd ? rawEnd : rawStart;
     final String selected = _body.text.substring(start, end);
+    final String replacement = '$marker$selected$marker';
     _body.value = TextEditingValue(
-      text: _body.text.replaceRange(start, end, '$marker$selected$marker'),
-      selection: TextSelection.collapsed(offset: end + marker.length * 2),
+      text: _body.text.replaceRange(start, end, replacement),
+      selection: TextSelection(
+        baseOffset: start + marker.length,
+        extentOffset: start + marker.length + selected.length,
+      ),
     );
   }
 
@@ -370,7 +435,7 @@ class _NoteEditorPageState extends State<NoteEditorPage>
         ? _body.selection.baseOffset.clamp(0, _body.text.length).toInt()
         : _body.text.length;
     final int lineStart =
-        _body.text.lastIndexOf('\n', caret == 0 ? 0 : caret - 1) + 1;
+        caret == 0 ? 0 : _body.text.lastIndexOf('\n', caret - 1) + 1;
     final int lineEndCandidate = _body.text.indexOf('\n', caret);
     final int lineEnd =
         lineEndCandidate == -1 ? _body.text.length : lineEndCandidate;
@@ -391,9 +456,25 @@ class _NoteEditorPageState extends State<NoteEditorPage>
         await _showVersions();
         break;
       case 'export':
-        await _save();
-        if (_note != null) await widget.files.exportMarkdown(_note!);
+        await _exportMarkdown();
         break;
+    }
+  }
+
+  Future<void> _exportMarkdown() async {
+    try {
+      await _save();
+      final Note note = await widget.repository.getById(widget.noteId);
+      final bool saved = await widget.files.exportMarkdown(note);
+      if (!mounted || !saved) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.markdownExported)),
+      );
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.markdownExportFailed)),
+      );
     }
   }
 
@@ -408,8 +489,8 @@ class _NoteEditorPageState extends State<NoteEditorPage>
       builder: (BuildContext context) => SafeArea(
         child: versions.isEmpty
             ? const Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(child: Text('No earlier snapshots yet.')),
+                padding: AppTokens.largePagePadding,
+                child: Center(child: Text(AppStrings.noSnapshots)),
               )
             : ListView.builder(
                 itemCount: versions.length,
@@ -417,22 +498,29 @@ class _NoteEditorPageState extends State<NoteEditorPage>
                   final NoteVersion version = versions[index];
                   return ListTile(
                     leading: const Icon(Icons.history_rounded),
-                    title: Text(version.title.isEmpty ? 'Untitled' : version.title),
-                    subtitle: Text(version.capturedAt.toLocal().toString()),
+                    title: Text(
+                      version.title.isEmpty ? AppStrings.untitled : version.title,
+                    ),
+                    subtitle: Text(
+                      DateFormat.yMMMd().add_jm().format(version.capturedAt.toLocal()),
+                    ),
                     trailing: TextButton(
-                      onPressed: () async {
-                        await widget.repository.restoreVersion(version.id);
-                        if (!context.mounted) return;
+                      onPressed: () {
                         Navigator.pop(context);
-                        await _reloadFromDatabase();
+                        unawaited(_restoreVersion(version.id));
                       },
-                      child: const Text('Restore'),
+                      child: const Text(AppStrings.restore),
                     ),
                   );
                 },
               ),
       ),
     );
+  }
+
+  Future<void> _restoreVersion(int versionId) async {
+    await widget.repository.restoreVersion(versionId);
+    await _reloadFromDatabase();
   }
 
   Future<void> _reloadFromDatabase() async {
@@ -453,7 +541,9 @@ class _NoteEditorPageState extends State<NoteEditorPage>
       .split(',')
       .map((String item) => item.trim())
       .where((String item) => item.isNotEmpty)
-      .toList(growable: false);
+      .toSet()
+      .toList(growable: false)
+    ..sort();
 }
 
 class _SaveIndicator extends StatelessWidget {
@@ -464,16 +554,19 @@ class _SaveIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (IconData icon, String label) = switch (state) {
-      _SaveState.idle => (Icons.edit_rounded, 'Editing'),
-      _SaveState.saving => (Icons.sync_rounded, 'Saving'),
-      _SaveState.saved => (Icons.cloud_done_outlined, 'Saved locally'),
-      _SaveState.failed => (Icons.error_outline_rounded, 'Save failed'),
+      _SaveState.idle => (Icons.edit_rounded, AppStrings.editing),
+      _SaveState.saving => (Icons.sync_rounded, AppStrings.saving),
+      _SaveState.saved => (Icons.cloud_done_outlined, AppStrings.savedLocally),
+      _SaveState.failed => (Icons.error_outline_rounded, AppStrings.saveFailed),
     };
     return Semantics(
       label: label,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Icon(icon, size: 20),
+      child: Tooltip(
+        message: label,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.space8),
+          child: Icon(icon, size: 20),
+        ),
       ),
     );
   }
