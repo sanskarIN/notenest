@@ -55,6 +55,9 @@ abstract final class AppStrings {
   static const String saving = 'Saving';
   static const String savedLocally = 'Saved locally';
   static const String saveFailed = 'Save failed';
+  static const String noteLoadFailedTitle = 'Could not open this note';
+  static const String noteLoadFailedBody =
+      'The note could not be read from local storage. Try again before making changes.';
   static const String editorHint =
       'Start writing…\n\nMarkdown-lite supported: headings, emphasis, lists, and checklists.';
   static const String tags = 'Tags';
@@ -72,6 +75,8 @@ abstract final class AppStrings {
   static const String versionHistory = 'Version history';
   static const String exportMarkdown = 'Export Markdown';
   static const String markdownExported = 'Markdown exported successfully.';
+  static const String markdownExportFailed =
+      'Markdown export failed. Your local note was not changed.';
   static const String noSnapshots = 'No earlier snapshots yet.';
 
   static const String onboardingOfflineTitle = 'Offline first';
