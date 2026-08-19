@@ -1,56 +1,61 @@
-import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:notenest/data/database/app_database.dart';
-import 'package:notenest/data/repositories/backup_repository.dart';
-import 'package:notenest/data/repositories/note_repository.dart';
-import 'package:notenest/features/notes/note_editor_page.dart';
-import 'package:notenest/services/file_transfer_service.dart';
+import 'package:notenest/core/theme/app_tokens.dart';
+import 'package:notenest/widgets/note_color_swatch.dart';
 
 void main() {
-  late AppDatabase database;
-  late NoteRepository repository;
-  late FileTransferService files;
-
-  setUp(() {
-    database = AppDatabase(NativeDatabase.memory());
-    repository = NoteRepository(database);
-    files = FileTransferService(
-      backups: BackupRepository(database),
-      notes: repository,
-    );
-  });
-
-  tearDown(() async {
-    await database.close();
-  });
-
   testWidgets(
-    'color palette exposes an explicit selected state',
+    'selected note color swatch is explicit and touch-friendly',
     (WidgetTester tester) async {
-      final Note note = await repository.create(title: 'Palette test');
+      bool tapped = false;
       await tester.pumpWidget(
         MaterialApp(
-          home: NoteEditorPage(
-            noteId: note.id,
-            repository: repository,
-            files: files,
+          home: Scaffold(
+            body: Center(
+              child: NoteColorSwatch(
+                label: 'Red',
+                color: const Color(0xFFFFD7D7),
+                selected: true,
+                onPressed: () => tapped = true,
+              ),
+            ),
           ),
         ),
       );
-      await tester.pumpAndSettle();
-
-      expect(find.byTooltip('Default note color, selected'), findsOneWidget);
-      expect(find.byIcon(Icons.check_rounded), findsOneWidget);
-
-      await tester.tap(find.byTooltip('Red note color'));
-      await tester.pump();
 
       expect(find.byTooltip('Red note color, selected'), findsOneWidget);
       expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+      expect(
+        tester.getSize(find.byType(NoteColorSwatch)),
+        const Size.square(AppTokens.minimumTouchTarget),
+      );
 
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pumpAndSettle();
+      await tester.tap(find.byType(NoteColorSwatch));
+      expect(tapped, isTrue);
+    },
+  );
+
+  testWidgets(
+    'unselected default swatch has a non-color reset cue',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: NoteColorSwatch(
+                label: 'Default',
+                color: null,
+                selected: false,
+                onPressed: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byTooltip('Default note color'), findsOneWidget);
+      expect(find.byIcon(Icons.format_color_reset_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.check_rounded), findsNothing);
     },
   );
 }
