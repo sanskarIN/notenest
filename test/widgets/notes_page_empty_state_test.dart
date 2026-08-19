@@ -57,63 +57,67 @@ void main() {
     controller.dispose();
   }
 
-  testWidgets('all-notes empty state offers create and import actions', (
-    WidgetTester tester,
-  ) async {
-    final NotesController controller = await pumpCollection(
-      tester,
-      NoteCollection.all,
-    );
+  testWidgets(
+    'all-notes empty state offers create and import actions',
+    (WidgetTester tester) async {
+      final NotesController controller = await pumpCollection(
+        tester,
+        NoteCollection.all,
+      );
 
-    expect(find.text(AppStrings.emptyTitle), findsOneWidget);
-    expect(find.text(AppStrings.newNote), findsOneWidget);
-    expect(find.byTooltip(AppStrings.importMarkdown), findsOneWidget);
+      expect(find.text(AppStrings.emptyTitle), findsOneWidget);
+      expect(find.text(AppStrings.newNote), findsOneWidget);
+      expect(find.byTooltip(AppStrings.importMarkdown), findsOneWidget);
 
-    await unmount(tester, controller);
-  });
+      await unmount(tester, controller);
+    },
+  );
 
-  testWidgets('favorites empty state does not offer mismatched create or import', (
-    WidgetTester tester,
-  ) async {
-    final NotesController controller = await pumpCollection(
-      tester,
-      NoteCollection.favorites,
-    );
+  testWidgets(
+    'favorites empty state does not offer mismatched create or import',
+    (WidgetTester tester) async {
+      final NotesController controller = await pumpCollection(
+        tester,
+        NoteCollection.favorites,
+      );
 
-    expect(find.text(AppStrings.favoritesEmptyTitle), findsOneWidget);
-    expect(find.text(AppStrings.newNote), findsNothing);
-    expect(find.byTooltip(AppStrings.importMarkdown), findsNothing);
+      expect(find.text(AppStrings.favoritesEmptyTitle), findsOneWidget);
+      expect(find.text(AppStrings.newNote), findsNothing);
+      expect(find.byTooltip(AppStrings.importMarkdown), findsNothing);
 
-    await unmount(tester, controller);
-  });
+      await unmount(tester, controller);
+    },
+  );
 
-  testWidgets('archive empty state explains the collection without create action', (
-    WidgetTester tester,
-  ) async {
-    final NotesController controller = await pumpCollection(
-      tester,
-      NoteCollection.archive,
-    );
+  testWidgets(
+    'archive empty state explains the collection without create action',
+    (WidgetTester tester) async {
+      final NotesController controller = await pumpCollection(
+        tester,
+        NoteCollection.archive,
+      );
 
-    expect(find.text(AppStrings.archiveEmptyTitle), findsOneWidget);
-    expect(find.text(AppStrings.newNote), findsNothing);
-    expect(find.byTooltip(AppStrings.importMarkdown), findsNothing);
+      expect(find.text(AppStrings.archiveEmptyTitle), findsOneWidget);
+      expect(find.text(AppStrings.newNote), findsNothing);
+      expect(find.byTooltip(AppStrings.importMarkdown), findsNothing);
 
-    await unmount(tester, controller);
-  });
+      await unmount(tester, controller);
+    },
+  );
 
-  testWidgets('trash empty state explains retention without create action', (
-    WidgetTester tester,
-  ) async {
-    final NotesController controller = await pumpCollection(
-      tester,
-      NoteCollection.trash,
-    );
+  testWidgets(
+    'trash empty state explains retention without create action',
+    (WidgetTester tester) async {
+      final NotesController controller = await pumpCollection(
+        tester,
+        NoteCollection.trash,
+      );
 
-    expect(find.text(AppStrings.trashEmptyTitle), findsOneWidget);
-    expect(find.text(AppStrings.newNote), findsNothing);
-    expect(find.byTooltip(AppStrings.importMarkdown), findsNothing);
+      expect(find.text(AppStrings.trashEmptyTitle), findsOneWidget);
+      expect(find.text(AppStrings.newNote), findsNothing);
+      expect(find.byTooltip(AppStrings.importMarkdown), findsNothing);
 
-    await unmount(tester, controller);
-  });
+      await unmount(tester, controller);
+    },
+  );
 }
