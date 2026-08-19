@@ -2,11 +2,13 @@
 
 This guide describes how to prepare, verify, package, and publish a NoteNest release without committing signing secrets or claiming checks that were not run.
 
+Current release-candidate target: **2.0.12** (`2.0.12+2012`).
+
 ## Release principles
 
 - Release from a clean, reviewed commit.
-- Keep version, changelog, and documentation synchronized.
-- Use the Flutter SDK version pinned by `.flutter-version`; the current NoteNest 1.0.0 release-candidate pin is **3.44.7**.
+- Keep package version, visible app version, changelog, release notes, and documentation synchronized.
+- Use the Flutter SDK version pinned by `.flutter-version`; the current NoteNest 2.0.12 release-candidate pin is **3.44.7**.
 - Keep the exact Flutter version in CI, platform-build, and release workflows synchronized with `.flutter-version`.
 - Generate native runners using the documented script.
 - Generate Drift code using the pinned project dependencies.
@@ -21,20 +23,32 @@ This guide describes how to prepare, verify, package, and publish a NoteNest rel
 `pubspec.yaml` uses Flutter's version format:
 
 ```yaml
-version: 1.0.0+1
+version: 2.0.12+2012
 ```
 
-- `1.0.0` is the user-facing semantic version.
-- `+1` is the build number used by platforms that require an incrementing integer.
+- `2.0.12` is the user-facing semantic version.
+- `+2012` is the platform build number for this release candidate.
+- `AppStrings.version` must be exactly `2.0.12`.
+- `CHANGELOG.md` must contain a `## [2.0.12]` section.
+- `docs/releases/2.0.12.md` must exist and contain the exact package/visible version values.
 
-Before release:
+The repository enforces these relationships with:
+
+```bash
+python tool/check_version_sync.py
+```
+
+Before a future release:
 
 1. Choose the semantic version.
-2. Increment the build number as required.
-3. Move relevant `CHANGELOG.md` entries from `Unreleased` into a dated release section.
-4. Update any visible version constant used by the About UI.
-5. Confirm `README.md`, privacy/security docs, and roadmap still match behavior.
-6. Confirm `.flutter-version` and every Flutter GitHub Actions workflow use the same SDK version.
+2. Increment the platform build number as required.
+3. Update `pubspec.yaml`.
+4. Update `AppStrings.version`.
+5. Add/update the matching changelog section.
+6. Add `docs/releases/<version>.md`.
+7. Run `python tool/check_version_sync.py` before other release work.
+8. Confirm `README.md`, privacy/security docs, roadmap, and handoff still match behavior.
+9. Confirm `.flutter-version` and every Flutter GitHub Actions workflow use the same SDK version.
 
 ## Clean checkout verification
 
@@ -51,9 +65,10 @@ Review before using any destructive clean command. Verify the SDK first:
 flutter --version
 ```
 
-For the current 1.0.0 release candidate this must report Flutter **3.44.7**. Then generate environment-dependent files:
+For the current 2.0.12 release candidate this must report Flutter **3.44.7**. Then verify version metadata before generating environment-dependent files:
 
 ```bash
+python tool/check_version_sync.py
 python tool/bootstrap_platforms.py
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs
@@ -64,6 +79,8 @@ dart run build_runner build --delete-conflicting-outputs
 Run:
 
 ```bash
+python tool/check_version_sync.py
+dart run build_runner build --delete-conflicting-outputs
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --coverage
@@ -72,7 +89,7 @@ python tool/check_markdown_links.py
 python tool/security_scan.py
 ```
 
-`tool/check_markdown_links.py` validates repository-local links in tracked Markdown without depending on live third-party sites. Run `flutter doctor -v` and record relevant host/toolchain versions for reproducibility.
+`tool/check_version_sync.py` verifies package/UI/changelog/release-note synchronization. `tool/check_markdown_links.py` validates repository-local links in tracked Markdown without depending on live third-party sites. Run `flutter doctor -v` and record relevant host/toolchain versions for reproducibility.
 
 ## Manual product smoke test
 
@@ -94,14 +111,16 @@ Use fictional data and exercise:
 14. Theme modes.
 15. Large text.
 16. Reduced motion.
-17. Settings/About links.
-18. Optional app lock on a supported device and safe failure on unsupported targets.
+17. Repository/funding/business/support email links from About.
+18. Release-updates link from Settings.
+19. External-link failure feedback on a platform/device where an external handler is unavailable.
+20. Optional app lock on a supported device and safe failure on unsupported targets.
 
 Do not use real personal notes for release testing.
 
 ## Accessibility release check
 
-Follow the matrix in [`docs/accessibility.md`](accessibility.md). At minimum:
+Follow the matrix in [`accessibility.md`](accessibility.md). At minimum:
 
 - Keyboard traversal on a desktop build.
 - Screen-reader/semantics review on at least one mobile build.
@@ -111,6 +130,7 @@ Follow the matrix in [`docs/accessibility.md`](accessibility.md). At minimum:
 - Reduced-motion setting.
 - Destructive action labels/confirmations.
 - Editor color selection must expose a non-color selected cue and comfortable target.
+- External-link failure messages must remain reachable/readable.
 
 Document known non-blocking gaps honestly.
 
@@ -130,11 +150,12 @@ For store distribution, configure signing outside source control. Keep keystore 
 Before publishing:
 
 - Verify application ID/package identity.
-- Verify version/build number.
+- Verify version is `2.0.12` and build number is `2012`.
 - Verify minimum/target SDK values from generated/current Android files.
 - Review requested permissions.
 - Test the signed artifact on a representative device.
 - Verify optional local authentication behavior.
+- Verify file-picker and external-link behavior.
 
 ## Windows
 
@@ -182,26 +203,22 @@ A distributable archive requires Apple developer signing/provisioning. Verify th
 
 ## Release artifacts
 
-Artifacts should be named clearly with:
+Artifacts should be named clearly with product, version, and platform/architecture where meaningful.
 
-- Product.
-- Version.
-- Platform/architecture where meaningful.
-
-Example naming conventions:
+Example naming conventions for 2.0.12:
 
 ```text
-notenest-1.0.0-android.apk
-notenest-1.0.0-windows-x64.zip
-notenest-1.0.0-linux-x64.tar.gz
-notenest-1.0.0-macos.zip
+notenest-2.0.12-android.apk
+notenest-2.0.12-windows-x64.zip
+notenest-2.0.12-linux-x64.tar.gz
+notenest-2.0.12-macos.zip
 ```
 
 Do not rename an unsigned/no-codesign validation artifact in a way that suggests it is store-ready.
 
 ## Checksums
 
-For downloadable archives/binaries, publish SHA-256 checksums generated from the final artifacts. Examples:
+For downloadable archives/binaries, publish SHA-256 checksums generated from the final artifacts.
 
 Linux/macOS:
 
@@ -219,18 +236,18 @@ Checksums detect accidental corruption/download mismatch; they are not a replace
 
 ## Git tag
 
-After the release commit has passed required checks:
+After the exact release commit has passed required checks:
 
 ```bash
-git tag -a v1.0.0 -m "NoteNest 1.0.0"
-git push origin v1.0.0
+git tag -a v2.0.12 -m "NoteNest 2.0.12"
+git push origin v2.0.12
 ```
 
 Do not move a published release tag to a different commit. If a released version has a problem, publish a new patch version.
 
 ## GitHub release notes
 
-Release notes should include:
+Use [`releases/2.0.12.md`](releases/2.0.12.md) as the release-candidate source. Final release notes should include:
 
 - User-facing additions/changes/fixes.
 - Security/privacy changes without prematurely disclosing an unpatched vulnerability.
@@ -262,14 +279,17 @@ For `main`, enable a branch ruleset/protection rule that, where available for th
 
 If a solo-maintainer workflow needs direct maintenance pushes, choose rules that preserve practical recovery while still preventing accidental history rewrite.
 
-## Final release checklist
+## Final 2.0.12 release checklist
 
-- [ ] Version/build number updated.
-- [ ] `AppStrings.version` matches.
-- [ ] `.flutter-version` matches CI/platform/release workflow Flutter versions.
+- [x] `pubspec.yaml` set to `2.0.12+2012`.
+- [x] `AppStrings.version` set to `2.0.12`.
+- [x] Matching changelog section prepared.
+- [x] Matching `docs/releases/2.0.12.md` prepared.
+- [x] Version synchronization checker added to CI.
+- [ ] `python tool/check_version_sync.py` passes on clean checkout/CI.
+- [ ] `.flutter-version` matches CI/platform/release workflow Flutter versions on the verified candidate.
 - [ ] `flutter --version` matches the project pin on verification hosts.
-- [ ] Changelog release section dated.
-- [ ] `what_changed.md` updated.
+- [ ] `what_changed.md` finalized for 2.0.12 verification results.
 - [ ] Clean checkout/setup succeeds.
 - [ ] Drift generation succeeds.
 - [ ] Formatter passes.
@@ -286,11 +306,12 @@ If a solo-maintainer workflow needs direct maintenance pushes, choose rules that
 - [ ] iOS no-codesign compile verified on macOS.
 - [ ] Manual primary journeys verified.
 - [ ] Serialized autosave final-draft behavior manually verified.
-- [ ] Oversized import rejection manually verified where picker integration is supported.
+- [ ] Bounded oversized import rejection manually verified through real picker/provider behavior.
+- [ ] External-link success/failure paths verified on representative targets.
 - [ ] Accessibility checks recorded.
 - [ ] Privacy/security documentation matches build.
 - [ ] Runtime screenshots captured from verified builds.
 - [ ] Signing status clearly recorded.
-- [ ] Release notes prepared.
+- [ ] Release notes prepared from the candidate notes.
 - [ ] Tag points to exact verified commit.
 - [ ] Checksums generated for distributed artifacts.
