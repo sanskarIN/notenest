@@ -95,6 +95,62 @@ void main() {
     expect((await notes.getById(created.id)).title, 'Keep me');
   });
 
+  test('rejects malformed serialized tags before changing data', () async {
+    final Note created = await notes.create(title: 'Keep me');
+    final Map<String, Object?> payload =
+        jsonDecode(await backups.exportJson()) as Map<String, Object?>;
+    final List<Object?> rawNotes = payload['notes']! as List<Object?>;
+    final Map<String, Object?> firstNote =
+        rawNotes.single! as Map<String, Object?>;
+    firstNote['tags'] = '{broken';
+
+    expect(
+      () => backups.restoreJson(jsonEncode(payload)),
+      throwsA(isA<ValidationException>()),
+    );
+    expect((await notes.getById(created.id)).title, 'Keep me');
+  });
+
+  test('rejects duplicate note ids', () async {
+    await notes.create(title: 'Source');
+    final Map<String, Object?> payload =
+        jsonDecode(await backups.exportJson()) as Map<String, Object?>;
+    final List<Object?> rawNotes = payload['notes']! as List<Object?>;
+    rawNotes.add(Map<String, Object?>.from(rawNotes.single! as Map<String, Object?>));
+
+    expect(
+      () => backups.restoreJson(jsonEncode(payload)),
+      throwsA(isA<ValidationException>()),
+    );
+  });
+
+  test('rejects version history whose note does not exist', () async {
+    final Note created = await notes.create(title: 'First', body: 'One');
+    await notes.saveContent(
+      id: created.id,
+      title: 'Second',
+      body: 'Two',
+      folder: '',
+      tags: const <String>[],
+      colorValue: null,
+    );
+    final Map<String, Object?> payload =
+        jsonDecode(await backups.exportJson()) as Map<String, Object?>;
+    final List<Object?> rawNotes = payload['notes']! as List<Object?>;
+    rawNotes.clear();
+    final List<Object?> rawVersions = payload['versions']! as List<Object?>;
+    final Map<String, Object?> version =
+        rawVersions.single! as Map<String, Object?>;
+    version['noteId'] = 'missing-note';
+
+    await notes.permanentlyDelete(created.id);
+
+    expect(
+      () => backups.restoreJson(jsonEncode(payload)),
+      throwsA(isA<ValidationException>()),
+    );
+  });
+
   test('rejects malformed JSON without changing data', () async {
     final Note created = await notes.create(title: 'Keep me');
 
