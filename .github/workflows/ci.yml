@@ -55,6 +55,9 @@ jobs:
       - name: Run repository policy checks
         run: python3 tool/check_repo.py
 
+      - name: Check Markdown links
+        run: python3 tool/check_markdown_links.py
+
       - name: Run lightweight secret scan
         run: python3 tool/security_scan.py
 
