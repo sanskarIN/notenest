@@ -77,12 +77,14 @@ class _NotesPageState extends State<NotesPage> {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              IconButton.filledTonal(
-                tooltip: 'Import Markdown',
-                onPressed: _importMarkdown,
-                icon: const Icon(Icons.file_open_rounded),
-              ),
+              if (controller.filter.collection == NoteCollection.all) ...<Widget>[
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  tooltip: AppStrings.importMarkdown,
+                  onPressed: _importMarkdown,
+                  icon: const Icon(Icons.file_open_rounded),
+                ),
+              ],
               if (controller.filter.collection == NoteCollection.trash) ...<Widget>[
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
@@ -117,18 +119,7 @@ class _NotesPageState extends State<NotesPage> {
       );
     }
     if (controller.notes.isEmpty) {
-      return EmptyState(
-        icon: Icons.note_add_outlined,
-        title: AppStrings.emptyTitle,
-        message: AppStrings.emptyBody,
-        action: controller.filter.collection == NoteCollection.trash
-            ? null
-            : FilledButton.icon(
-                onPressed: _createNote,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text(AppStrings.newNote),
-              ),
-      );
+      return _collectionEmptyState(controller.filter.collection);
     }
 
     return RefreshIndicator(
@@ -172,6 +163,43 @@ class _NotesPageState extends State<NotesPage> {
           );
         },
       ),
+    );
+  }
+
+  Widget _collectionEmptyState(NoteCollection collection) {
+    final (IconData icon, String title, String message) = switch (collection) {
+      NoteCollection.all => (
+          Icons.note_add_outlined,
+          AppStrings.emptyTitle,
+          AppStrings.emptyBody,
+        ),
+      NoteCollection.favorites => (
+          Icons.star_outline_rounded,
+          AppStrings.favoritesEmptyTitle,
+          AppStrings.favoritesEmptyBody,
+        ),
+      NoteCollection.archive => (
+          Icons.archive_outlined,
+          AppStrings.archiveEmptyTitle,
+          AppStrings.archiveEmptyBody,
+        ),
+      NoteCollection.trash => (
+          Icons.delete_outline_rounded,
+          AppStrings.trashEmptyTitle,
+          AppStrings.trashEmptyBody,
+        ),
+    };
+    return EmptyState(
+      icon: icon,
+      title: title,
+      message: message,
+      action: collection == NoteCollection.all
+          ? FilledButton.icon(
+              onPressed: _createNote,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text(AppStrings.newNote),
+            )
+          : null,
     );
   }
 
