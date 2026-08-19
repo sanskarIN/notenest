@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify NoteNest's package and visible application versions stay in sync."""
+"""Verify NoteNest package, UI, changelog, and release-note versions stay in sync."""
 
 from __future__ import annotations
 
@@ -10,6 +10,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PUBSPEC = ROOT / "pubspec.yaml"
 APP_STRINGS = ROOT / "lib/core/constants/app_strings.dart"
+CHANGELOG = ROOT / "CHANGELOG.md"
+RELEASES_DIR = ROOT / "docs/releases"
 
 PUBSPEC_VERSION_RE = re.compile(
     r"^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$",
@@ -25,6 +27,7 @@ def main() -> int:
 
     pubspec_text = PUBSPEC.read_text(encoding="utf-8")
     app_strings_text = APP_STRINGS.read_text(encoding="utf-8")
+    changelog_text = CHANGELOG.read_text(encoding="utf-8")
 
     pubspec_match = PUBSPEC_VERSION_RE.search(pubspec_text)
     if pubspec_match is None:
@@ -50,6 +53,32 @@ def main() -> int:
                 "version mismatch: "
                 f"pubspec.yaml={package_version}, AppStrings.version={app_version}"
             )
+
+    if package_version is not None and build_number is not None:
+        changelog_heading = f"## [{package_version}]"
+        if changelog_heading not in changelog_text:
+            errors.append(
+                f"CHANGELOG.md must contain a {changelog_heading!r} release section"
+            )
+
+        release_notes = RELEASES_DIR / f"{package_version}.md"
+        if not release_notes.is_file():
+            errors.append(
+                f"missing release notes for {package_version}: "
+                f"docs/releases/{package_version}.md"
+            )
+        else:
+            release_text = release_notes.read_text(encoding="utf-8")
+            expected_package = f"Package version: `{package_version}+{build_number}`"
+            expected_visible = f"Visible application version: `{package_version}`"
+            if expected_package not in release_text:
+                errors.append(
+                    f"release notes must contain exact package version {package_version}+{build_number}"
+                )
+            if expected_visible not in release_text:
+                errors.append(
+                    f"release notes must contain visible version {package_version}"
+                )
 
     if errors:
         print("Version synchronization checks failed:", file=sys.stderr)
