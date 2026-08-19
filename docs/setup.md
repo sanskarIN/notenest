@@ -7,9 +7,9 @@ This guide starts from a clean machine and gets the repository ready for develop
 You need:
 
 - Git.
-- Flutter SDK compatible with `pubspec.yaml`.
+- Flutter SDK **3.44.7**, pinned by `.flutter-version` and the GitHub Actions workflows.
 - Dart (included with Flutter).
-- Python 3 for `tool/bootstrap_platforms.py`.
+- Python 3 for repository/bootstrap quality tools.
 - A code editor such as VS Code or Android Studio.
 - Native platform tooling for the target you want to build.
 
@@ -27,7 +27,7 @@ Use the official Git installer/package manager for your operating system. On Win
 
 ## 3. Install Flutter
 
-Use the official Flutter installation instructions for your operating system and stable channel. Keep the SDK in a user-writable development directory rather than a protected system folder.
+Use the official Flutter installation instructions for your operating system and stable channel. Keep the SDK in a user-writable development directory rather than a protected system folder. For reproducible NoteNest work, select the version recorded in `.flutter-version` instead of silently using a newer stable release.
 
 After adding Flutter's `bin` directory to `PATH`, verify:
 
@@ -37,19 +37,19 @@ dart --version
 flutter doctor -v
 ```
 
-Resolve `flutter doctor` errors relevant to the platforms you intend to use.
+`flutter --version` should report **3.44.7** for the current NoteNest 1.0.0 release-candidate toolchain. Resolve `flutter doctor` errors relevant to the platforms you intend to use.
 
 ### Updating Flutter
 
-Before upgrading an established project, read Flutter release notes and dependency compatibility. A normal stable-channel update is:
+Flutter upgrades are deliberate project changes. Do not update only a developer machine while leaving CI on another SDK. When adopting a new Flutter release:
 
-```bash
-flutter channel stable
-flutter upgrade
-flutter doctor -v
-```
+1. Review Flutter release notes and package compatibility.
+2. Update `.flutter-version`.
+3. Update the exact `flutter-version` used in CI, platform-build, and release workflows.
+4. Regenerate platform runners and generated Dart code.
+5. Run the full quality and native build suites before merging the upgrade.
 
-After an upgrade, regenerate platform runners and generated Dart code, then run the full quality suite before committing compatibility changes.
+A developer may use their preferred Flutter version manager, but it must resolve the project to the pinned version before verification.
 
 ## 4. Editor setup
 
@@ -116,7 +116,7 @@ The script runs Flutter's project generator for Android, iOS, Linux, macOS, and 
 - Android minimum SDK is patched to the project baseline.
 - iOS `Info.plist` gets a Face ID usage description for optional app lock.
 
-The script is intended to be re-runnable after a clean checkout or Flutter upgrade.
+The script is intended to be re-runnable after a clean checkout or intentional Flutter upgrade.
 
 ## 7. Fetch dependencies
 
@@ -146,6 +146,9 @@ dart run build_runner watch --delete-conflicting-outputs
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --coverage
+python tool/check_repo.py
+python tool/check_markdown_links.py
+python tool/security_scan.py
 ```
 
 If all applicable commands pass, list runnable devices:
@@ -267,7 +270,7 @@ or on Windows:
 py --version
 ```
 
-The bootstrap script uses only Python's standard library; no `pip install` is required.
+The repository Python tools use only the standard library; no `pip install` is required.
 
 ## Clean rebuild
 
@@ -278,8 +281,12 @@ flutter clean
 python tool/bootstrap_platforms.py
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs
+dart format --output=none --set-exit-if-changed lib test
 flutter analyze
-flutter test
+flutter test --coverage
+python tool/check_repo.py
+python tool/check_markdown_links.py
+python tool/security_scan.py
 ```
 
 Do not delete user application data on a real device simply to fix a compile problem.
@@ -300,6 +307,9 @@ dart run build_runner build --delete-conflicting-outputs
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test
+python tool/check_repo.py
+python tool/check_markdown_links.py
+python tool/security_scan.py
 ```
 
 For native-plugin upgrades, rebuild on every affected target before release.
