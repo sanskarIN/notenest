@@ -23,12 +23,13 @@ All notable NoteNest changes are documented here. The project follows the spirit
 - Optional operating-system-backed app lock through `local_auth`.
 - Settings and About screens with project/support/funding information.
 - Editable NoteNest SVG logo source and labeled layout-reference artwork.
-- In-memory repository/database tests, backup-validation tests, settings tests, Markdown helper/metadata tests, logger-redaction tests, import-bound tests, safe-filename tests, async-save-order tests, onboarding coverage, collection-empty-state coverage, and custom color-swatch accessibility coverage.
+- In-memory repository/database tests, backup-validation tests, settings tests, Markdown helper/metadata tests, logger-redaction tests, import-bound/bounded-reader tests, safe-filename tests, async-save-order tests, onboarding coverage, collection-empty-state coverage, and custom color-swatch accessibility coverage.
 - Reproducible native runner bootstrap script for Android, iOS, Linux, macOS, and Windows.
 - Repository documentation, contribution policy, security policy, privacy disclosure, support guide, ADRs, CI configuration, templates, and dependency automation.
 - Deterministic Markdown local-link checker integrated into the CI quality gate.
 - Exact Flutter SDK pin (`3.44.7`) synchronized across project, quality, platform-build, and release workflows.
 - Shared 48-logical-pixel minimum touch-target design token for custom controls.
+- Bounded native-file reader used by local note/backup imports.
 
 ### Fixed
 
@@ -39,6 +40,7 @@ All notable NoteNest changes are documented here. The project follows the spirit
 - Hardened Markdown export filenames against cross-platform invalid characters, trailing dots/spaces, excessive length, and Windows reserved device names.
 - Replaced color-only editor swatch selection with explicit selected semantics and a visible checkmark while keeping a comfortable interaction target.
 - Replaced moving-stable Flutter workflow setup with the exact project SDK version for reproducible automated builds.
+- Removed eager `file_picker` byte loading from native Markdown/backup imports; selected cached files are now length-checked and consumed incrementally through the configured byte ceiling before NoteNest constructs the final in-memory buffer.
 
 ### Security
 
@@ -46,8 +48,9 @@ All notable NoteNest changes are documented here. The project follows the spirit
 - Restore validation rejects malformed serialized tags, duplicate note IDs, and version entries that reference unknown notes.
 - Restore operations preserve newer local note revisions.
 - Imported text is decoded as UTF-8 and never executed.
-- Markdown/text imports are rejected above 16 MiB before UTF-8 decoding.
-- NoteNest JSON backups are rejected above 64 MiB before UTF-8/JSON processing.
+- Markdown/text imports are rejected above 16 MiB before NoteNest constructs a complete import buffer.
+- NoteNest JSON backups are rejected above 64 MiB before NoteNest constructs a complete import buffer or performs UTF-8/JSON processing.
+- Native import reads are disk-backed/incremental after the picker returns a cached local path instead of requesting `withData: true` eager memory loading.
 - SQL search inputs are transformed into parameterized FTS variables instead of interpolated into SQL.
 - Common secret, signing, database, and local-environment files are excluded from source control.
 - App lock delegates authentication to maintained platform APIs rather than custom authentication/cryptography.
