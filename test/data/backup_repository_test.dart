@@ -23,18 +23,45 @@ void main() {
   });
 
   test('exports and restores a validated backup', () async {
-    await notes.create(title: 'Backup me', body: 'Offline data');
+    final Note created = await notes.create(
+      title: 'Backup me',
+      body: 'Offline data',
+    );
     final String payload = await backups.exportJson();
+    await notes.permanentlyDelete(created.id);
 
-    await notes.emptyTrash();
     final RestoreReport report = await backups.restoreJson(payload);
+    final Note restored = await notes.getById(created.id);
 
     expect(report.importedNotes, 1);
-    expect(jsonDecode(payload), isA<Map<String, Object?>>());
+    expect(restored.title, 'Backup me');
+    expect(restored.body, 'Offline data');
+  });
+
+  test('preserves a newer local note during restore', () async {
+    final Note created = await notes.create(title: 'Old title', body: 'Old body');
+    final String olderBackup = await backups.exportJson();
+
+    await notes.saveContent(
+      id: created.id,
+      title: 'New title',
+      body: 'New body',
+      folder: '',
+      tags: const <String>[],
+      colorValue: null,
+    );
+
+    final RestoreReport report = await backups.restoreJson(olderBackup);
+    final Note current = await notes.getById(created.id);
+
+    expect(report.skippedNewerNotes, 1);
+    expect(current.title, 'New title');
+    expect(current.body, 'New body');
   });
 
   test('rejects a backup from another application', () async {
-    const String payload = '{"app":"Other","schemaVersion":1,"notes":[],"versions":[]}';
+    const String payload =
+        '{"app":"Other","schemaVersion":1,"notes":[],"versions":[]}';
 
     expect(
       () => backups.restoreJson(payload),
@@ -42,13 +69,39 @@ void main() {
     );
   });
 
+  test('rejects an unsupported backup schema version', () async {
+    const String payload =
+        '{"app":"NoteNest","schemaVersion":99,"notes":[],"versions":[]}';
+
+    expect(
+      () => backups.restoreJson(payload),
+      throwsA(isA<ValidationException>()),
+    );
+  });
+
+  test('rejects invalid timestamps before changing data', () async {
+    final Note created = await notes.create(title: 'Keep me');
+    final Map<String, Object?> payload =
+        jsonDecode(await backups.exportJson()) as Map<String, Object?>;
+    final List<Object?> rawNotes = payload['notes']! as List<Object?>;
+    final Map<String, Object?> firstNote =
+        rawNotes.single! as Map<String, Object?>;
+    firstNote['updatedAt'] = 'not-a-date';
+
+    expect(
+      () => backups.restoreJson(jsonEncode(payload)),
+      throwsA(isA<ValidationException>()),
+    );
+    expect((await notes.getById(created.id)).title, 'Keep me');
+  });
+
   test('rejects malformed JSON without changing data', () async {
-    await notes.create(title: 'Keep me');
+    final Note created = await notes.create(title: 'Keep me');
 
     expect(
       () => backups.restoreJson('{broken'),
       throwsA(isA<ValidationException>()),
     );
-    expect((await database.select(database.notes).get()), hasLength(1));
+    expect((await notes.getById(created.id)).title, 'Keep me');
   });
 }
