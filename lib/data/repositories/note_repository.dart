@@ -46,14 +46,7 @@ final class NoteRepository {
         : await _db.searchFts(filter.query);
 
     final List<Note> filtered = source.where((Note note) {
-      final bool collectionMatches = switch (filter.collection) {
-        NoteCollection.all => !note.isTrashed && !note.isArchived,
-        NoteCollection.favorites =>
-          !note.isTrashed && !note.isArchived && note.isFavorite,
-        NoteCollection.archive => !note.isTrashed && note.isArchived,
-        NoteCollection.trash => note.isTrashed,
-      };
-      if (!collectionMatches) {
+      if (!_matchesCollection(note, filter.collection)) {
         return false;
       }
       if (filter.folder != null && note.folder != filter.folder) {
@@ -194,18 +187,23 @@ final class NoteRepository {
         .go();
   }
 
-  Future<Set<String>> folders() async {
+  Future<Set<String>> folders({
+    NoteCollection collection = NoteCollection.all,
+  }) async {
     final List<Note> values = await _db.select(_db.notes).get();
     return values
-        .where((Note note) => !note.isTrashed && note.folder.trim().isNotEmpty)
+        .where((Note note) => _matchesCollection(note, collection))
         .map((Note note) => note.folder.trim())
+        .where((String folder) => folder.isNotEmpty)
         .toSet();
   }
 
-  Future<Set<String>> tags() async {
+  Future<Set<String>> tags({
+    NoteCollection collection = NoteCollection.all,
+  }) async {
     final List<Note> values = await _db.select(_db.notes).get();
     return values
-        .where((Note note) => !note.isTrashed)
+        .where((Note note) => _matchesCollection(note, collection))
         .expand((Note note) => decodeTags(note.tags))
         .toSet();
   }
@@ -224,6 +222,16 @@ final class NoteRepository {
     } on FormatException {
       return <String>[];
     }
+  }
+
+  bool _matchesCollection(Note note, NoteCollection collection) {
+    return switch (collection) {
+      NoteCollection.all => !note.isTrashed && !note.isArchived,
+      NoteCollection.favorites =>
+        !note.isTrashed && !note.isArchived && note.isFavorite,
+      NoteCollection.archive => !note.isTrashed && note.isArchived,
+      NoteCollection.trash => note.isTrashed,
+    };
   }
 
   Future<void> _patch(String id, NotesCompanion patch) async {
