@@ -68,7 +68,23 @@ class _NoteEditorPageState extends State<NoteEditorPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _autosave.dispose();
-    unawaited(_save());
+    _title.removeListener(_changed);
+    _body.removeListener(_changed);
+    _folder.removeListener(_changed);
+    _tags.removeListener(_changed);
+    final Note? note = _note;
+    if (note != null) {
+      unawaited(
+        widget.repository.saveContent(
+          id: widget.noteId,
+          title: _title.text,
+          body: _body.text,
+          folder: _folder.text,
+          tags: _parseTags(_tags.text),
+          colorValue: _colorValue,
+        ),
+      );
+    }
     _title.dispose();
     _body.dispose();
     _folder.dispose();
@@ -319,18 +335,21 @@ class _NoteEditorPageState extends State<NoteEditorPage>
 
   void _prefixCurrentLine(String prefix) {
     final int caret = _body.selection.isValid
-        ? _body.selection.baseOffset.clamp(0, _body.text.length)
+        ? _body.selection.baseOffset.clamp(0, _body.text.length).toInt()
         : _body.text.length;
-    final int lineStart = _body.text.lastIndexOf('\n', caret == 0 ? 0 : caret - 1) + 1;
+    final int lineStart =
+        _body.text.lastIndexOf('\n', caret == 0 ? 0 : caret - 1) + 1;
     final int lineEndCandidate = _body.text.indexOf('\n', caret);
-    final int lineEnd = lineEndCandidate == -1 ? _body.text.length : lineEndCandidate;
+    final int lineEnd =
+        lineEndCandidate == -1 ? _body.text.length : lineEndCandidate;
     final String line = _body.text.substring(lineStart, lineEnd);
     final String replacement = MarkdownLite.togglePrefix(line, prefix);
+    final int nextCaret = (lineStart + replacement.length)
+        .clamp(0, _body.text.length - line.length + replacement.length)
+        .toInt();
     _body.value = TextEditingValue(
       text: _body.text.replaceRange(lineStart, lineEnd, replacement),
-      selection: TextSelection.collapsed(
-        offset: (lineStart + replacement.length).clamp(0, _body.text.length - line.length + replacement.length),
-      ),
+      selection: TextSelection.collapsed(offset: nextCaret),
     );
   }
 
@@ -338,15 +357,18 @@ class _NoteEditorPageState extends State<NoteEditorPage>
     switch (action) {
       case 'versions':
         await _showVersions();
+        break;
       case 'export':
         await _save();
         if (_note != null) await widget.files.exportMarkdown(_note!);
+        break;
     }
   }
 
   Future<void> _showVersions() async {
     await _save();
-    final List<NoteVersion> versions = await widget.repository.versions(widget.noteId);
+    final List<NoteVersion> versions =
+        await widget.repository.versions(widget.noteId);
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
