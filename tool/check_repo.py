@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Fast repository-level policy checks used by CI.
 
-These checks catch missing handoff/documentation files and accidental placeholder
-markers before a release. Flutter/Dart correctness is checked separately.
+These checks catch missing handoff/documentation/automation files, unfinished
+source markers, generated files accidentally committed, and toolchain drift.
+Flutter/Dart correctness is checked separately by the normal quality gate.
 """
 
 from __future__ import annotations
@@ -28,8 +29,23 @@ REQUIRED_FILES = (
     ".editorconfig",
     ".gitattributes",
     ".env.example",
+    ".flutter-version",
     "pubspec.yaml",
     "analysis_options.yaml",
+    "build.yaml",
+    "lib/core/logging/app_logger.dart",
+    "lib/core/theme/app_tokens.dart",
+    "lib/core/utils/markdown_document_codec.dart",
+    "test/core/app_logger_test.dart",
+    "test/core/markdown_document_codec_test.dart",
+    "test/data/note_repository_test.dart",
+    "test/data/backup_repository_test.dart",
+    "test/widgets/onboarding_page_test.dart",
+    "test/integration/note_lifecycle_integration_test.dart",
+    "tool/bootstrap_platforms.py",
+    "tool/test_bootstrap_platforms.py",
+    "tool/check_markdown_links.py",
+    "tool/security_scan.py",
     "docs/architecture.md",
     "docs/setup.md",
     "docs/development.md",
@@ -38,22 +54,27 @@ REQUIRED_FILES = (
     "docs/troubleshooting.md",
     "docs/accessibility.md",
     "docs/performance.md",
+    "docs/github.md",
     "docs/adr/0001-flutter-drift-modular-monolith.md",
     "docs/adr/0002-offline-first-data.md",
     "docs/adr/0003-generated-platform-runners.md",
     ".github/workflows/ci.yml",
+    ".github/workflows/platform-builds.yml",
+    ".github/workflows/security.yml",
+    ".github/workflows/release.yml",
     ".github/dependabot.yml",
     ".github/pull_request_template.md",
     ".github/ISSUE_TEMPLATE/bug_report.yml",
     ".github/ISSUE_TEMPLATE/feature_request.yml",
+    ".github/ISSUE_TEMPLATE/config.yml",
     ".github/FUNDING.yml",
-    "tool/check_markdown_links.py",
 )
 
 REQUIRED_README_TEXT = (
     "Made by the Sanskar",
     "https://buymeacoffee.com/sanskarIN",
     "sanskarin@outlook.in",
+    "sanskarin.business@gmail.com",
     "supportramsandesh@gmail.com",
     "MIT License",
 )
@@ -62,6 +83,12 @@ FORBIDDEN_SOURCE_MARKERS = (
     "TODO:",
     "FIXME:",
     "HACK:",
+)
+
+PINNED_FLUTTER_WORKFLOWS = (
+    ".github/workflows/ci.yml",
+    ".github/workflows/platform-builds.yml",
+    ".github/workflows/release.yml",
 )
 
 
@@ -74,6 +101,15 @@ def tracked_files() -> list[str]:
         stdout=subprocess.PIPE,
     )
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def _workflow_has_flutter_pin(text: str, version: str) -> bool:
+    accepted = (
+        f"flutter-version: {version}",
+        f'flutter-version: "{version}"',
+        f"flutter-version: '{version}'",
+    )
+    return any(value in text for value in accepted)
 
 
 def main() -> int:
@@ -89,6 +125,23 @@ def main() -> int:
         for value in REQUIRED_README_TEXT:
             if value not in readme:
                 errors.append(f"README is missing required text: {value}")
+
+    flutter_version_path = ROOT / ".flutter-version"
+    flutter_version = ""
+    if flutter_version_path.is_file():
+        flutter_version = flutter_version_path.read_text(encoding="utf-8").strip()
+        if not flutter_version:
+            errors.append(".flutter-version must contain a pinned Flutter version")
+
+    if flutter_version:
+        for relative in PINNED_FLUTTER_WORKFLOWS:
+            path = ROOT / relative
+            if path.is_file():
+                workflow = path.read_text(encoding="utf-8")
+                if not _workflow_has_flutter_pin(workflow, flutter_version):
+                    errors.append(
+                        f"{relative} does not pin Flutter {flutter_version} from .flutter-version",
+                    )
 
     for relative in tracked_files():
         path = ROOT / relative
