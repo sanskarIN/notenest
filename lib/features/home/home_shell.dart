@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:notenest/app/app_dependencies.dart';
 import 'package:notenest/core/constants/app_strings.dart';
+import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/domain/models/note_filter.dart';
 import 'package:notenest/features/about/about_page.dart';
+import 'package:notenest/features/notes/note_editor_page.dart';
 import 'package:notenest/features/notes/notes_controller.dart';
 import 'package:notenest/features/notes/notes_page.dart';
 import 'package:notenest/features/settings/settings_page.dart';
@@ -21,10 +23,7 @@ class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
   static const List<NavigationDestination> _destinations = <NavigationDestination>[
-    NavigationDestination(
-      icon: Icon(Icons.notes_rounded),
-      label: AppStrings.allNotes,
-    ),
+    NavigationDestination(icon: Icon(Icons.notes_rounded), label: AppStrings.allNotes),
     NavigationDestination(
       icon: Icon(Icons.star_outline_rounded),
       selectedIcon: Icon(Icons.star_rounded),
@@ -94,6 +93,13 @@ class _HomeShellState extends State<HomeShell> {
                   ],
                 )
               : content,
+          floatingActionButton: _index == 0
+              ? FloatingActionButton.extended(
+                  onPressed: _createNote,
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text(AppStrings.newNote),
+                )
+              : null,
           bottomNavigationBar: useRail
               ? null
               : NavigationBar(
@@ -122,6 +128,21 @@ class _HomeShellState extends State<HomeShell> {
       );
     }
     return const AboutPage();
+  }
+
+  Future<void> _createNote() async {
+    final Note note = await _notes.createNote();
+    if (!mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) => NoteEditorPage(
+          noteId: note.id,
+          repository: widget.dependencies.notes,
+          files: widget.dependencies.files,
+        ),
+      ),
+    );
+    if (mounted) await _notes.load(showLoading: false);
   }
 
   void _select(int value) {
