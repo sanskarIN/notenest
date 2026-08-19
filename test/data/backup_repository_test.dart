@@ -193,6 +193,30 @@ void main() {
     );
   });
 
+  test('rejects history injection into an existing local note', () async {
+    final Note local = await notes.create(title: 'Local');
+    await notes.saveContent(
+      id: local.id,
+      title: 'Local updated',
+      body: 'Current body',
+      folder: '',
+      tags: const <String>[],
+      colorValue: null,
+    );
+    final Map<String, Object?> payload =
+        jsonDecode(await backups.exportJson()) as Map<String, Object?>;
+    final List<Object?> rawNotes = payload['notes']! as List<Object?>;
+    rawNotes.clear();
+    final List<Object?> rawVersions = payload['versions']! as List<Object?>;
+    expect(rawVersions, isNotEmpty);
+
+    expect(
+      () => backups.restoreJson(jsonEncode(payload)),
+      throwsA(isA<ValidationException>()),
+    );
+    expect((await notes.getById(local.id)).title, 'Local updated');
+  });
+
   test('rejects malformed JSON without changing data', () async {
     final Note created = await notes.create(title: 'Keep me');
 
