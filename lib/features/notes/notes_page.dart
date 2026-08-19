@@ -217,10 +217,12 @@ class _NotesPageState extends State<NotesPage> {
       if (note == null || !mounted) return;
       await widget.controller.load(showLoading: false);
       if (mounted) await _openEditor(note);
-    } on Object catch (error) {
+    } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Import failed: $error')),
+        const SnackBar(
+          content: Text('Import failed. The selected file was not changed.'),
+        ),
       );
     }
   }
