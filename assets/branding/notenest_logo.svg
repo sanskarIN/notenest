@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">NoteNest logo</title>
+  <desc id="desc">Rounded notebook with a folded page and three note lines.</desc>
+  <rect x="64" y="48" width="384" height="416" rx="88" fill="#5B5BD6"/>
+  <path d="M144 128h160l64 64v192H144z" fill="#FFFFFF"/>
+  <path d="M304 128v64h64" fill="#DCDCFD"/>
+  <rect x="184" y="232" width="144" height="18" rx="9" fill="#5B5BD6"/>
+  <rect x="184" y="278" width="112" height="18" rx="9" fill="#5B5BD6"/>
+  <rect x="184" y="324" width="132" height="18" rx="9" fill="#5B5BD6"/>
+</svg>
