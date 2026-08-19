@@ -1,4 +1,5 @@
 import 'package:notenest/app/app_settings_controller.dart';
+import 'package:notenest/core/logging/app_logger.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/data/repositories/backup_repository.dart';
 import 'package:notenest/data/repositories/note_repository.dart';
@@ -14,6 +15,7 @@ final class AppDependencies {
     required this.backups,
     required this.files,
     required this.appLock,
+    required this.logger,
   });
 
   final AppDatabase database;
@@ -22,8 +24,10 @@ final class AppDependencies {
   final BackupRepository backups;
   final FileTransferService files;
   final AppLockService appLock;
+  final AppLogger logger;
 
   static Future<AppDependencies> create() async {
+    const AppLogger logger = AppLogger();
     final AppDatabase database = AppDatabase();
     final NoteRepository notes = NoteRepository(database);
     final SettingsRepository settingsRepository = SettingsRepository();
@@ -35,6 +39,7 @@ final class AppDependencies {
       notes: notes,
     );
     await settings.load();
+    logger.info('app.dependencies_ready');
     return AppDependencies._(
       database: database,
       notes: notes,
@@ -42,11 +47,13 @@ final class AppDependencies {
       backups: backups,
       files: files,
       appLock: AppLockService(),
+      logger: logger,
     );
   }
 
   Future<void> dispose() async {
     settings.dispose();
     await database.close();
+    logger.info('app.dependencies_disposed');
   }
 }
