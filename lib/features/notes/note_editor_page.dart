@@ -231,7 +231,8 @@ class _NoteEditorPageState extends State<NoteEditorPage>
     }
 
     setState(() => _allowPop = true);
-    Navigator.of(context).pop();
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
