@@ -148,7 +148,7 @@ class _NotesPageState extends State<NotesPage> {
               crossAxisCount: columns,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: columns == 1 ? 1.55 : 1.05,
+              mainAxisExtent: columns == 1 ? 250 : 270,
             ),
             itemCount: controller.notes.length,
             itemBuilder: (BuildContext context, int index) {
