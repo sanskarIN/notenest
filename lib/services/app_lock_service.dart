@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:notenest/core/constants/app_strings.dart';
 
 final class AppLockService {
   AppLockService({LocalAuthentication? authentication})
@@ -25,7 +26,7 @@ final class AppLockService {
         return false;
       }
       return _authentication.authenticate(
-        localizedReason: 'Unlock NoteNest to access your notes.',
+        localizedReason: AppStrings.unlockReason,
         biometricOnly: false,
         persistAcrossBackgrounding: true,
       );
