@@ -2,7 +2,7 @@ abstract final class AppStrings {
   static const String appName = 'NoteNest';
   static const String tagline = 'Your thoughts, safely nested.';
   static const String credit = 'Made by the Sanskar';
-  static const String version = '1.0.0';
+  static const String version = '2.0.12';
   static const String businessEmail = 'sanskarin@outlook.in';
   static const String secondaryBusinessEmail = 'sanskarin.business@gmail.com';
   static const String supportEmail = 'supportramsandesh@gmail.com';
