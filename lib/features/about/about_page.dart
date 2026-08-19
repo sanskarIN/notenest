@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:notenest/core/constants/app_strings.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:notenest/services/external_link_service.dart';
 
 class AboutPage extends StatelessWidget {
-  const AboutPage({super.key});
+  const AboutPage({required this.externalLinks, super.key});
+
+  final ExternalLinkService externalLinks;
 
   @override
   Widget build(BuildContext context) {
@@ -45,30 +47,35 @@ class AboutPage extends StatelessWidget {
           title: 'GitHub repository',
           subtitle: AppStrings.repositoryUrl,
           uri: Uri.parse(AppStrings.repositoryUrl),
+          externalLinks: externalLinks,
         ),
         _LinkTile(
           icon: Icons.favorite_outline_rounded,
           title: 'Buy Me a Coffee',
           subtitle: AppStrings.fundingUrl,
           uri: Uri.parse(AppStrings.fundingUrl),
+          externalLinks: externalLinks,
         ),
         _LinkTile(
           icon: Icons.mail_outline_rounded,
           title: 'Business email',
           subtitle: AppStrings.businessEmail,
           uri: Uri(scheme: 'mailto', path: AppStrings.businessEmail),
+          externalLinks: externalLinks,
         ),
         _LinkTile(
           icon: Icons.business_center_outlined,
           title: 'Secondary business email',
           subtitle: AppStrings.secondaryBusinessEmail,
           uri: Uri(scheme: 'mailto', path: AppStrings.secondaryBusinessEmail),
+          externalLinks: externalLinks,
         ),
         _LinkTile(
           icon: Icons.support_agent_rounded,
           title: 'Support email',
           subtitle: AppStrings.supportEmail,
           uri: Uri(scheme: 'mailto', path: AppStrings.supportEmail),
+          externalLinks: externalLinks,
         ),
         const SizedBox(height: 24),
         Text(
@@ -132,12 +139,14 @@ class _LinkTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.uri,
+    required this.externalLinks,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final Uri uri;
+  final ExternalLinkService externalLinks;
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +156,17 @@ class _LinkTile extends StatelessWidget {
       title: Text(title),
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.open_in_new_rounded),
-      onTap: () => launchUrl(uri, mode: LaunchMode.externalApplication),
+      onTap: () => _open(context),
+    );
+  }
+
+  Future<void> _open(BuildContext context) async {
+    final bool opened = await externalLinks.open(uri);
+    if (!context.mounted || opened) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Could not open this link on the current device.'),
+      ),
     );
   }
 }
