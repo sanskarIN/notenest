@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:notenest/core/errors/app_exception.dart';
+import 'package:notenest/core/utils/bounded_file_reader.dart';
 import 'package:notenest/core/utils/import_limits.dart';
 import 'package:notenest/core/utils/markdown_document_codec.dart';
 import 'package:notenest/core/utils/safe_file_name.dart';
@@ -38,14 +39,18 @@ final class FileTransferService {
       dialogTitle: 'Restore NoteNest backup',
       type: FileType.custom,
       allowedExtensions: <String>['json'],
-      withData: true,
+      withData: false,
     );
     if (result == null) return null;
-    final Uint8List? bytes = result.files.single.bytes;
-    if (bytes == null) {
+    final PlatformFile file = result.files.single;
+    final String? path = file.path;
+    if (path == null || path.trim().isEmpty) {
       throw const ImportExportException('Could not read the selected backup.');
     }
-    ImportLimits.validateBackupBytes(bytes.length);
+    final Uint8List bytes = await BoundedFileReader.read(
+      path,
+      validateLength: ImportLimits.validateBackupBytes,
+    );
     try {
       return await _backups.restoreJson(utf8.decode(bytes, allowMalformed: false));
     } on FormatException catch (error) {
@@ -77,15 +82,18 @@ final class FileTransferService {
       dialogTitle: 'Import Markdown note',
       type: FileType.custom,
       allowedExtensions: <String>['md', 'markdown', 'txt'],
-      withData: true,
+      withData: false,
     );
     if (result == null) return null;
     final PlatformFile file = result.files.single;
-    final Uint8List? bytes = file.bytes;
-    if (bytes == null) {
+    final String? path = file.path;
+    if (path == null || path.trim().isEmpty) {
       throw const ImportExportException('Could not read the selected note.');
     }
-    ImportLimits.validateMarkdownBytes(bytes.length);
+    final Uint8List bytes = await BoundedFileReader.read(
+      path,
+      validateLength: ImportLimits.validateMarkdownBytes,
+    );
     final String text;
     try {
       text = utf8.decode(bytes, allowMalformed: false);
