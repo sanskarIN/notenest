@@ -22,13 +22,14 @@ A private, offline-first notes app built with Flutter, Dart, Drift, and SQLite.
 
 NoteNest `main` is currently prepared as a **2.0.12 release candidate**, not yet claimed as a fully verified stable release.
 
-The package/visible/changelog/release-note version surfaces are synchronized by `tool/check_version_sync.py`, and the current package version is `2.0.12+2012`. A `v2.0.12` tag should be created only after configured CI/native builds and the documented manual platform/accessibility checks pass on the exact candidate commit.
+The package/visible/changelog/release-note version surfaces and exact Flutter workflow pins are synchronized by `tool/check_version_sync.py`, and the current package version is `2.0.12+2012`. The repository also maintains an exhaustive tracked-file catalog in `docs/repository-reference.md`, enforced by `tool/check_repository_reference.py`. A `v2.0.12` tag should be created only after configured CI/native builds and the documented manual platform/accessibility checks pass on the exact candidate commit.
 
 See:
 
 - [`CHANGELOG.md`](CHANGELOG.md)
 - [`docs/releases/2.0.12.md`](docs/releases/2.0.12.md)
 - [`docs/release.md`](docs/release.md)
+- [`docs/repository-reference.md`](docs/repository-reference.md)
 - [`what_changed.md`](what_changed.md)
 
 ## Why NoteNest?
@@ -66,6 +67,7 @@ Real device captures belong in [`docs/assets/screenshots/`](docs/assets/screensh
 
 - Distraction-free editor mode.
 - Markdown-lite helpers for headings, emphasis, bullet lists, and checklists.
+- First-line Markdown prefix actions correctly target an empty first line when the caret is at offset zero.
 - Accessible text sizing and Material 3 typography.
 - Immutable draft capture before each submitted save.
 - Save-state feedback that does not report a stale draft as current.
@@ -99,6 +101,7 @@ Real device captures belong in [`docs/assets/screenshots/`](docs/assets/screensh
 - Preference setter failures are treated as real storage failures.
 - Onboarding completion is persistence-first: the app does not leave onboarding until the completion flag is saved.
 - User-visible feedback is provided when settings/onboarding persistence fails.
+- Root application teardown delegates final settings-controller/database cleanup to the composition root.
 
 ### Privacy and security
 
@@ -142,7 +145,7 @@ Real device captures belong in [`docs/assets/screenshots/`](docs/assets/screensh
 
 This table describes project targets, **not** a claim that the current 2.0.12 candidate has already passed every native runtime/build test. Exact verification status is recorded in [`what_changed.md`](what_changed.md).
 
-Native runner templates are generated with [`tool/bootstrap_platforms.py`](tool/bootstrap_platforms.py). Flutter is pinned to **3.44.7** in [`.flutter-version`](.flutter-version) and CI/platform/release workflows.
+Native runner templates are generated with [`tool/bootstrap_platforms.py`](tool/bootstrap_platforms.py), which now validates that required native authentication/platform patches were actually applied. Flutter is pinned to **3.44.7** in [`.flutter-version`](.flutter-version) and CI/platform/release workflows; `tool/check_version_sync.py` rejects pin drift.
 
 ## Technology stack
 
@@ -184,13 +187,13 @@ For local commits made for this project:
 git config user.email "sanskarin@outlook.in"
 ```
 
-### 3. Verify version metadata
+### 3. Verify release/toolchain metadata
 
 ```bash
 python tool/check_version_sync.py
 ```
 
-This checks the package version, visible About version, changelog section, and matching version-specific release notes.
+This checks the package version, visible About version, changelog section, matching version-specific release notes, the exact `.flutter-version` pin, and the Flutter pins used by quality/platform/release workflows.
 
 ### 4. Generate native runners
 
@@ -203,6 +206,8 @@ On Windows, use `py` if that is your Python launcher:
 ```powershell
 py tool/bootstrap_platforms.py
 ```
+
+The bootstrap command fails if required NoteNest native patches cannot be applied and verified against the generated Flutter templates.
 
 ### 5. Install packages and generate Drift code
 
@@ -263,14 +268,16 @@ dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --coverage
 python tool/check_repo.py
+python tool/check_repository_reference.py
 python tool/check_markdown_links.py
 python tool/security_scan.py
 ```
 
 Quality tools:
 
-- `tool/check_version_sync.py` — package/UI/changelog/release-note version consistency.
-- `tool/check_repo.py` — required repository baseline, source marker and generated-file policy, important ignore rules.
+- `tool/check_version_sync.py` — package/UI/changelog/release-note version consistency plus exact Flutter workflow-pin synchronization.
+- `tool/check_repo.py` — complete required repository/documentation/automation baseline, source-marker/generated-file policy, and important ignore rules.
+- `tool/check_repository_reference.py` — exhaustive one-entry-per-tracked-file repository documentation contract.
 - `tool/check_markdown_links.py` — repository-local Markdown links.
 - `tool/security_scan.py` — lightweight tracked credential-pattern scan.
 
@@ -319,7 +326,7 @@ lib/
 └── main.dart            # Application entry point
 ```
 
-[`AppDependencies`](lib/app/app_dependencies.dart) owns composition. Repositories isolate storage invariants, services isolate plugin/platform boundaries, controllers own feature/application state, and pure helpers stay outside widgets where practical.
+[`AppDependencies`](lib/app/app_dependencies.dart) owns composition and final settings/database cleanup. Repositories isolate storage invariants, services isolate plugin/platform boundaries, controllers own feature/application state, and pure helpers stay outside widgets where practical.
 
 Read [`docs/architecture.md`](docs/architecture.md) and [`docs/adr/`](docs/adr/).
 
@@ -381,6 +388,7 @@ See [`docs/performance.md`](docs/performance.md).
 - [`docs/performance.md`](docs/performance.md) — performance budgets/profiling
 - [`docs/release.md`](docs/release.md) — packaging/release process
 - [`docs/releases/2.0.12.md`](docs/releases/2.0.12.md) — current release candidate
+- [`docs/repository-reference.md`](docs/repository-reference.md) — exhaustive tracked-file responsibility/maintenance catalog
 - [`docs/troubleshooting.md`](docs/troubleshooting.md) — setup/build/runtime problems
 - [`docs/adr/`](docs/adr/) — architecture decision records
 - [`what_changed.md`](what_changed.md) — exact continuation/verification handoff
