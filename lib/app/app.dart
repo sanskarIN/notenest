@@ -75,6 +75,7 @@ class _LockGate extends StatefulWidget {
 class _LockGateState extends State<_LockGate> with WidgetsBindingObserver {
   bool _unlocked = false;
   bool _authenticating = false;
+  bool? _authenticationAvailable;
 
   @override
   void initState() {
@@ -110,11 +111,33 @@ class _LockGateState extends State<_LockGate> with WidgetsBindingObserver {
   Future<void> _authenticate() async {
     if (_authenticating || _unlocked) return;
     setState(() => _authenticating = true);
+
+    final bool available = await widget.dependencies.appLock.canAuthenticate();
+    if (!mounted) return;
+    if (!available) {
+      setState(() {
+        _authenticating = false;
+        _authenticationAvailable = false;
+        _unlocked = false;
+      });
+      return;
+    }
+
     final bool success = await widget.dependencies.appLock.authenticate();
     if (!mounted) return;
     setState(() {
       _authenticating = false;
+      _authenticationAvailable = true;
       _unlocked = success;
+    });
+  }
+
+  Future<void> _disableUnavailableLock() async {
+    await widget.dependencies.settings.setAppLockEnabled(value: false);
+    if (!mounted) return;
+    setState(() {
+      _authenticationAvailable = null;
+      _unlocked = true;
     });
   }
 
@@ -123,6 +146,8 @@ class _LockGateState extends State<_LockGate> with WidgetsBindingObserver {
     if (_unlocked || !widget.dependencies.settings.appLockEnabled) {
       return HomeShell(dependencies: widget.dependencies);
     }
+
+    final bool unavailable = _authenticationAvailable == false;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -134,32 +159,52 @@ class _LockGateState extends State<_LockGate> with WidgetsBindingObserver {
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   Icon(
-                    Icons.lock_rounded,
+                    unavailable
+                        ? Icons.phonelink_erase_rounded
+                        : Icons.lock_rounded,
                     size: 64,
                     color: Theme.of(context).colorScheme.primary,
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'NoteNest is locked',
+                    unavailable
+                        ? AppStrings.authUnavailableTitle
+                        : AppStrings.lockedTitle,
+                    textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Use your device authentication to access local notes.',
+                  Text(
+                    unavailable
+                        ? AppStrings.authUnavailableLockBody
+                        : AppStrings.lockedBody,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: _authenticating ? null : _authenticate,
-                    icon: _authenticating
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.fingerprint_rounded),
-                    label: const Text('Unlock'),
-                  ),
+                  if (unavailable)
+                    FilledButton.icon(
+                      onPressed: () {
+                        unawaited(_disableUnavailableLock());
+                      },
+                      icon: const Icon(Icons.lock_open_rounded),
+                      label: const Text(AppStrings.disableAppLock),
+                    )
+                  else
+                    FilledButton.icon(
+                      onPressed: _authenticating
+                          ? null
+                          : () {
+                              unawaited(_authenticate());
+                            },
+                      icon: _authenticating
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.fingerprint_rounded),
+                      label: const Text(AppStrings.unlock),
+                    ),
                 ],
               ),
             ),
