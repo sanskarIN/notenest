@@ -32,5 +32,13 @@ void main() {
         SafeFileName.maxLength,
       );
     });
+
+    test('does not split a Unicode surrogate pair at the truncation boundary', () {
+      final String prefix = List<String>.filled(79, 'a').join();
+      final String result = SafeFileName.fromTitle('${prefix}😀tail');
+
+      expect(result.runes.length, SafeFileName.maxLength);
+      expect(result.endsWith('😀'), isTrue);
+    });
   });
 }
