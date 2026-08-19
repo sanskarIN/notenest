@@ -8,6 +8,7 @@ final class AppLogger {
 
   final String name;
 
+  static const int _maxStringScalars = 120;
   static const Set<String> _sensitiveKeyFragments = <String>{
     'authorization',
     'backup',
@@ -91,7 +92,9 @@ final class AppLogger {
     }
     if (value is String) {
       final String compact = value.replaceAll(RegExp(r'\s+'), ' ').trim();
-      return compact.length <= 120 ? compact : '${compact.substring(0, 120)}…';
+      final Runes runes = compact.runes;
+      if (runes.length <= _maxStringScalars) return compact;
+      return '${String.fromCharCodes(runes.take(_maxStringScalars))}…';
     }
     return value.runtimeType.toString();
   }
