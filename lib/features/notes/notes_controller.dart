@@ -70,7 +70,9 @@ final class NotesController extends ChangeNotifier {
 
   void setQuery(String value) {
     filter = filter.copyWith(query: value);
-    _searchDebouncer.run(() => load(showLoading: false));
+    _searchDebouncer.run(() {
+      unawaited(load(showLoading: false));
+    });
   }
 
   void setFolder(String? value) {
