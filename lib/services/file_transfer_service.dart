@@ -20,7 +20,7 @@ final class FileTransferService {
 
   Future<bool> exportBackup() async {
     final String payload = await _backups.exportJson();
-    final String? result = await FilePicker.platform.saveFile(
+    final String? result = await FilePicker.saveFile(
       dialogTitle: 'Export NoteNest backup',
       fileName: 'notenest-backup-${_dateStamp()}.json',
       type: FileType.custom,
@@ -31,7 +31,7 @@ final class FileTransferService {
   }
 
   Future<RestoreReport?> importBackup() async {
-    final FilePickerResult? result = await FilePicker.platform.pickFiles(
+    final FilePickerResult? result = await FilePicker.pickFiles(
       dialogTitle: 'Restore NoteNest backup',
       type: FileType.custom,
       allowedExtensions: <String>['json'],
@@ -50,7 +50,7 @@ final class FileTransferService {
     final String frontMatter = '''---\ntitle: ${_yamlValue(note.title)}\nfolder: ${_yamlValue(note.folder)}\ntags: ${_yamlValue(tags)}\nupdated: ${note.updatedAt.toUtc().toIso8601String()}\n---\n\n''';
     final String payload = '$frontMatter${note.body}';
     final String fileName = '${_safeFileName(note.title)}.md';
-    final String? result = await FilePicker.platform.saveFile(
+    final String? result = await FilePicker.saveFile(
       dialogTitle: 'Export note as Markdown',
       fileName: fileName,
       type: FileType.custom,
@@ -61,7 +61,7 @@ final class FileTransferService {
   }
 
   Future<Note?> importMarkdown() async {
-    final FilePickerResult? result = await FilePicker.platform.pickFiles(
+    final FilePickerResult? result = await FilePicker.pickFiles(
       dialogTitle: 'Import Markdown note',
       type: FileType.custom,
       allowedExtensions: <String>['md', 'markdown', 'txt'],
