@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:notenest/core/errors/app_exception.dart';
+import 'package:notenest/core/utils/import_limits.dart';
 import 'package:notenest/core/utils/markdown_document_codec.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/data/repositories/backup_repository.dart';
@@ -43,6 +44,7 @@ final class FileTransferService {
     if (bytes == null) {
       throw const ImportExportException('Could not read the selected backup.');
     }
+    ImportLimits.validateBackupBytes(bytes.length);
     try {
       return await _backups.restoreJson(utf8.decode(bytes, allowMalformed: false));
     } on FormatException catch (error) {
@@ -82,6 +84,7 @@ final class FileTransferService {
     if (bytes == null) {
       throw const ImportExportException('Could not read the selected note.');
     }
+    ImportLimits.validateMarkdownBytes(bytes.length);
     final String text;
     try {
       text = utf8.decode(bytes, allowMalformed: false);
