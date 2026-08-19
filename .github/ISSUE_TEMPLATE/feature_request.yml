@@ -1,0 +1,71 @@
+name: Feature request
+description: Propose a focused improvement that fits NoteNest
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        NoteNest prioritizes useful offline notes, privacy, accessibility, portability, and maintainability. Explain the user problem first; implementation ideas can follow.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or need
+      description: What is difficult today and who benefits from improving it?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed experience
+      description: Describe the desired user behavior without requiring a particular technical implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Are there simpler workflows or existing features that partly solve the need?
+
+  - type: dropdown
+    id: network
+    attributes:
+      label: Does this require network/cloud functionality?
+      options:
+        - No
+        - Optional network functionality only
+        - Yes, and I have explained why local-only is insufficient
+        - Unsure
+    validations:
+      required: true
+
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy and data impact
+      description: What data would be stored, imported, exported, transmitted, or exposed differently?
+      placeholder: No new data / local setting / new per-note field / optional remote data ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: accessibility
+    attributes:
+      label: Accessibility and responsive-layout impact
+      description: Consider keyboard, screen reader, touch targets, text scaling, reduced motion, and narrow/wide layouts.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues/roadmap items for this request.
+          required: true
+        - label: The proposal does not require a donation or paid unlock for core NoteNest functionality.
+          required: true
