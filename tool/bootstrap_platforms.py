@@ -9,6 +9,7 @@ or dependency drift fails loudly instead of producing an incomplete target.
 
 from __future__ import annotations
 
+import os
 import plistlib
 import re
 import shutil
@@ -26,7 +27,21 @@ DRIFT_RELEASE_BASE = (
 
 
 def run(*args: str) -> None:
-    subprocess.run(args, cwd=ROOT, check=True)
+    if not args:
+        raise ValueError("run() requires at least one command argument")
+
+    executable = shutil.which(args[0]) or args[0]
+    command = (executable, *args[1:])
+    if Path(executable).suffix.lower() in {".bat", ".cmd"}:
+        comspec = os.environ.get("COMSPEC", "cmd.exe")
+        subprocess.run(
+            [comspec, "/d", "/s", "/c", subprocess.list2cmdline(command)],
+            cwd=ROOT,
+            check=True,
+        )
+        return
+
+    subprocess.run(command, cwd=ROOT, check=True)
 
 
 def patch_android() -> None:
