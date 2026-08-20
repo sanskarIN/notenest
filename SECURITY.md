@@ -1,10 +1,8 @@
 # Security Policy
 
-Security and privacy are product requirements for NoteNest. The current release-candidate target is **2.0.12**. Please report vulnerabilities responsibly so users have a reasonable chance to update before details are made public.
+Security and privacy are product requirements for NoteNest. Current release-candidate target: **2.0.12**. Report vulnerabilities responsibly so users have a chance to update before public technical disclosure.
 
 ## Supported versions
-
-Until stable release history exists, security fixes target the current `main` branch and the latest published release. Once multiple maintained release lines exist, this table will be updated explicitly.
 
 | Version | Supported |
 |---|---:|
@@ -16,215 +14,225 @@ Until stable release history exists, security fixes target the current `main` br
 
 **Do not open a public GitHub issue for an unpatched vulnerability.**
 
-Send a private report to:
+Private contacts:
 
 - `sanskarin@outlook.in`
 - `supportramsandesh@gmail.com`
 
-Use a subject such as `NoteNest security report: <short description>`.
-
-Include, when known:
-
-1. Affected version, commit, and platform.
-2. Vulnerability category and expected impact.
-3. Minimal reproducible steps using fictional/test data.
-4. Whether exploitation requires local access, a malicious import/backup file, user interaction, external link handling, or another condition.
-5. Relevant logs with personal paths, note content, identifiers, and secrets redacted.
-6. A suggested mitigation or patch if you have one.
-7. Whether you intend to publish details later and any reasonable disclosure timeline you are proposing.
-
-Never send real credentials, signing keys, private user databases, or unrelated personal data as proof.
-
-## Response process
-
-The maintainer aims to:
-
-1. Acknowledge a complete report as practical.
-2. Reproduce and classify the issue.
-3. Develop a minimal safe fix plus a regression test where feasible.
-4. Review whether backup compatibility, migrations, documentation, or release artifacts also need changes.
-5. Publish a patched version before public technical details when coordinated disclosure is warranted.
-6. Credit the reporter if requested and appropriate.
-
-No fixed response-time guarantee is made by this volunteer/open-source project.
+Include affected version/commit/platform/browser, category/impact, fictional-data reproduction, required conditions, redacted logs, and suggested mitigation when known. Never send real credentials, signing keys, private databases/backups, or unrelated personal information.
 
 ## Security model
 
-NoteNest is intentionally local-first:
+NoteNest is local-first across Android, iOS/iPadOS, Windows, macOS, Linux, and Web:
 
-- Core notes are stored in a local SQLite database managed through Drift.
-- Core use requires no NoteNest account and no project-operated cloud API.
-- Full-text search is local via SQLite FTS5.
-- Backups are user-triggered files.
-- Optional app lock delegates authentication to the operating system through `local_auth`.
-- Repository, support, funding, email, and release links open only after user action.
+- Notes are stored through Drift/SQLite in the local application/browser environment.
+- Core use needs no NoteNest account or project-operated notes API.
+- Search is local SQLite FTS5.
+- Backups/imports/exports are user-triggered.
+- App lock delegates to OS/device authentication only where `local_auth` is implemented.
+- External links open only after user action.
 
-This architecture reduces remote attack surface but does **not** make the local database automatically encrypted. Device storage protection, OS account security, backups, filesystem permissions, and full-disk encryption remain important. App lock controls app access; it must not be described as database-at-rest encryption.
+Local-first architecture reduces remote service attack surface, but it does **not** automatically encrypt SQLite/browser storage. Device security, OS/browser profile security, filesystem/site-data protections, exported backups, and disk encryption remain important.
+
+## Web trust boundary
+
+The Web build introduces a static-hosting/runtime boundary without introducing project-operated note sync.
+
+Drift Web loads:
+
+- `sqlite3.wasm`
+- `drift_worker.js`
+
+from the deployed app origin according to the configured relative URIs. The platform bootstrap obtains those assets from the matching Drift **2.34.3** release and performs basic type/sanity checks.
+
+Security requirements for Web distribution:
+
+- Use HTTPS for public deployment.
+- Serve the intended generated bundle and the matching worker/WASM pair.
+- Serve `sqlite3.wasm` with `application/wasm`.
+- Review hosting/CDN behavior, cache controls, and any third-party scripts separately from NoteNest source.
+- Do not inject analytics, remote note processing, or unrelated scripts without privacy/security review.
+- Treat browser storage as local data subject to site-data clearing/profile compromise.
+- Use JSON backup for portable recovery rather than treating browser internal storage as a cross-origin sync format.
+
+Cross-origin isolation can improve the available Drift storage path on compatible browsers/hosts, but enabling COOP/COEP is a deployment decision that must be validated with the actual origin/resources.
 
 ## Trust boundaries
 
-Treat the following as untrusted input or unreliable platform boundaries:
+Treat as untrusted or unreliable:
 
-- JSON backup files.
+- JSON backups.
 - Markdown/text imports.
-- File names and paths selected by users.
-- Platform file-provider results.
+- File names/paths/bytes/streams selected by users.
+- Native/cloud document providers.
+- Browser file picker/download behavior.
+- Browser storage and deployment-origin configuration.
 - External-link launcher results/exceptions.
-- Local preference persistence results.
-- Future deep links, share intents, or synchronization payloads if introduced.
+- Preference persistence results.
+- Platform authentication availability/results.
+- Future deep links/share/sync payloads.
 
-Platform/plugin success must not be assumed merely because an API call returned a future.
+A plugin/API call returning a Future does not mean the operation succeeded.
 
 ## File/import safety
 
-Import code must:
+Requirements:
 
-- Treat selected files and bytes as untrusted.
-- Require expected file types in the picker where practical.
-- Avoid requesting eager `withData` loading for native imports.
-- Read the native cached file through `BoundedFileReader`.
-- Check reported file length before streaming and accumulated bytes after each chunk.
-- Enforce 16 MiB for Markdown/text and 64 MiB for NoteNest JSON backups.
-- Validate strict UTF-8 before text/JSON processing.
-- Avoid executing imported content.
+- Treat selected content as untrusted.
+- Use expected picker types/extensions where practical.
+- Enforce **16 MiB** Markdown/text and **64 MiB** JSON backup ceilings.
+- Require strict UTF-8 before text/JSON processing.
+- Never execute imported note content.
 
-The size ceilings are reliability/memory guardrails, not a claim that every smaller file is trustworthy. A platform/cloud provider may still perform its own caching before NoteNest receives a local path.
+Native targets:
+
+- Avoid eager picker `withData` loading.
+- Use cached path + `BoundedFileReader` where available.
+- Validate reported length before streaming and cumulative length during streaming.
+
+Web:
+
+- Request browser picker bytes because native filesystem paths are not relied on.
+- Validate picker-reported length.
+- Re-validate actual bytes/stream accumulation before decoding.
+- Do not compile/use `dart:io` path access in the browser.
+
+Size ceilings are reliability/memory guardrails, not trust guarantees.
 
 ## Backup restore safety
 
-Current backup restore rejects malformed input before transaction writes. Validation includes:
+Restore rejects malformed input before transaction writes. Validation includes:
 
 - `app == "NoteNest"`.
-- Supported backup schema version.
-- Typed note/version lists and required fields.
-- Serialized `tags` must decode to a list of strings.
-- Note and version identifiers cannot be blank or contain surrounding whitespace.
-- Incoming note IDs must be unique.
-- Version records must reference an incoming or existing note.
-- Note/version `colorValue` must be null or an integer in the 32-bit ARGB range `0x00000000` through `0xFFFFFFFF`.
-- Stored note/version timestamps must be explicit UTC strings ending in `Z`.
-- A note's `updatedAt` cannot precede its `createdAt`.
+- Supported backup schema.
+- Typed notes/versions and required fields.
+- Serialized string tags.
+- Non-blank identifiers without surrounding whitespace.
+- Unique incoming note IDs.
+- Valid note/version relationships.
+- Null or 32-bit ARGB colors.
+- Explicit UTC timestamps ending in `Z`.
+- `updatedAt >= createdAt`.
+- Valid lifecycle combinations including no archived+trashed and no pinned+trashed.
 
-After validation, restore uses a database transaction and keeps a newer local note instead of replacing it with an older imported copy.
-
-Any future backup-format extension should preserve fail-before-write behavior and add compatibility tests.
+Restore is transactional and newer local note revisions win older backup conflicts.
 
 ## SQL/search safety
 
-Search terms are normalized and supplied through bound Drift/SQLite variables. Do not interpolate untrusted user/import values into executable SQL syntax.
-
-FTS query-building changes require regression tests for punctuation/quotes and collection filtering.
+Search values are transformed into bound Drift/SQLite variables. Never interpolate untrusted text into executable SQL. FTS query changes require punctuation/quote regressions.
 
 ## Export filename safety
 
-Generated Markdown filenames must:
+Generated Markdown filenames normalize invalid/control characters, trailing dots/spaces, Windows reserved device names, excessive basename length, and Unicode truncation boundaries.
 
-- Replace cross-platform invalid/control characters.
-- Remove prohibited trailing dots/spaces.
-- Protect Windows reserved device names.
-- Remain within the configured basename limit.
-- Preserve complete Unicode code points during truncation.
-
-A safe filename is a filesystem-compatibility control, not a content-trust signal.
+Filename compatibility is not a content-trust signal.
 
 ## Settings/preference safety
 
-Small non-sensitive preferences use a settings repository boundary.
+Preferences are for non-sensitive settings only.
+
+- Never store credentials, biometric data, or note content there.
+- Treat failed preference setters as storage failures.
+- Serialize ordering-sensitive writes.
+- Roll back failed optimistic values when appropriate.
+- Persist onboarding completion before navigation.
+- Surface failures without exposing raw plugin internals.
+
+## Authentication and app lock
+
+Current `local_auth 3.0.2` support is used on supported Android/iOS/macOS/Windows environments. Web and Linux currently report app-lock device authentication unavailable.
 
 Requirements:
 
-- Do not store credentials, biometric material, or note content in preferences.
-- Treat a reported failed preference write as a storage failure.
-- Serialize preference mutations whose order affects final state.
-- Restore the last persisted visible value when an optimistic write fails and no newer request superseded it.
-- Persist onboarding completion before leaving the onboarding screen.
-- Surface failure to the user without exposing raw plugin exceptions.
+- Never implement home-grown biometric matching.
+- Never store biometric templates.
+- Never store a plaintext custom app password just to create false platform parity.
+- Never claim app lock encrypts the database.
+- Unsupported platforms must remain usable even if a stale app-lock-enabled preference exists.
+
+If encrypted-at-rest storage is introduced later, it needs a separate threat model, migration/recovery design, maintained cryptographic library, and security review.
 
 ## External-link safety
 
-Feature widgets should not directly invoke the launcher plugin. `ExternalLinkService` contains launcher failures/exceptions and returns a safe boolean result to the caller.
-
-Requirements:
+Feature code uses `ExternalLinkService` rather than direct plugin invocation.
 
 - Open only after explicit user action.
-- Use only intended URI values from trusted project configuration/user-visible contact data.
-- Show failure feedback when the platform cannot open the URI.
-- Do not interpret an external launch as a trusted response from the destination.
+- Use intended trusted project/contact URIs.
+- Contain launcher refusal/exceptions.
+- Show failure feedback.
+- Do not treat a successful launch as a trusted response from the external destination.
 
 ## Secrets
 
-The public repository must never contain:
+Never commit:
 
-- API keys or access tokens.
-- GitHub personal access tokens.
-- Passwords or recovery codes.
-- Private signing keys or certificate passwords.
-- Android keystores, Apple certificates/profiles, or Windows signing credentials.
-- Production secrets or generated `.env` values.
-- Real user note databases or backups.
+- API keys/access tokens.
+- GitHub tokens.
+- Passwords/recovery codes.
+- Private signing keys/certificate passwords.
+- Android keystores or Apple/Windows signing material.
+- Secret `.env` values.
+- Real user databases/backups.
 - Private endpoints intended to remain secret.
 
-`.gitignore` protects common secret/signing files, but contributors remain responsible for reviewing changes before committing.
-
-If a secret is committed, deleting the file in a later commit is insufficient. Revoke/rotate it immediately and remove it from history when appropriate.
+If a secret is committed, deleting it later is insufficient: revoke/rotate it and clean history where appropriate.
 
 ## Dependencies and supply chain
 
 - Dependencies are declared in `pubspec.yaml`.
-- Dependabot configuration tracks GitHub Actions and supported package ecosystems where available.
-- CI performs release-version synchronization, code generation, formatter/analyzer/tests, repository/documentation checks, and a lightweight secret scan.
-- Flutter is pinned to **3.44.7** for the current 2.0.12 candidate in `.flutter-version` and Flutter workflows rather than following an unbounded moving stable SDK.
-- Dependency changes should be reviewed for maintenance status, permissions, native behavior, privacy impact, and changed persistence/file/plugin contracts.
-- Avoid adding a package for behavior that can be implemented safely and simply with existing dependencies or standard APIs.
+- Flutter is pinned to **3.44.7**.
+- Drift Web runtime assets are tied by bootstrap policy to direct dependency Drift **2.34.3**.
+- Dependabot tracks supported dependency/workflow ecosystems.
+- Dependency changes require review of maintenance status, platform coverage, permissions, privacy, persistence/file/plugin behavior, and Web runtime compatibility.
+- A `drift` version change must update/review the Web runtime asset pin in the same workstream.
+
+### Application lockfile requirement
+
+Stable 2.0.12 must commit the genuine resolver-generated `pubspec.lock` produced by Flutter 3.44.7. Issue #8 tracks this. Do not fabricate lockfile hashes/versions.
+
+After the lock is committed, final CI/release verification should enforce it so dependency resolution cannot silently drift between verified and published artifacts.
 
 ## Logging
 
-Do not log raw note bodies, titles, backups, authentication details containing sensitive platform information, credentials, tokens, or full imported file content. Debug logs containing local paths should be sanitized before users publish them.
+Do not log raw note content, backups, credentials/tokens, sensitive authentication details, complete imported content, private browser storage contents, or unredacted personal paths/origins.
 
-## Authentication and app lock
+## Platform permissions/capabilities
 
-The optional app lock uses the operating system's supported authentication mechanisms. Do not:
+Use least privilege. A new native permission or browser capability requires user benefit, architecture/security review, and matching privacy/release documentation.
 
-- Implement a home-grown biometric protocol.
-- Store biometric templates.
-- Store a plaintext app password.
-- Claim that app lock encrypts the SQLite database.
+## Release integrity
 
-If encrypted-at-rest storage is introduced later, it requires a separate architecture/security review, migration design, recovery story, and maintained cryptographic library.
+`tool/check_version_sync.py` prevents partial release/toolchain version bumps. `tool/check_repo.py` protects required cross-platform source/automation, and `tool/check_repository_reference.py` currently requires all **108 tracked files** to be cataloged.
 
-## Platform permissions
-
-Use least privilege. NoteNest should request only permissions required by enabled features. A new permission requires documentation explaining why it is needed and how related data is used.
-
-## Release metadata integrity
-
-`tool/check_version_sync.py` prevents partial release bumps by requiring package/UI/changelog/release-note version agreement. It is a release-integrity control, not a cryptographic authenticity mechanism.
-
-A published artifact still needs appropriate signing and checksum practices described in [`docs/release.md`](docs/release.md).
+These are integrity/process controls, not cryptographic artifact authenticity. Distributed native artifacts still need appropriate signing; distributed files should have checksums as documented in [`docs/release.md`](docs/release.md).
 
 ## Security review checklist for 2.0.12
 
-Before a stable 2.0.12 tag:
+Before stable tag:
 
-- [ ] `python tool/check_version_sync.py` passes.
-- [ ] Review dependency changes and advisories.
-- [ ] Search repository history/current tree for accidental secrets.
-- [ ] Run formatter, analyzer, tests, repository/link checks, and supported release builds.
-- [ ] Exercise malformed and oversized Markdown/backup inputs.
-- [ ] Verify native imports use bounded reads rather than eager NoteNest byte loading.
-- [ ] Verify strict backup UTC/color/identifier validation.
-- [ ] Verify settings persistence failure/rollback behavior on representative platforms.
-- [ ] Verify onboarding does not transition on failed persistence.
-- [ ] Verify external-link success and no-handler/failure behavior.
-- [ ] Verify destructive actions require intended confirmation.
-- [ ] Verify restore keeps newer local data.
-- [ ] Review native permission/configuration changes.
-- [ ] Confirm privacy documentation matches runtime behavior.
-- [ ] Confirm no debug-only sensitive logging is enabled.
-- [ ] Update this policy if the threat model changed.
+- [ ] Resolver-generated `pubspec.lock` committed/reviewed/enforced.
+- [ ] Version/repository/reference/link/secret gates pass.
+- [ ] Formatter/analyzer/Flutter tests pass.
+- [ ] Dependency/advisory review complete.
+- [ ] Android/Linux/Windows/macOS/iOS/Web build matrix green.
+- [ ] Chrome browser fallback test green.
+- [ ] Malformed/oversized native and Web imports exercised.
+- [ ] Backup UTC/color/identifier/lifecycle validation verified.
+- [ ] Native/Web file picker/export behavior verified.
+- [ ] Web worker/WASM MIME/reachability and persistence verified on intended origin.
+- [ ] Settings rollback/onboarding persistence verified.
+- [ ] External-link success/failure verified.
+- [ ] Supported app-lock targets verified.
+- [ ] Web/Linux unavailable app-lock paths verified usable.
+- [ ] Destructive confirmations and newer-local restore preservation verified.
+- [ ] Permissions/deployment headers/hosting scripts reviewed.
+- [ ] Privacy documentation matches actual distribution.
+- [ ] No sensitive debug logging or real user data in repository/artifacts.
 
-## Out of scope for the current architecture
+## Out of scope for current architecture
 
-Because NoteNest has no project-operated backend or user account system, reports about server-side session cookies, server CORS, server CSRF, server rate limiting, or remote account takeover are not applicable unless a future release introduces such a service.
+There is no NoteNest-operated user account/session/backend, so server-side account takeover, NoteNest session cookies, project API CSRF/rate limits, or server database authorization are not current product surfaces unless a future release introduces them.
 
-Potential weaknesses in Flutter, SQLite, Drift, `shared_preferences`, `file_picker`, `local_auth`, or `url_launcher` should also be reported upstream to relevant maintainers when appropriate; a NoteNest-specific report is still useful if the project needs a mitigation.
+A Web host may of course have its own server/CDN configuration vulnerabilities; those are distribution/deployment responsibilities unless they arise from NoteNest's required serving configuration.
+
+Potential weaknesses in Flutter, SQLite, Drift, `shared_preferences`, `file_picker`, `local_auth`, or `url_launcher` should also be reported upstream where appropriate; NoteNest-specific mitigation reports are still useful.
