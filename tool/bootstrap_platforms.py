@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Generate Flutter platform runners and apply NoteNest native requirements.
+"""Generate Flutter platform runners and apply NoteNest platform requirements.
 
 This script is intentionally idempotent so a clean clone can generate runner files
 with the locally installed Flutter version instead of committing stale templates.
-It also validates every required patch so upstream Flutter template drift fails
-loudly instead of producing a runner that only looks successfully configured.
+It also validates required patches and browser database assets so upstream Flutter
+or dependency drift fails loudly instead of producing an incomplete target.
 """
 
 from __future__ import annotations
@@ -13,9 +13,16 @@ import plistlib
 import re
 import shutil
 import subprocess
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+DRIFT_WEB_VERSION = "2.34.3"
+DRIFT_RELEASE_BASE = (
+    "https://github.com/simolus3/drift/releases/download/"
+    f"drift-{DRIFT_WEB_VERSION}"
+)
 
 
 def run(*args: str) -> None:
@@ -129,20 +136,75 @@ def patch_ios() -> None:
         plistlib.dump(data, target, sort_keys=False)
 
 
+def _pinned_drift_version() -> str:
+    pubspec = (ROOT / "pubspec.yaml").read_text(encoding="utf-8")
+    match = re.search(r"(?m)^\s{2}drift:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$", pubspec)
+    if match is None:
+        raise RuntimeError("Could not determine the pinned drift version from pubspec.yaml.")
+    return match.group(1)
+
+
+def _download_web_asset(name: str) -> bytes:
+    url = f"{DRIFT_RELEASE_BASE}/{name}"
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "NoteNest-platform-bootstrap/2.0.12"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return response.read()
+    except (urllib.error.URLError, TimeoutError) as error:
+        raise RuntimeError(f"Could not download required web asset: {name}") from error
+
+
+def _write_verified_web_asset(name: str, data: bytes) -> None:
+    if len(data) < 1024:
+        raise RuntimeError(f"Downloaded web asset is unexpectedly small: {name}")
+    if name == "sqlite3.wasm" and not data.startswith(b"\x00asm"):
+        raise RuntimeError("Downloaded sqlite3.wasm does not have a WebAssembly header.")
+    if name == "drift_worker.js" and data.lstrip().startswith(b"<"):
+        raise RuntimeError("Downloaded drift_worker.js looks like an HTML error page.")
+
+    target = ROOT / "web" / name
+    temporary = target.with_suffix(f"{target.suffix}.tmp")
+    temporary.write_bytes(data)
+    temporary.replace(target)
+
+
+def prepare_web() -> None:
+    web = ROOT / "web"
+    if not (web / "index.html").exists() or not (web / "manifest.json").exists():
+        raise RuntimeError("Flutter did not generate the expected web runner files.")
+
+    pinned = _pinned_drift_version()
+    if pinned != DRIFT_WEB_VERSION:
+        raise RuntimeError(
+            "Pinned drift version changed. Update DRIFT_WEB_VERSION and review the "
+            "matching drift_worker.js/sqlite3.wasm assets before building web."
+        )
+
+    for name in ("sqlite3.wasm", "drift_worker.js"):
+        _write_verified_web_asset(name, _download_web_asset(name))
+
+
 def main() -> None:
     if shutil.which("flutter") is None:
         raise SystemExit("Flutter is required but was not found on PATH.")
     run(
         "flutter",
         "create",
-        "--platforms=android,ios,linux,macos,windows",
+        "--platforms=android,ios,linux,macos,windows,web",
         "--org=com.sanskarin",
         "--project-name=notenest",
         ".",
     )
     patch_android()
     patch_ios()
-    print("NoteNest platform runners are ready and native requirements verified.")
+    prepare_web()
+    print(
+        "NoteNest Android, iOS, Linux, macOS, Windows, and Web runners are ready "
+        "and platform requirements were verified."
+    )
 
 
 if __name__ == "__main__":
