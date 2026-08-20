@@ -1,670 +1,513 @@
-# NoteNest — 2.0.12 Final Engineering Handoff
+# NoteNest — 2.0.12 Six-Platform Engineering Handoff
 
-Last updated: 2026-08-19
+Last updated: **2026-08-20**
+
 Target application version: **2.0.12**
+
 Flutter package version: **2.0.12+2012**
+
 Pinned Flutter SDK: **3.44.7**
+
+Pinned direct Drift version: **2.34.3**
+
+Drift database schema: **1**
+
 Active development branch: `main`
-Tracked-file documentation checkpoint: **103 tracked files cataloged**
-Final verification PR: **#7 — `ci: verify final NoteNest 2.0.12 candidate`**
-Superseded verification PRs: **#5 and #6 — closed without merge**
-Stable tag status: **not yet tagged**
+
+Implemented Flutter project targets: **Android, iOS/iPadOS, Windows, macOS, Linux, Web**
+
+Tracked-file documentation checkpoint: **108 tracked files cataloged**
+
+Stable tag: **not yet created**
+
+Active stable-release dependency blocker: **GitHub issue #8 — resolver-generated `pubspec.lock`**
+
+Final verification path: **PR #7**, which must be realigned to the commit containing this handoff before its new checks are considered evidence.
 
 ## Current release status
 
-NoteNest is prepared as a **2.0.12 release candidate**.
+NoteNest remains a **2.0.12 release candidate**. This continuation expands the project from five native-oriented targets to the complete Flutter platform set without changing the semantic version.
 
-The implementation, storage invariants, editor persistence, settings/onboarding persistence, file-import bounds, backup validation, external-link handling, lifecycle ownership, repository tooling, regression suite, public documentation, security/privacy documentation, release documentation, and CI/native-build configuration have received repeated final hardening passes.
+The source architecture, platform bootstrap, database factory, import/export boundary, optional app-lock capability model, GitHub Actions platform matrix, release packaging, tests, issue/PR templates, public documentation, privacy/security model, accessibility matrix, and release checklist now explicitly cover:
 
-A stable `v2.0.12` tag is intentionally **not** created yet. Completed green quality/security/native CI evidence plus the documented real-platform, accessibility, screenshot, signing, and release checks are still required on the exact final candidate.
+- Android
+- iOS / iPadOS
+- Windows
+- macOS
+- Linux
+- Web
 
-Do not describe the current candidate as fully verified, bug-free, perfectly secure, or stable until those checks pass on the exact release commit.
+This is an **implementation/support target statement**, not a claim that every target has already passed final runtime certification. Stable `v2.0.12` remains blocked until the real dependency lock is committed and the exact resulting candidate passes automated, platform, browser, accessibility, runtime, screenshot, signing, and distribution checks.
 
-## 2026-08-19 final continuation — lifecycle, editor boundary, automation, and documentation hardening
+## Why Web required architectural work
 
-This continuation audited the exact current tracked tree and release tooling again rather than assuming the prior release-candidate checkpoint had no remaining defects.
+A browser target cannot safely be added by only changing README text or running `flutter create --platforms=web`.
 
-No late feature churn was introduced merely to increase the feature count. The final changes concentrate on correctness, resource ownership, regression protection, reproducible platform generation, CI coverage, and documentation truthfulness.
+The pre-continuation source contained two material browser blockers:
 
-### Root dependency teardown fixed
+1. Shared import code directly depended on `dart:io` filesystem access.
+2. App lock assumed a `local_auth` implementation even though the current plugin does not provide Web or Linux authentication implementations.
 
-`AppDependencies` already defined the final cleanup boundary for the settings controller and Drift database, and the architecture documentation described it as the composition root that owns those resources. The root `NoteNestApp`, however, previously removed its settings listener without invoking `AppDependencies.dispose()` when the root state was permanently removed.
+The database also needed an explicit browser SQLite runtime configuration and generated worker/WASM assets.
 
-`lib/app/app.dart` now:
+The completed cross-platform work addresses those boundaries directly.
 
-1. Removes the settings listener.
-2. Delegates final owned-resource cleanup to `AppDependencies.dispose()`.
-3. Uses `unawaited(...)` because Flutter widget `dispose()` is synchronous while the database close path is asynchronous.
-4. Calls `super.dispose()` after scheduling the owned cleanup.
+## Cross-platform source changes
 
-This closes the ownership gap between the documented architecture and the actual root lifecycle.
+### Native filesystem code isolated from browser builds
 
-Commit:
+`lib/core/utils/bounded_file_reader.dart` is now a conditional facade.
 
-- `f961c096abed299cf97067e7bc997c68de5327fb` — `fix: dispose root app dependencies`
+Native implementation:
 
-### Editor first-line formatting boundary fixed
+- `lib/core/utils/bounded_file_reader_io.dart`
+- imports `dart:io` only on IO targets;
+- checks the selected file's reported length;
+- streams chunks rather than requesting one eager native picker buffer;
+- re-checks cumulative bytes before adding each chunk;
+- maps filesystem errors to `ImportExportException`.
 
-A caret-position boundary bug remained in `_prefixCurrentLine`.
+Browser/non-IO implementation:
 
-When the note body began with a newline and the caret was exactly at offset `0`, the previous `lastIndexOf` calculation searched from offset `0`. That could identify the leading newline and derive line start `1`, causing Heading/Bullet/Checklist formatting to target the second line rather than the actual empty first line.
+- `lib/core/utils/bounded_file_reader_stub.dart`
+- never attempts a fake browser filesystem path;
+- reports filesystem-path reading unavailable through the same asynchronous domain-error contract.
 
-The current implementation handles offset zero explicitly:
+The browser fallback was corrected after final review so the declared `Future` fails asynchronously rather than throwing synchronously before a caller can await/expect the operation.
 
-```dart
-final int lineStart =
-    caret == 0 ? 0 : _body.text.lastIndexOf('\n', caret - 1) + 1;
-```
+Relevant commits:
 
-A widget regression now creates a note whose body is `\nSecond line`, positions the editor body caret at offset zero, invokes the Heading action, and requires the body to become:
+- `b7aec1ba44bbf7652f13a51a8da417acee671bb4` — `refactor: isolate native file reader for web builds`
+- `805f8e2012a213b18679215acbad1877d6e79c0f` — `refactor: move bounded file streaming to native implementation`
+- `d4334cfcb957e6b41ecfdad832e3c2b12c7915eb` — `feat: add browser-safe file reader fallback`
+- `643b2cf04951ef8a0d7100774415958ab3c20726` — `fix: surface web path errors asynchronously`
 
-```text
-## 
-Second line
-```
+### File import now has native and browser acquisition paths
 
-Commits:
+`lib/services/file_transfer_service.dart` no longer assumes every `PlatformFile` supplies a native filesystem path.
 
-- `e7a3ac280055116b127429a589407b9d3a0d555a` — `fix: format the actual first editor line`
-- `9d9757eaf4862be7359a5b8988bbdefee93cea9a` — `test: cover formatting at editor start`
+Native behavior:
 
-### Asset-only native-build verification gap closed
+- picker does not request eager data;
+- cached path is passed to the bounded native reader.
 
-The platform-build workflow previously watched application/build/bootstrap paths but not bundled assets. A branding or other bundled asset change could therefore reach `main` without automatically exercising the native compile matrix.
+Web behavior:
 
-`.github/workflows/platform-builds.yml` now includes:
+- picker requests bytes (`withData: kIsWeb`);
+- picker-reported `file.size` is validated first;
+- actual in-memory byte length is validated again;
+- a supplied stream is accumulated only while cumulative validation succeeds;
+- UTF-8/Markdown/JSON processing occurs only after bounds checks.
 
-```yaml
-- "assets/**"
-```
-
-for both pull-request and push path filters.
-
-Commit:
-
-- `0d74e68f3d9520af143f131412eba8a425c6cd69` — `ci: verify platform builds for asset changes`
-
-### Flutter SDK workflow-pin drift is now machine-rejected
-
-The repository already pinned Flutter `3.44.7` in `.flutter-version` and the CI/platform/release workflows, but `tool/check_version_sync.py` previously protected application/release metadata rather than proving that all workflow Flutter pins matched the project pin.
-
-The checker now validates:
-
-- `.flutter-version` exists.
-- The file contains exactly `MAJOR.MINOR.PATCH`.
-- CI, platform-build, and release workflow files exist.
-- Each workflow declares at least one `flutter-version` value.
-- Every discovered Flutter action pin exactly matches `.flutter-version`.
-- Existing package/UI/changelog/release-note synchronization remains enforced.
-
-Commit:
-
-- `2ddf3f0179a502740d1e7f22d70363a62a836162` — `tooling: verify Flutter workflow pin synchronization`
-
-### Native runner bootstrap now fails on template drift
-
-`tool/bootstrap_platforms.py` intentionally generates native runners from the pinned Flutter SDK rather than committing stale runner templates. The previous patching logic could become fragile if upstream Flutter templates changed in a way that made a string replacement stop matching.
-
-The bootstrap now validates the required generated/patch state and raises an error rather than printing success when a required platform patch was not applied.
-
-Android checks now protect:
-
-- Expected generated `MainActivity.kt` path.
-- `FlutterFragmentActivity` import and class inheritance for local authentication.
-- `USE_BIOMETRIC` permission.
-- `minSdk = 24`.
-- AppCompat dependency.
-- AppCompat Launch/Normal themes across generated styles files.
-
-The iOS check protects:
-
-- Expected generated `Info.plist` path.
-- Non-empty `NSFaceIDUsageDescription`.
-
-This does not remove the need for native compile/runtime tests; it prevents a changed Flutter template from being silently accepted as correctly patched.
-
-Commit:
-
-- `dd0f407d1cfa4aad2956178b61f3c5d5409aec60` — `tooling: fail fast on native runner template drift`
-
-### Repository policy baseline expanded
-
-`tool/check_repo.py` now requires the full current release/documentation/automation baseline rather than a narrower subset.
-
-The required set now explicitly protects items including:
-
-- `.flutter-version`
-- `build.yaml`
-- canonical logo/layout-reference assets
-- `docs/github.md`
-- platform-build, release, and security workflows
-- issue-template configuration
-- native runner bootstrap
-- repository/reference/version/link/security maintenance tools
-
-Existing checks for required README identity/contact/license text, unfinished Dart markers, generated `.g.dart` policy, and security-relevant ignore rules remain.
-
-Commit:
-
-- `7e7d8a63003acc4c8eaf83768ea80ff7b852b574` — `tooling: enforce the full repository baseline`
-
-### Final documentation synchronized
-
-The release documentation was updated to describe the actual final code/tooling rather than the pre-fix state.
-
-Synchronized surfaces include:
-
-- `CHANGELOG.md`
-- `README.md`
-- `docs/development.md`
-- `docs/testing.md`
-- `docs/release.md`
-- `docs/releases/2.0.12.md`
-- `docs/repository-reference.md`
-- this `what_changed.md`
-
-The documentation now records, where relevant:
-
-- root dependency teardown ownership
-- offset-zero editor formatting regression
-- exact Flutter workflow-pin checking
-- asset-triggered native builds
-- fail-fast native bootstrap verification
-- complete repository baseline enforcement
-- exhaustive tracked-file reference gate
-- the exact quality-gate command list
-- remaining manual/native verification boundaries
-
-Documentation commits before this final handoff commit:
-
-- `0b915e68f0d1f1cc14313fb119935acdeaadb425` — `docs: record final lifecycle and verification hardening`
-- `15d4f61f7e113e73ec1159a05d6750936f5aaae6` — `docs: synchronize 2.0.12 final hardening notes`
-- `2f2efd03b1dd397575ac9eb7f200a2ea8cb90bf9` — `docs: synchronize final regression and CI coverage`
-- `27b64fb924ae3e6551b24a20ca881e176486cb67` — `docs: align release gate with final automation`
-- `f8fb959f7c2ea4c08d5ad6081620820f6970f151` — `docs: refresh exhaustive repository reference`
-- `b0fd86c5feb2de7ea59a0d360dab888f323b16ea` — `docs: align public quality gate with final checks`
-- `4caa3597e3844eb299c4a9cb5493ec3021e69b39` — `docs: align development guide with final gates`
-
-## Previous 2026-08-19 continuation — exhaustive repository documentation and lifecycle invariants
-
-The immediately preceding continuation performed a full tracked-tree documentation audit and tightened the live note lifecycle boundary.
-
-### Exhaustive tracked-file reference
-
-`docs/repository-reference.md` is the authoritative file-by-file repository map. The repository currently has **103 tracked files**, and every tracked path is intended to appear exactly once in that catalog.
-
-The reference covers:
-
-- Root configuration and governance files.
-- GitHub funding, issue templates, pull-request template, Dependabot, and workflows.
-- Branding/documentation assets.
-- Every engineering/product/release document and ADR.
-- Every `lib/` application, core, data, domain, feature, service, and reusable-widget source file.
-- Every tracked automated test file.
-- Every repository-maintenance tool.
-- `what_changed.md` itself.
-- Generated/untracked boundaries and why native runners/generated Drift output are excluded from the tracked-file catalog.
-- Architecture orientation and version-domain separation.
-- A source-of-truth/change-impact matrix.
-- High-value repository invariants.
-- Exact audit commands and the limitations of what the reference checker proves.
-
-`tool/check_repository_reference.py` makes this contract executable. It compares `git ls-files` with catalog entries and fails for:
-
-- A tracked path with no documentation entry.
-- A stale catalog entry for a path no longer tracked.
-- A duplicate catalog path.
-- A missing repository-reference document.
-
-The CI quality workflow runs this checker after repository policy validation and before Markdown-link/security checks.
-
-### Trashed-note pin invariant fixed
-
-The backup validator already rejected the impossible `pinned + trashed` lifecycle state, and `trash()` already cleared pin state. The live repository boundary previously still allowed a caller to invoke `setPinned(id, value: true)` on a note that was already trashed.
-
-`NoteRepository.setPinned` now:
-
-1. Allows unpinning normally.
-2. Performs the pin-enable check inside a database transaction.
-3. Loads the current note state.
-4. Throws `ValidationException('Trashed notes cannot be pinned.')` when applicable.
-5. Applies the pin only when the lifecycle state is valid.
-
-Regression coverage in `test/data/note_repository_test.dart` trashes a note, verifies pinning throws `ValidationException`, and verifies the stored note remains trashed and unpinned.
-
-Focused commits from that continuation:
-
-- `88137c4f3544960d3bce9f5e78c7d08c300de80c` — `tooling: enforce exhaustive repository reference`
-- `658c2d083f21e070c6d028032fde35f01835cf98` — `fix: prevent pinning trashed notes`
-- `c7ba995e925fcdafde7a9a56800a6bd1da74a9bf` — `test: cover pinning invariant for trash`
-- `72b16f97a3e58ee9422edbccda877a9760787c34` — `docs: add exhaustive tracked-file repository reference`
-- `ed99f470492a35a3cf15a038352a69d2ab608b2d` — `tooling: require repository reference documentation`
-- `60c6bea124035c6f84f42ce5a57c8b42af9c4cf0` — `ci: enforce exhaustive documentation coverage`
-- `7f9f0e0d814410c18e8bf732c505de4105c43db5` — `docs: enforce file-reference updates for contributors`
-- `758b0855889e292fdf2bedc024f25a3e97716bf9` — `docs: add repository-reference PR gate`
-- `3ebecd0f9dc74c6d82c431f3cd42dd2fda54d4aa` — `docs: record exhaustive reference and lifecycle hardening`
-- `4f8d0f584c193c3d10cead525e6b453b6de9d09f` — `docs: update 2.0.12 exhaustive handoff`
-
-Historical verification-only checkpoint from that phase:
-
-- `a989a304d85aa8ae2ce7eae34fc424337ab83320` — `ci: trigger latest 2.0.12 platform verification`
-
-That older checkpoint is superseded and is not final release evidence.
-
-## Version and toolchain metadata
-
-The current application version surfaces agree by design:
-
-- `pubspec.yaml`: `2.0.12+2012`
-- `AppStrings.version`: `2.0.12`
-- `CHANGELOG.md`: `## [2.0.12] - Release candidate`
-- `docs/releases/2.0.12.md`: exact package and visible version values
-
-The toolchain pin is:
-
-- `.flutter-version`: `3.44.7`
-- `.github/workflows/ci.yml`: Flutter `3.44.7`
-- `.github/workflows/platform-builds.yml`: Flutter `3.44.7`
-- `.github/workflows/release.yml`: Flutter `3.44.7`
-
-`tool/check_version_sync.py` now enforces both groups: application/release metadata and exact Flutter workflow-pin synchronization.
-
-## Major 2.0.12 hardening inventory
-
-### Editor data integrity
-
-- Every submitted editor save captures an immutable draft.
-- `AsyncSerialQueue` executes submitted writes in order.
-- The queue supports typed task results.
-- Stale save completions cannot mark newer visible content as already saved.
-- Lifecycle/background saves use the same ordered queue.
-- Normal Back navigation captures and saves the current draft before allowing the route to pop.
-- A failed final save keeps the editor open with user-visible feedback.
-- The pop guard waits for a rebuilt `canPop` frame before the programmatic pop.
-- Version-history and Markdown-export actions require a successful current-draft save before they start.
-- Initial note-load failure shows a retryable error instead of an endless spinner.
-- Version-query, restore, and export errors are contained with user feedback.
-- Current-line prefix formatting correctly handles caret offset zero when the document begins with an empty first line.
-
-Regression coverage:
-
-- `test/core/async_serial_queue_test.dart`
-- `test/widgets/note_editor_save_test.dart`
-- `test/widgets/note_editor_accessibility_test.dart`
-
-### Notes browser reliability
-
-The notes browser contains failures around create/open/pin/favorite/archive/trash/undo/restore/permanent-delete/empty-trash operations and reports concise SnackBar feedback instead of leaking asynchronous storage errors.
-
-The HomeShell floating-action new-note path has the same protection.
-
-### Collection-aware filter metadata
-
-Folder/tag choices use the same collection predicate as note listing:
-
-- All Notes: active/non-archived metadata.
-- Favorites: active favorites only.
-- Archive: archived/non-trashed metadata.
-- Trash: trashed metadata.
-
-Switching collection clears stale folder/tag selections from the previous collection.
-
-Regression coverage:
-
-- `test/data/note_repository_test.dart`
-- `test/features/notes/notes_controller_test.dart`
-
-### Collection-specific empty states
-
-All Notes can create/import. Favorites, Archive, and Trash do not offer creation/import actions whose result would be hidden by the current collection.
-
-Regression coverage:
-
-- `test/widgets/notes_page_empty_state_test.dart`
-
-### Settings persistence ordering and rollback
-
-The injectable `SettingsStore` boundary separates settings state from the preference plugin.
-
-`AppSettingsController`:
-
-- Loads settings atomically.
-- Serializes preference mutations.
-- Tracks the last successfully persisted value.
-- Rolls back a failed optimistic theme/text-size/reduced-motion/app-lock value when appropriate.
-- Does not let an older failed write overwrite a newer requested value.
-
-`SettingsRepository` treats a reported failed preference setter result as `StorageException` rather than silently assuming persistence succeeded.
-
-Settings UI reports persistence failure and explains that the previous saved value was restored.
-
-Regression coverage:
-
-- `test/app/app_settings_controller_test.dart`
-- `test/data/settings_repository_test.dart`
-
-### Persistence-first onboarding
-
-- Completion is persisted before the app leaves onboarding.
-- A failed write keeps onboarding visible and retryable.
-- The completion button enters a busy state while saving.
-- Failure produces user-visible feedback.
-
-Regression coverage:
-
-- `test/app/app_settings_controller_test.dart`
-- `test/widgets/onboarding_page_test.dart`
-
-### Dependency bootstrap and final lifecycle cleanup
-
-`AppDependencies.create()` disposes the settings controller and closes the database if initial settings loading fails before dependencies are returned.
-
-`NoteNestApp.dispose()` now delegates final cleanup to `AppDependencies.dispose()` so normal permanent root teardown also releases the owned settings/database resources.
-
-### Bounded native imports
-
-Native Markdown/text and backup imports use `withData: false` and a cached path.
-
-`BoundedFileReader`:
-
-1. Checks reported file length.
-2. Reads incrementally from disk.
-3. Re-checks accumulated bytes after each chunk before adding them to the final buffer.
-4. Converts filesystem failures to `ImportExportException`.
-
-Limits:
+Limits remain:
 
 - Markdown/text: **16 MiB**
 - NoteNest JSON backup: **64 MiB**
 
-Strict UTF-8 decoding and structured parsing occur only after the bounded read.
+Commit:
 
-Regression coverage:
+- `3600b0db672c2742a324d9c7c38d17da793f4c3d` — `feat: support bounded browser file imports`
 
-- `test/core/import_limits_test.dart`
-- `test/core/bounded_file_reader_test.dart`
+### Web-compatible Drift database configured
 
-### Backup/restore validation
+`lib/data/database/app_database.dart` now configures the normal `driftDatabase(...)` factory with explicit browser options:
 
-Before restore writes, the parser validates:
-
-- Root JSON object.
-- `app == "NoteNest"`.
-- Supported backup schema.
-- Valid explicit-UTC root `exportedAt`.
-- Notes/version list shape.
-- Required field types.
-- Serialized tag lists.
-- Canonical imported tags: trim, remove empty, deduplicate, sort, re-encode.
-- Non-empty unique note IDs without surrounding whitespace.
-- Version IDs without surrounding whitespace and valid note relationships.
-- `colorValue` null or within 32-bit ARGB range.
-- Explicit UTC note/version timestamps ending in `Z`.
-- Note `updatedAt >= createdAt`.
-- No archived+trashed state.
-- No pinned+trashed state.
-
-Only after validation does the restore transaction begin. Newer local notes continue to win conflicts and duplicate snapshots are not added again.
-
-The live `NoteRepository` boundary also rejects enabling pin state on an already-trashed note, so valid-state enforcement is not limited to backup import.
-
-Regression coverage:
-
-- `test/data/backup_repository_test.dart`
-- `test/data/note_repository_test.dart`
-
-### Cross-platform/Unicode-safe Markdown export names
-
-`SafeFileName`:
-
-- Replaces invalid/control characters.
-- Normalizes whitespace.
-- Removes trailing dots/spaces.
-- Protects Windows reserved names such as `CON`, `NUL`, `COM1`, and `LPT9`.
-- Preserves Unicode.
-- Enforces the basename limit.
-- Falls back to `untitled-note` when needed.
-- Truncates by Unicode code points rather than splitting a surrogate pair at the boundary.
-
-Regression coverage:
-
-- `test/core/safe_file_name_test.dart`
-
-### Safe external-link boundary
-
-`ExternalLinkService` centralizes user-triggered repository, funding, business-email, support-email, and Releases links.
-
-It accepts an injectable launcher, uses external-application launch mode by default, and converts launcher refusal/exception into a safe `false` result. About and Settings show failure feedback.
-
-Regression coverage:
-
-- `test/services/external_link_service_test.dart`
-- `test/widgets/about_page_test.dart`
-
-### Note-color accessibility
-
-The custom editor palette uses:
-
-- 48 logical-pixel minimum custom target.
-- Explicit selected semantics.
-- Visible checkmark for selection.
-- Reset cue for the default/no-color choice.
-- Descriptive tooltips/semantic labels.
-
-Regression coverage:
-
-- `test/widgets/note_editor_accessibility_test.dart`
-
-## Release and repository engineering
-
-### Exact Flutter pin
-
-Flutter `3.44.7` is pinned in:
-
-- `.flutter-version`
-- `.github/workflows/ci.yml`
-- `.github/workflows/platform-builds.yml`
-- `.github/workflows/release.yml`
-
-`tool/check_version_sync.py` rejects drift between those workflow pins and `.flutter-version`.
-
-### CI quality gate
-
-Configured sequence includes:
-
-```bash
-python3 tool/check_version_sync.py
-flutter pub get
-dart run build_runner build --delete-conflicting-outputs
-dart format --output=none --set-exit-if-changed lib test
-flutter analyze
-flutter test --coverage
-python3 tool/check_repo.py
-python3 tool/check_repository_reference.py
-python3 tool/check_markdown_links.py
-python3 tool/security_scan.py
+```dart
+web: DriftWebOptions(
+  sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+  driftWorker: Uri.parse('drift_worker.js'),
+),
 ```
 
-### Native platform-build gate
+The logical NoteNest schema remains **schema version 1**. Native and browser targets use the same Notes/NoteVersions/FTS behavior through the appropriate SQLite runtime.
 
-The platform workflow generates runners through the fail-fast bootstrap and compiles:
+Commit:
 
-- Android release APK
-- Linux release build
-- Windows release build
-- macOS release build
-- iOS release compile with `--no-codesign`
+- `50b1c74575da6a70950a5292410cb53e3fc7135d` — `feat: configure persistent Drift storage for web`
 
-Relevant source/build/bootstrap/**asset** changes trigger this matrix.
+### App lock is now a platform capability instead of a universal assumption
 
-### Repository tools
+The current `local_auth` dependency supports the relevant Android/iOS/macOS/Windows environments but has no Web or Linux implementation.
 
-- `tool/bootstrap_platforms.py` — reproducible runner generation plus required native-patch verification.
-- `tool/check_version_sync.py` — application/release metadata plus Flutter workflow-pin synchronization.
-- `tool/check_repo.py` — required repository/documentation/automation baseline and source/generated/ignore policy.
-- `tool/check_repository_reference.py` — exhaustive tracked-file catalog coverage.
-- `tool/check_markdown_links.py` — deterministic repository-local Markdown link validation.
-- `tool/security_scan.py` — lightweight tracked credential-pattern scan.
+NoteNest now uses:
 
-## Documentation baseline
+- `lib/services/app_lock_service.dart` — conditional facade;
+- `lib/services/app_lock_service_io.dart` — native `local_auth` wrapper with safe missing-plugin/platform/authentication error handling;
+- `lib/services/app_lock_service_stub.dart` — Web/non-IO unavailable implementation.
 
-The deep documentation baseline includes:
+Commits:
+
+- `0453ae3eb0a74e1b24a832be9a5a075114b481c5` — `refactor: select app lock implementation per platform`
+- `4c83701a7c1fa6eb00d18556c31b00f240714fbb` — `refactor: keep device authentication on supported native targets`
+- `1bf39d99fe7b2917b33bd4e80bb49a886e7ff657` — `feat: disable unsupported app lock safely on web`
+
+### Unsupported app-lock target cannot trap the user
+
+A stale persisted `appLockEnabled=true` setting could otherwise create an impossible unlock screen on Web/Linux.
+
+`lib/app/app.dart` now checks `canAuthenticate()` before authentication. If the runtime does not support device authentication, the root lock gate remains usable instead of permanently blocking access.
+
+`lib/features/settings/settings_page.dart` now:
+
+- loads authentication capability;
+- shows checking/supported/unavailable state;
+- prevents enabling app lock when unsupported;
+- still allows an already-enabled stale preference to be disabled;
+- keeps unrelated NoteNest functionality usable.
+
+Commits:
+
+- `f654bd9527ea396aa456c719e3faa39d52a8aadf` — `fix: bypass app lock on unsupported platforms`
+- `3372d9be45e84967f892ef44f0a51b658bf042e9` — `fix: expose app lock availability across platforms`
+
+No home-grown browser/Linux password or biometric scheme was added merely to claim feature parity. App lock remains UI access control and is not database encryption.
+
+## Generated platform/bootstrap changes
+
+`tool/bootstrap_platforms.py` now generates:
+
+```text
+android,ios,linux,macos,windows,web
+```
+
+in one reproducible bootstrap path using the pinned Flutter SDK.
+
+Existing fail-fast Android/iOS checks remain:
+
+- Android `FlutterFragmentActivity`.
+- `USE_BIOMETRIC`.
+- Android `minSdk = 24`.
+- AppCompat dependency.
+- expected AppCompat themes.
+- iOS `NSFaceIDUsageDescription`.
+
+### Drift Web runtime pairing
+
+The bootstrap now also:
+
+1. Parses the direct `drift:` version from `pubspec.yaml`.
+2. Requires it to match reviewed `DRIFT_WEB_VERSION = "2.34.3"`.
+3. Downloads `sqlite3.wasm` and `drift_worker.js` from the matching Drift GitHub release.
+4. Rejects unexpectedly tiny payloads.
+5. Requires the WASM binary header.
+6. Rejects a worker response that looks like an HTML error page.
+7. Writes the generated assets into the Web runner.
+8. Fails if the direct Drift version changes without an explicit Web runtime review.
+
+The assets remain generated/untracked. This policy provides package-version/runtime pairing and basic transport/content sanity; it is not documented as cryptographic provenance.
+
+Commit:
+
+- `256ea5d0386b3a7ebfc842e3e9441650e65ca584` — `feat: bootstrap verified Flutter web database assets`
+
+## Web regression coverage
+
+Added:
+
+- `test/web/web_platform_smoke_test.dart`
+
+The Chrome-targeted regression protects:
+
+- unavailable Web app-lock capability;
+- authentication failure without unsupported native plugin behavior;
+- browser rejection of native filesystem-path reads through the domain exception boundary.
+
+Commit:
+
+- `439f090f75b00dbff76aebeb6c699778c2bc0c8a` — `test: cover browser platform fallbacks`
+
+The later async-stub fix above protects the test contract itself.
+
+## Six-platform GitHub Actions
+
+### Platform builds
+
+`.github/workflows/platform-builds.yml` now includes a Web job in addition to Android/Linux/Windows/macOS/iOS.
+
+The Web lane performs:
+
+```bash
+python tool/bootstrap_platforms.py
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+flutter test --platform chrome test/web/web_platform_smoke_test.dart
+flutter build web --release
+```
+
+`test/web/**` is included in platform-build path filters.
+
+Commit:
+
+- `3ea96658bcfc2890f6bd934e4a843e2e7a78d1cc` — `ci: add first-class Flutter web verification`
+
+### Release artifacts
+
+`.github/workflows/release.yml` now has a Web packaging job that runs the browser smoke check, creates the release Web bundle, and uploads `build/web/**` as a release workflow artifact.
+
+Commit:
+
+- `9e1e33fbdf962a10e67d060624b9d36c15b98553` — `ci: package Flutter web release artifact`
+
+No CI success is claimed here until GitHub actually completes checks on the final verification head.
+
+## Repository policy and documentation completeness
+
+Five tracked files were added by the browser/native platform abstractions and Web test:
+
+- `lib/core/utils/bounded_file_reader_io.dart`
+- `lib/core/utils/bounded_file_reader_stub.dart`
+- `lib/services/app_lock_service_io.dart`
+- `lib/services/app_lock_service_stub.dart`
+- `test/web/web_platform_smoke_test.dart`
+
+The exhaustive repository catalog therefore moved from **103 to 108 tracked files**.
+
+`docs/repository-reference.md` now documents all 108 paths and updates the source-of-truth matrix, generated boundaries, platform invariants, and audit guidance.
+
+`tool/check_repo.py` now explicitly requires the browser/native abstraction files, the Web smoke regression, and a README six-platform support statement.
+
+Commit:
+
+- `72846b670f8af0bab9094e831420549ea558b9ba` — `tooling: require cross-platform support boundaries`
+
+The authoritative automated proof of the 108-file catalog still requires `python tool/check_repository_reference.py` on a checked-out final candidate.
+
+## GitHub community workflow changes
+
+The bug report form now includes Web and asks for browser/platform details without requiring a locally installed Flutter SDK for a published-browser runtime report.
+
+The pull-request template now requires explicit Android/iOS/Windows/macOS/Linux/Web impact review and includes the Chrome/Web build commands.
+
+Relevant commits:
+
+- `49c544c8ba216d8b5a31110f0a438dcdb37c15d1` — `docs: accept Web platform bug reports`
+- `f382925182174374f3ae2615699b322d54aa0dcd` — `docs: add six-platform pull request review gate`
+
+## Public and engineering documentation synchronized
+
+The cross-platform work was propagated through the repository rather than leaving stale five-platform language.
+
+Updated surfaces include:
 
 - `README.md`
 - `CHANGELOG.md`
 - `ROADMAP.md`
-- `SECURITY.md`
 - `PRIVACY.md`
+- `SECURITY.md`
 - `SUPPORT.md`
 - `CONTRIBUTING.md`
-- `CODE_OF_CONDUCT.md`
+- `.github/ISSUE_TEMPLATE/bug_report.yml`
 - `.github/pull_request_template.md`
 - `docs/accessibility.md`
+- `docs/adr/0003-generated-platform-runners.md`
 - `docs/architecture.md`
-- `docs/setup.md`
 - `docs/development.md`
-- `docs/testing.md`
+- `docs/github.md`
+- `docs/performance.md`
 - `docs/release.md`
 - `docs/releases/2.0.12.md`
 - `docs/repository-reference.md`
-- `docs/github.md`
-- `docs/performance.md`
+- `docs/setup.md`
+- `docs/testing.md`
 - `docs/troubleshooting.md`
-- all tracked ADRs
-- `what_changed.md`
+- this `what_changed.md`
 
-Every tracked file—not only the documents above—is individually cataloged in `docs/repository-reference.md`.
+Notable documentation commits:
 
-## Current regression inventory
+- `4abc07c82f1b7484543c697d90cf17e3b20687a2` — `docs: record six-platform 2.0.12 support`
+- `c0569ede6f3123625d3bfcf97fe98c9be2d63a36` — `docs: publish six-platform support matrix`
+- `7f0363edd2dd8f5981f5618908539a868b835f97` — `docs: add complete Web setup and deployment`
+- `d9f73380669aad4206b2c30dfe92f75017cf8dac` — `docs: make Web a required testing target`
+- `debdf6458c038670b7d5012e23505d9b8c18dc7d` — `docs: require six-platform release verification`
+- `fb77f553691c802edffac535f3b667973d8614a7` — `docs: finalize six-platform 2.0.12 candidate notes`
+- `fc9d85db629458d15fa6d7097f2fc3795e0dfb48` — `docs: document browser-local privacy boundary`
+- `486c939245f933918f256f46fd86587898854a26` — `docs: extend security model across Web`
+- `c42850706b10162c014521266adbf718b3b760bc` — `docs: move Web support into 2.0.12 baseline`
+- `937ca221f7af17a38be29c2fb1193f9ab97b904b` — `docs: document six-platform architecture boundaries`
+- `587a1ae85efecf14694059d4994c02b7ff615b8d` — `docs: align development workflow to six targets`
+- `1f6ff939e7fbc796f32e3ba3cb0a10ad9c4f1f99` — `docs: add Web cross-platform troubleshooting`
+- `293bb415d7678ed8a37e8c6c2474bea10aed5c2c` — `docs: extend runner ADR to Flutter Web`
+- `9ca936a211cd56a26df7699354f26c0feecccb4e` — `docs: include Web in accessibility matrix`
+- `80de96a5a90a00b6974477ec275eea99ab17b378` — `docs: require six-platform contribution review`
+- `aa21ded24141e76a81d59ad799263bfe1d04036a` — `docs: align GitHub operations with six platforms`
+- `775e382b0372f62a338cc16950f6387c78baeec6` — `docs: add Web performance baseline`
+- `27102b486f413444618e0c676f41332048418e19` — `docs: add Web support diagnostics`
 
-### Core
+## Current supported-target behavior
 
-- `test/core/app_logger_test.dart`
-- `test/core/async_serial_queue_test.dart`
-- `test/core/bounded_file_reader_test.dart`
-- `test/core/import_limits_test.dart`
-- `test/core/markdown_document_codec_test.dart`
-- `test/core/markdown_lite_test.dart`
-- `test/core/safe_file_name_test.dart`
+### Android
 
-### Services
+- Flutter target/bootstrap/build/release path.
+- Local Drift SQLite/FTS.
+- Native file import/export.
+- Device authentication where supported/configured.
 
-- `test/services/external_link_service_test.dart`
+### iOS / iPadOS
 
-### Application/controllers
+- Flutter target/bootstrap/no-codesign compile/release-validation path.
+- Local Drift SQLite/FTS.
+- Native file import/export.
+- Device authentication where supported; Face ID description configured.
+- Distribution signing remains external.
 
-- `test/app/app_settings_controller_test.dart`
-- `test/features/notes/notes_controller_test.dart`
+### Windows
 
-### Data
+- Flutter desktop target/build/release path.
+- Local Drift SQLite/FTS.
+- Desktop file import/export.
+- Device authentication where supported.
 
-- `test/data/backup_repository_test.dart`
-- `test/data/note_repository_test.dart` — includes the trashed-note pinning regression
-- `test/data/settings_repository_test.dart`
+### macOS
 
-### Widgets
+- Flutter desktop target/build/release path.
+- Local Drift SQLite/FTS.
+- Desktop file import/export.
+- Device authentication where supported.
+- Signing/notarization remains distribution work.
 
-- `test/widgets/about_page_test.dart`
-- `test/widgets/note_editor_accessibility_test.dart`
-- `test/widgets/note_editor_save_test.dart` — includes save-before-pop, missing-note load recovery, and first-line formatting boundary coverage
-- `test/widgets/notes_page_empty_state_test.dart`
-- `test/widgets/onboarding_page_test.dart`
+### Linux
 
-This inventory describes tests present in the repository. It does **not** claim a green Flutter run until CI or a Flutter-enabled host executes them successfully against the exact final candidate.
+- Flutter desktop target/build/release path.
+- Local Drift SQLite/FTS.
+- Desktop file import/export.
+- Current device app lock is unavailable because the dependency has no Linux implementation; NoteNest remains usable.
+
+### Web
+
+- Flutter Web target/bootstrap/build/release path.
+- Drift SQLite through `sqlite3.wasm` + `drift_worker.js`.
+- Browser picker import/download export behavior.
+- Responsive compact/wide UI.
+- App lock intentionally unavailable; app remains usable.
+- Browser data remains local to the browser/profile/origin and is subject to site-data clearing/storage policy.
+
+## Web deployment requirements
+
+A successful `flutter build web` is not enough to certify a deployed host.
+
+The intended Web release must verify:
+
+- `sqlite3.wasm` is present and served as `application/wasm`;
+- `drift_worker.js` is reachable at the configured path;
+- the app boots without worker/WASM fetch errors;
+- create/edit/search persists across page reload;
+- persistence survives browser restart under normal storage policy;
+- Markdown import/export works;
+- JSON backup export/restore works;
+- oversized browser selections are rejected;
+- browser/site-data clearing behavior is understood/documented;
+- keyboard/focus/zoom/screen reader behavior is reviewed;
+- actual Drift browser storage mode is recorded where relevant.
+
+Cross-origin isolation can provide the optimal OPFS-backed path on compatible deployments, but NoteNest does not require an unverified claim that every host/browser uses OPFS. Tested fallback storage is acceptable when documented.
+
+## Package/platform audit
+
+The current direct plugin/platform review found:
+
+- Drift / drift_flutter: all-six-target database support with explicit Web runtime configuration.
+- file_picker: all-six-target file selection/export support used through platform-appropriate data/path behavior.
+- shared_preferences: Android/iOS/Linux/macOS/Web/Windows support.
+- url_launcher: Android/iOS/Linux/macOS/Web/Windows support.
+- local_auth: Android/iOS/macOS/Windows support, but no current Web/Linux implementation; NoteNest now treats that feature as unavailable there.
+
+This package-capability review is still not equivalent to running the final builds/runtime flows.
 
 ## Static source-review signals
 
-The final GitHub code-search pass found no indexed matches for:
+The final indexed source sweep in this continuation found no matches for:
 
 - `TODO:`
 - `FIXME:`
 - `HACK:`
 - `UnimplementedError`
 
-Earlier hardening removed the native import `withData: true` path and direct feature-level external launcher calls.
+An indexed search also found no unexpected shared `dart:io` usage after the conditional refactor. Search indexing is only a static signal and may lag; the final analyzer/Web compile remains authoritative.
 
-The repository policy checker rejects `TODO:`, `FIXME:`, and `HACK:` markers in tracked `lib/**/*.dart` source.
+## Verification limitation in this working environment
 
-These are static review signals, not formatter/analyzer/test/native-runtime substitutes.
+The execution container available during earlier finalization could not resolve `github.com` for a normal clone and does not provide the complete pinned Flutter/native toolchain needed to run the repository locally.
 
-## Local verification limitation
-
-A clean clone was attempted in the execution container so the repository's Python tools could run directly. The container could not resolve `github.com` because outbound DNS/network access was unavailable there.
-
-Therefore the following local commands are **not** claimed as successfully executed in that container:
+Therefore this handoff **does not claim** that any of the following completed successfully in the local container:
 
 ```bash
 python tool/check_version_sync.py
+python tool/bootstrap_platforms.py
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+dart format --output=none --set-exit-if-changed lib test
+flutter analyze
+flutter test --coverage
+flutter test --platform chrome test/web/web_platform_smoke_test.dart
+flutter build web --release
 python tool/check_repo.py
 python tool/check_repository_reference.py
 python tool/check_markdown_links.py
 python tool/security_scan.py
 ```
 
-The exhaustive repository reference was independently constructed against the GitHub tracked tree and is intended to contain one entry for each of the 103 tracked files. The authoritative automated proof remains the CI execution of `tool/check_repository_reference.py` on the checked-out candidate.
+Nor are Android/iOS/Windows/macOS/Linux/Web runtime/build results claimed green until GitHub Actions/real platform hosts complete them against the exact final candidate.
 
-The connected GitHub API remained available for repository inspection and edits.
+Repository inspection and edits were performed through the connected GitHub API.
 
-The execution environment also does not provide the full Flutter/native build toolchain needed to claim local formatter/analyzer/tests/native builds or real-device verification.
+## Stable-release blocker: `pubspec.lock`
 
-## Final PR-based 2.0.12 verification
+GitHub issue **#8** remains open.
 
-The verification history is intentionally explicit so an older green/queued run cannot be mistaken for final release evidence.
+NoteNest is an application project and the stable dependency graph must be captured by a resolver-generated lockfile. The lock must be produced by pinned Flutter **3.44.7** from a clean exact candidate, reviewed, committed, added to `docs/repository-reference.md`, and enforced in final CI/release dependency installation.
 
-- PR **#5** — closed without merge; historical pre-continuation verification only.
-- PR **#6** — closed without merge; superseded after the later lifecycle/editor/automation/documentation hardening.
-- PR **#7 — `ci: verify final NoteNest 2.0.12 candidate`** — the active final verification path.
-- PR #7 branch: `verify/2.0.12-final`.
-- The verification branch is maintained as the exact latest `main` candidate plus only a non-functional comment in `lib/main.dart`.
-- That comment deliberately matches the `lib/**` platform-build path filter so CI, security, and native platform workflows run without introducing a product change.
-- The verification-only marker must not be merged back into `main`.
-- If `main` changes, the branch must be realigned before any PR #7 result is considered final release evidence.
+Current catalog count before the lockfile is **108**. Adding only the lockfile makes the expected tracked-file count **109**.
 
-At initial PR #7 creation the quality, security, and platform-build workflows were queued. Because this handoff itself updates `main`, the verification branch is realigned after the handoff commit and a fresh head-specific run set becomes authoritative.
+The lockfile must not be manually invented or reconstructed from package constraints.
 
-Run IDs are deliberately not hard-coded here as the definition of final success: the authoritative evidence is the completed check set attached to the **current PR #7 head commit** after realignment. No green result is claimed until those current-head jobs complete successfully.
+After the lockfile is committed, all final automated/six-platform verification must be repeated on the new exact candidate.
 
-## Commit identity
+## Verification PR policy
 
-Requested project commit email: `sanskarin@outlook.in`.
+PR **#7** is retained as a verification-only path.
 
-GitHub branch metadata for the latest `main` checkpoint inspected during this continuation reported the commit author and committer as:
+Because this continuation changes `main` substantially, every older PR #7 run attached to the pre-cross-platform head is superseded.
 
-```text
-Sanskar <sanskarin@outlook.in>
-```
+After this handoff commit:
 
-This matches the requested project email. For local Git work, continue to use:
+1. Move `verify/2.0.12-final` to the exact current `main` commit.
+2. Add only a non-functional comment in `lib/main.dart` on the verification branch to exercise the `lib/**` path filters.
+3. Reopen/update PR #7 if GitHub auto-closes it while branch and base are temporarily identical.
+4. Treat only completed checks attached to that new head as evidence.
+5. Do not merge the verification marker into `main`.
+6. Because issue #8 still changes the final product candidate later, even green pre-lock checks remain pre-lock evidence rather than permission to tag stable 2.0.12.
 
-```bash
-git config user.email "sanskarin@outlook.in"
-```
+## Remaining 2.0.12 stable blockers
 
-## Remaining stable 2.0.12 blockers
-
-These are verification/distribution tasks rather than intentionally omitted core functionality:
-
-1. Obtain completed green CI/security/platform-build results on the **current head of PR #7** after it is aligned to the final `main` handoff commit.
-2. Fix any formatter/analyzer/test/native failure those current-head jobs reveal before release.
-3. Run the clean-checkout Python and Flutter quality gates on a Flutter-enabled host, including `tool/check_repository_reference.py`.
-4. Verify rapid-edit → immediate Back saves the newest draft before navigation.
-5. Verify first-line Heading/Bullet/Checklist formatting at caret offset zero when the note starts with an empty first line.
-6. Verify a real/simulated editor storage failure blocks Back/export/history safely.
-7. Verify root app teardown closes the owned settings/database resources without disposal/lifecycle errors where a controlled lifecycle test is practical.
-8. Verify note-browser mutation failure feedback.
-9. Verify settings persistence ordering/rollback and persistence-first onboarding on representative targets.
-10. Verify collection-scoped filters, including Trash metadata and the no-pinned-trash lifecycle invariant.
-11. Verify bounded oversized Markdown/backup rejection through real picker/provider behavior.
-12. Verify backup export/restore and malformed timestamp/color/ID/lifecycle rejection using fictional data.
-13. Verify repository/funding/mail/release links and no-handler behavior.
-14. Verify app lock on supported and unsupported targets.
-15. Complete keyboard, screen-reader, large-text, light/dark, reduced-motion, and custom-color accessibility review.
-16. Replace illustrative layout artwork with verified runtime screenshots before making screenshot claims.
-17. Prepare distribution signing status/artifacts and SHA-256 checksums.
-18. Create `v2.0.12` only on the exact commit that passed the full release checklist.
+1. Generate/review/commit/catalog/enforce the real Flutter-3.44.7 `pubspec.lock` (issue #8).
+2. Re-run final exact-candidate CI after the lock commit.
+3. Complete release/toolchain/repository/reference/link/secret gates.
+4. Complete Drift generation, formatting, analyzer, and Flutter tests.
+5. Complete Chrome Web fallback regression.
+6. Complete Android release compile.
+7. Complete Linux release compile.
+8. Complete Windows release compile.
+9. Complete macOS release compile.
+10. Complete iOS no-codesign release compile.
+11. Complete Web release compile.
+12. Verify native file picker/import/export and size limits.
+13. Verify browser picker/import/download and size limits.
+14. Verify Web worker/WASM MIME/reachability and local persistence across reload/browser restart.
+15. Verify note editor rapid-edit/back, save failure, first-line formatting, history/export guards.
+16. Verify note lifecycle/filter/error-feedback behavior.
+17. Verify settings ordering/rollback and persistence-first onboarding.
+18. Verify backup export/restore/malformed-data behavior with fictional data.
+19. Verify supported app-lock paths on representative supported targets.
+20. Verify Web/Linux unavailable app-lock paths remain usable.
+21. Verify external link success/failure.
+22. Complete keyboard/browser focus, screen reader, large text/zoom, theme, reduced-motion, touch-target accessibility checks.
+23. Capture verified runtime screenshots rather than treating illustrative artwork as runtime evidence.
+24. Prepare native signing/notarization/store status as applicable.
+25. Produce/review final artifacts and SHA-256 checksums.
+26. Create `v2.0.12` only on the exact commit that passed the full final checklist.
 
 ## Release-readiness statement
 
-NoteNest is now a deeply hardened **2.0.12 release candidate** with local-first persistence/search, collection-aware organization, deterministic editor/settings persistence, save-before-navigation protection, first-line editor boundary regression protection, snapshot history, strict conflict-safe backup/restore validation, bounded native imports, Unicode-safe exports, resilient external links, explicit root resource teardown, responsive Material 3 UI, accessibility/privacy controls, startup/error-state handling, extensive regression coverage, an exhaustive machine-enforced 103-file repository reference, exact Flutter workflow-pin synchronization, fail-fast generated native-runner patch verification, asset-aware multi-platform build CI, and synchronized release documentation.
+NoteNest 2.0.12 is now implemented as a **six-platform Flutter release candidate** with local-first notes/search/history, deterministic editor/settings persistence, strict backup/restore validation, bounded native/browser imports, cross-platform exports, responsive Material 3 presentation, browser-local Drift SQLite support, safe platform authentication capability handling, all-six-target bootstrap/build/release automation, Chrome Web regression coverage, privacy/security/accessibility documentation for browser operation, and a machine-enforced exhaustive 108-file source catalog.
 
-The remaining blockers are explicit automated/native/manual verification and distribution checks. Stable `v2.0.12` must not be published until those checks complete successfully on the exact release commit.
+The project must still be described as a **release candidate**, not a fully verified stable release. The real application lockfile, final exact-candidate automated builds/tests, representative runtime/browser/accessibility checks, screenshots, signing, artifacts, and checksums remain mandatory before `v2.0.12`.
