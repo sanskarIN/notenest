@@ -26,7 +26,7 @@ jobs:
           channel: stable
           cache: true
       - run: python tool/bootstrap_platforms.py
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - run: dart run build_runner build
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
@@ -52,7 +52,7 @@ jobs:
           channel: stable
           cache: true
       - run: python tool/bootstrap_platforms.py
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - run: dart run build_runner build
       - run: flutter build linux --release
       - uses: actions/upload-artifact@v4
@@ -74,7 +74,7 @@ jobs:
           channel: stable
           cache: true
       - run: python tool/bootstrap_platforms.py
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - run: dart run build_runner build
       - run: flutter build windows --release
       - uses: actions/upload-artifact@v4
@@ -96,7 +96,7 @@ jobs:
           channel: stable
           cache: true
       - run: python tool/bootstrap_platforms.py
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - run: dart run build_runner build
       - run: flutter build macos --release
       - run: flutter build ios --release --no-codesign
@@ -125,7 +125,7 @@ jobs:
           channel: stable
           cache: true
       - run: python tool/bootstrap_platforms.py
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - run: dart run build_runner build
       - run: flutter test --platform chrome test/web/web_platform_smoke_test.dart
       - run: flutter build web --release
