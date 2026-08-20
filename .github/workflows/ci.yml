@@ -66,11 +66,11 @@ jobs:
           git add -f pubspec.lock
           git add lib test
           if git diff --cached --quiet; then
-            echo "Verification branch already contains the generated lockfile and pinned formatting."
+            echo "Verification tree already contains the generated lockfile and pinned formatting."
             exit 0
           fi
           git commit -m "build: materialize 2.0.12 dependency and format baseline"
-          git push origin HEAD:verify/2.0.12-final
+          git push --force origin HEAD:refs/heads/materialize/2.0.12-baseline
 
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib test
