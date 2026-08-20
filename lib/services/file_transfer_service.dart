@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:notenest/core/errors/app_exception.dart';
 import 'package:notenest/core/utils/bounded_file_reader.dart';
 import 'package:notenest/core/utils/import_limits.dart';
@@ -25,26 +24,24 @@ final class FileTransferService {
 
   Future<bool> exportBackup() async {
     final String payload = await _backups.exportJson();
-    final String? result = await FilePicker.saveFile(
+    final Uri? result = await FilePicker.saveFile(
       dialogTitle: 'Export NoteNest backup',
       fileName: 'notenest-backup-${_dateStamp()}.json',
       type: FileType.custom,
       allowedExtensions: <String>['json'],
       bytes: Uint8List.fromList(utf8.encode(payload)),
+      mimeType: 'application/json',
     );
     return result != null;
   }
 
   Future<RestoreReport?> importBackup() async {
-    final FilePickerResult? result = await FilePicker.pickFiles(
+    final PlatformFile? file = await FilePicker.pickFile(
       dialogTitle: 'Restore NoteNest backup',
       type: FileType.custom,
       allowedExtensions: <String>['json'],
-      withData: false,
-      withReadStream: kIsWeb,
     );
-    if (result == null) return null;
-    final PlatformFile file = result.files.single;
+    if (file == null) return null;
     final Uint8List bytes = await _readPickedFile(
       file,
       validateLength: ImportLimits.validateBackupBytes,
@@ -66,26 +63,24 @@ final class FileTransferService {
       updatedAt: note.updatedAt,
     );
     final String fileName = '${SafeFileName.fromTitle(note.title)}.md';
-    final String? result = await FilePicker.saveFile(
+    final Uri? result = await FilePicker.saveFile(
       dialogTitle: 'Export note as Markdown',
       fileName: fileName,
       type: FileType.custom,
       allowedExtensions: <String>['md'],
       bytes: Uint8List.fromList(utf8.encode(payload)),
+      mimeType: 'text/markdown',
     );
     return result != null;
   }
 
   Future<Note?> importMarkdown() async {
-    final FilePickerResult? result = await FilePicker.pickFiles(
+    final PlatformFile? file = await FilePicker.pickFile(
       dialogTitle: 'Import Markdown note',
       type: FileType.custom,
       allowedExtensions: <String>['md', 'markdown', 'txt'],
-      withData: false,
-      withReadStream: kIsWeb,
     );
-    if (result == null) return null;
-    final PlatformFile file = result.files.single;
+    if (file == null) return null;
     final Uint8List bytes = await _readPickedFile(
       file,
       validateLength: ImportLimits.validateMarkdownBytes,
@@ -114,35 +109,31 @@ final class FileTransferService {
     required void Function(int byteLength) validateLength,
     required String failureMessage,
   }) async {
-    validateLength(file.size);
+    try {
+      validateLength(await file.length());
 
-    final Uint8List? inMemory = file.bytes;
-    if (inMemory != null) {
-      validateLength(inMemory.length);
-      return inMemory;
-    }
+      final String? path = file.path;
+      if (path != null && path.trim().isNotEmpty) {
+        return BoundedFileReader.read(
+          path,
+          validateLength: validateLength,
+        );
+      }
 
-    final Stream<List<int>>? stream = file.readStream;
-    if (stream != null) {
       final BytesBuilder builder = BytesBuilder(copy: false);
       int total = 0;
-      await for (final List<int> chunk in stream) {
+      await for (final Uint8List chunk in file.readAsByteStream()) {
         total += chunk.length;
         validateLength(total);
         builder.add(chunk);
       }
+      validateLength(total);
       return builder.takeBytes();
+    } on AppException {
+      rethrow;
+    } on Object catch (error) {
+      throw ImportExportException(failureMessage, error);
     }
-
-    final String? path = file.path;
-    if (path != null && path.trim().isNotEmpty) {
-      return BoundedFileReader.read(
-        path,
-        validateLength: validateLength,
-      );
-    }
-
-    throw ImportExportException(failureMessage);
   }
 
   String _dateStamp() {
