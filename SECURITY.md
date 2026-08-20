@@ -92,12 +92,14 @@ Native targets:
 
 Web:
 
-- Request browser picker bytes because native filesystem paths are not relied on.
-- Validate picker-reported length.
-- Re-validate actual bytes/stream accumulation before decoding.
+- Request the browser picker's read-stream mode instead of its eager byte-loading default.
+- Keep `withData` disabled for NoteNest Web imports.
+- Validate picker-reported length before consuming the stream.
+- Validate cumulative streamed bytes before adding each chunk to the final NoteNest buffer.
+- Re-validate an in-memory byte value if a provider/plugin supplies one despite the stream-first request.
 - Do not compile/use `dart:io` path access in the browser.
 
-Size ceilings are reliability/memory guardrails, not trust guarantees.
+Size ceilings are reliability/memory guardrails, not trust guarantees. Browser/provider internals can still have their own memory/cache behavior outside NoteNest's direct control.
 
 ## Backup restore safety
 
@@ -177,6 +179,12 @@ Never commit:
 
 If a secret is committed, deleting it later is insufficient: revoke/rotate it and clean history where appropriate.
 
+## Generated platform source policy
+
+Android, iOS, Linux, macOS, Windows, Web runner trees plus Flutter `.metadata` are generated from the pinned toolchain/bootstrap recipe and are ignored by Git. `tool/check_repo.py` enforces that the generated runner prefixes remain untracked and that the required ignore rules are present.
+
+The application dependency lockfile is deliberately **not** ignored because stable application releases require it to become tracked once issue #8 is completed.
+
 ## Dependencies and supply chain
 
 - Dependencies are declared in `pubspec.yaml`.
@@ -202,7 +210,7 @@ Use least privilege. A new native permission or browser capability requires user
 
 ## Release integrity
 
-`tool/check_version_sync.py` prevents partial release/toolchain version bumps. `tool/check_repo.py` protects required cross-platform source/automation, and `tool/check_repository_reference.py` currently requires all **108 tracked files** to be cataloged.
+`tool/check_version_sync.py` prevents partial release/toolchain version bumps. `tool/check_repo.py` protects required cross-platform source/automation/generated-runner policy, and `tool/check_repository_reference.py` currently requires all **108 tracked files** to be cataloged.
 
 These are integrity/process controls, not cryptographic artifact authenticity. Distributed native artifacts still need appropriate signing; distributed files should have checksums as documented in [`docs/release.md`](docs/release.md).
 
