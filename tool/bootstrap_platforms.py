@@ -193,6 +193,7 @@ def main() -> None:
     run(
         "flutter",
         "create",
+        "--no-pub",
         "--platforms=android,ios,linux,macos,windows,web",
         "--org=com.sanskarin",
         "--project-name=notenest",
