@@ -1,79 +1,112 @@
-# ADR 0003: Reproducible generated native runners
+# ADR 0003: Reproducible generated platform runners
 
 - Status: Accepted
 - Date: 2026-08-19
+- Updated: 2026-08-20
 
 ## Context
 
-Flutter native runner templates are largely framework-generated and change over time. NoteNest targets Android, Windows, Linux, macOS, and is iOS-ready, but the initial repository development environment did not include a Flutter SDK capable of generating/validating those runner trees locally.
+Flutter platform projects are largely framework-generated and evolve with the SDK. NoteNest targets the complete Flutter platform set: Android, iOS/iPadOS, Linux, macOS, Windows, and Web.
 
-Committing hand-written approximations of Flutter-generated native projects would create a high risk of stale or invalid templates. At the same time, NoteNest needs a reproducible way to generate required platform projects and apply the small native changes needed by `local_auth`.
+Committing hand-written approximations of Flutter-generated projects would risk stale templates and plugin-registration drift. NoteNest also has a small set of platform-specific requirements:
+
+- Android configuration required by `local_auth` and the selected SDK baseline.
+- iOS Face ID usage description.
+- Web SQLite WASM/worker runtime assets required by Drift Web.
 
 ## Decision
 
-Do not commit guessed/stale framework-generated runner trees during the initial bootstrap. Instead:
+Keep the generation/bootstrap recipe in source control rather than committing guessed framework boilerplate.
 
-- Keep `tool/bootstrap_platforms.py` in source control.
-- Run Flutter's own `flutter create` for Android, iOS, Linux, macOS, and Windows.
-- Patch Android's activity to use `FlutterFragmentActivity`.
-- Patch the Android minimum SDK baseline required by the selected dependencies/project support policy.
-- Add the iOS Face ID usage description needed for optional app lock.
-- Generate runners in clean setup and native-build CI jobs.
-- Keep platform-specific developer instructions in `docs/setup.md`.
+`tool/bootstrap_platforms.py` must:
+
+1. Run Flutter's generator for Android, iOS, Linux, macOS, Windows, and Web using the project-pinned Flutter SDK.
+2. Patch/verify Android `FlutterFragmentActivity`.
+3. Patch/verify Android biometric permission, minimum SDK, AppCompat dependency, and launch/normal theme baseline.
+4. Patch/verify the iOS Face ID usage description.
+5. Verify the direct Drift dependency matches the reviewed Web runtime version.
+6. Obtain `sqlite3.wasm` and `drift_worker.js` from that same Drift release.
+7. Perform basic asset sanity checks and fail instead of accepting missing/mismatched Web runtime assets.
+8. Generate platform state in clean setup and CI build jobs.
 
 ## Why
 
-This makes Flutter itself the source of truth for boilerplate runner templates instead of copying a template from an unknown SDK version. NoteNest-specific native deltas remain small, reviewable, and scripted.
+Flutter remains the source of truth for runner boilerplate while NoteNest-specific deltas remain small, scripted, reviewable, and reproducible.
+
+For Web, the decision also avoids committing binary/runtime assets that are derived from a pinned upstream Drift release. The source of truth is the direct Drift version plus the bootstrap rule, not an unexplained checked-in WASM blob.
 
 ## Consequences
 
 ### Positive
 
-- Clean clones can reproduce runner files using their supported Flutter SDK.
-- Less stale generated boilerplate in repository history.
-- Flutter upgrades naturally expose template changes during regeneration.
-- Required local-auth native patches are documented in code.
-- CI can validate generated runners independently on native hosts.
+- Clean clones can reproduce all six runner targets from Flutter 3.44.7.
+- Less generated boilerplate/binary churn in repository history.
+- Flutter upgrades expose template changes during regeneration.
+- Android/iOS authentication requirements stay explicit.
+- Drift Web worker/WASM pairing is tied to the reviewed package version.
+- CI can compile native targets and Web from the same source policy.
 
 ### Tradeoffs
 
-- `flutter create` is an explicit setup step.
-- Native customization must be represented in the script or intentionally committed later.
-- Upstream template path/text changes can break the patch script and require maintenance.
-- The repository tree alone does not contain every generated native boilerplate file before bootstrap.
-- Native release signing still requires platform-owner credentials outside the repository.
+- Platform bootstrap is an explicit setup step.
+- Network access is required during bootstrap to obtain the pinned Drift Web assets.
+- Upstream Flutter template changes can require patch maintenance.
+- Drift version changes require explicit Web runtime review.
+- The Git tree alone does not contain generated runner projects or Web runtime assets before bootstrap.
+- Native signing still requires distributor-owned credentials outside the repository.
+- Web deployment still requires correct MIME/hosting behavior after the build succeeds.
+
+## Web-specific security/reproducibility boundary
+
+The bootstrap pins the Drift release version and performs basic payload sanity checks (including a WebAssembly header check) but does not claim cryptographic provenance beyond the configured HTTPS GitHub release source.
+
+If stronger supply-chain pinning is introduced later, add reviewed cryptographic digests or another maintained verification mechanism rather than inventing undocumented hashes.
+
+The generated Web bundle must retain `sqlite3.wasm` and `drift_worker.js` at the paths expected by `AppDatabase`.
 
 ## When to reconsider
 
-Begin committing full/selected runner trees if:
+Consider committing full/selected platform trees if:
 
-- Native code becomes substantial.
-- Store metadata/entitlements require many persistent custom files.
-- Platform-specific integrations are difficult to express safely as idempotent patches.
-- Generated-template reproducibility becomes less reliable than reviewing committed native changes.
+- substantial platform-native code accumulates;
+- store metadata/entitlements require many persistent generated-file edits;
+- Web hosting/runtime assets need audited immutable vendoring rather than bootstrap retrieval;
+- scripted patching becomes more fragile than reviewing committed platform files;
+- Flutter changes its platform generation model significantly.
 
-Any change in approach should explain migration/ownership in a new ADR or supersede this one.
+Any policy change should supersede/update this ADR explicitly.
 
 ## Verification
 
-A runner-generation change should be checked by:
+A platform-generation change should be checked from a clean checkout:
 
-1. Starting from a clean checkout without runner directories.
-2. Running `python tool/bootstrap_platforms.py`.
-3. Running `flutter pub get` and Drift generation.
-4. Building each target on a supported native host.
-5. Testing optional app lock on supported Android/iOS devices when release verification is performed.
+```bash
+python tool/check_version_sync.py
+python tool/bootstrap_platforms.py
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+flutter test --platform chrome test/web/web_platform_smoke_test.dart
+flutter build web --release
+```
+
+Then compile Android/Linux/Windows/macOS/iOS on supported hosts through the platform matrix and perform representative runtime/plugin/browser checks.
+
+For Web deployment additionally verify worker/WASM reachability, `application/wasm` MIME, local persistence, import/export, and actual browser storage behavior on the intended origin.
 
 ## Alternatives considered
 
 ### Commit manually reconstructed runner files
 
-Rejected because manually approximating framework templates without the target Flutter toolchain can produce subtle compile/plugin registration issues.
+Rejected because manually approximating framework templates without the pinned toolchain creates subtle compile/plugin registration risk.
 
-### Commit runners from an arbitrary older Flutter SDK
+### Commit runner projects from an arbitrary older SDK
 
-Rejected because the repository's declared current toolchain baseline should not silently depend on stale generated templates.
+Rejected because the declared current toolchain should not silently depend on stale templates.
 
-### Support only one platform initially
+### Track generated Web WASM/worker binaries directly
 
-Rejected because the project requirement explicitly includes multiple primary targets, and a reproducible generator allows those targets to remain first-class without inventing boilerplate.
+Not selected for the current baseline because the assets are reproducibly tied to the direct Drift release and would add binary churn. This can be reconsidered if offline build/reproducibility requirements justify vendoring plus checksum maintenance.
+
+### Support only native targets
+
+Rejected because Flutter Web is part of the required cross-platform scope and can be supported with explicit browser storage/file/authentication boundaries rather than pretending the browser behaves like a native filesystem platform.
