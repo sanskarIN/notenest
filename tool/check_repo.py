@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Fast repository-level policy checks used by CI.
 
-These checks catch missing handoff/documentation files and accidental placeholder
-markers before a release. Flutter/Dart correctness is checked separately.
+These checks catch missing handoff/documentation/platform-baseline files and
+accidental placeholder markers before a release. Flutter/Dart correctness is
+checked separately.
 """
 
 from __future__ import annotations
@@ -57,6 +58,13 @@ REQUIRED_FILES = (
     ".github/ISSUE_TEMPLATE/bug_report.yml",
     ".github/ISSUE_TEMPLATE/feature_request.yml",
     ".github/FUNDING.yml",
+    "lib/core/utils/bounded_file_reader.dart",
+    "lib/core/utils/bounded_file_reader_io.dart",
+    "lib/core/utils/bounded_file_reader_stub.dart",
+    "lib/services/app_lock_service.dart",
+    "lib/services/app_lock_service_io.dart",
+    "lib/services/app_lock_service_stub.dart",
+    "test/web/web_platform_smoke_test.dart",
     "tool/bootstrap_platforms.py",
     "tool/check_markdown_links.py",
     "tool/check_repo.py",
@@ -71,6 +79,7 @@ REQUIRED_README_TEXT = (
     "sanskarin@outlook.in",
     "supportramsandesh@gmail.com",
     "MIT License",
+    "Android, iOS, Windows, macOS, Linux, and Web",
 )
 
 FORBIDDEN_SOURCE_MARKERS = (
