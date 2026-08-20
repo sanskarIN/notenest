@@ -6,7 +6,7 @@ This document is the exhaustive tracked-file map for NoteNest. It records the re
 
 ## Exhaustive-documentation contract
 
-At this checkpoint the repository has **108 tracked files**. Every tracked path appears exactly once in the catalog below. The contract is enforced by:
+At this checkpoint the repository has **109 tracked files**. Every tracked path appears exactly once in the catalog below. The contract is enforced by:
 
 ```bash
 python tool/check_repository_reference.py
@@ -14,7 +14,7 @@ python tool/check_repository_reference.py
 
 The checker compares `git ls-files` with the catalog entries in this document and rejects missing, stale, or duplicate paths. Any tracked addition, deletion, or rename must update this reference in the same change.
 
-Generated runners, Drift output, build artifacts, dependency caches, signing material, exported user data, and local databases are deliberately outside the tracked-file count.
+Generated runners, Drift output, build artifacts, dependency caches, signing material, exported user data, and local databases are deliberately outside the tracked-file count. The application `pubspec.lock` is intentionally tracked because it is part of the reproducible release baseline.
 
 ## Architecture orientation
 
@@ -50,7 +50,8 @@ Version domains remain independent:
 - `.gitignore` — Excludes build/generated output, local databases, IDE noise, environment secrets, signing files, coverage, caches, and logs.
 - `analysis_options.yaml` — Strict Dart/Flutter static-analysis policy with generated Drift output excluded.
 - `build.yaml` — Drift build-runner settings controlling generated persistence behavior.
-- `pubspec.yaml` — Canonical package metadata, version `2.0.12+2012`, SDK constraints, pinned dependencies, and asset declarations.
+- `pubspec.yaml` — Canonical package metadata, version `2.0.12+2012`, SDK constraints, pinned direct dependencies, and asset declarations.
+- `pubspec.lock` — Resolver-generated application dependency graph with exact direct/transitive versions and hosted-package content hashes; CI/platform/release restoration enforces it.
 - `README.md` — Public project overview, features, six-platform target matrix, setup, quality gates, architecture, and project links.
 - `CHANGELOG.md` — Release-oriented history for user-facing, security, tooling, and platform changes.
 - `ROADMAP.md` — Forward-looking product and engineering direction; roadmap entries are not shipped-feature claims.
@@ -70,9 +71,9 @@ Version domains remain independent:
 - `.github/ISSUE_TEMPLATE/feature_request.yml` — Structured feature request form emphasizing value and privacy/offline impact.
 - `.github/dependabot.yml` — Automated dependency-update configuration.
 - `.github/pull_request_template.md` — Review checklist for code, tests, docs, security, accessibility, and release impact.
-- `.github/workflows/ci.yml` — Primary quality workflow: version checks, dependency resolution, Drift generation, formatting, analyzer, tests, repository policy, reference validation, links, and secret scan.
-- `.github/workflows/platform-builds.yml` — Six-platform compile matrix for Android, Linux, Windows, macOS, unsigned iOS, and Web; Web also runs the Chrome platform smoke regression.
-- `.github/workflows/release.yml` — Tag/manual artifact workflow for Android, Linux, Windows, macOS, unsigned iOS, and a deployable Web bundle.
+- `.github/workflows/ci.yml` — Primary quality workflow: version checks, enforced lockfile restore, Drift generation, formatting, analyzer, tests, repository policy, reference validation, links, and secret scan.
+- `.github/workflows/platform-builds.yml` — Six-platform compile matrix using the enforced lockfile for Android, Linux, Windows, macOS, unsigned iOS, and Web; Web also runs the Chrome platform smoke regression.
+- `.github/workflows/release.yml` — Tag/manual artifact workflow restoring the enforced lockfile before packaging Android, Linux, Windows, macOS, unsigned iOS, and a deployable Web bundle.
 - `.github/workflows/security.yml` — Dedicated deterministic repository/dependency security workflow.
 
 ### Branding and documentation assets
@@ -140,7 +141,7 @@ Version domains remain independent:
 - `lib/services/app_lock_service_io.dart` — Native `local_auth` implementation for supported operating systems; plugin absence/errors resolve safely to unavailable.
 - `lib/services/app_lock_service_stub.dart` — Web/non-IO app-lock implementation that reports authentication unavailable and never traps the user behind an impossible unlock flow.
 - `lib/services/external_link_service.dart` — Injectable HTTP(S)/mailto launcher boundary converting refusal/exceptions to safe results.
-- `lib/services/file_transfer_service.dart` — Cross-platform file picker orchestration: browser byte/stream validation, native bounded-path streaming, UTF-8 decoding, Markdown import/export, and backup import/export.
+- `lib/services/file_transfer_service.dart` — Cross-platform file picker orchestration using file_picker 12 single-file selection, reported-length validation, native bounded-path reads, streamed non-path reads, UTF-8 decoding, Markdown import/export, and backup import/export.
 - `lib/widgets/empty_state.dart` — Reusable collection-aware empty-state presentation.
 - `lib/widgets/note_card.dart` — Responsive accessible note-summary card and action surface.
 - `lib/widgets/note_color_swatch.dart` — Accessible 48-pixel color target with explicit selected semantics and non-color cue.
@@ -169,9 +170,9 @@ Version domains remain independent:
 
 ### Repository tooling
 
-- `tool/bootstrap_platforms.py` — Generates Android/iOS/Linux/macOS/Windows/Web runners, applies/verifies Android+iOS authentication requirements, pins Drift Web assets to the pubspec Drift version, downloads `sqlite3.wasm`/`drift_worker.js`, validates their basic signatures, and fails on platform/dependency drift.
+- `tool/bootstrap_platforms.py` — Generates Android/iOS/Linux/macOS/Windows/Web runners; applies/verifies Android authentication/AppCompat requirements, explicit iOS 14 deployment compatibility, and Windows/MSVC compatibility; pins Drift Web assets to the pubspec Drift version; downloads `sqlite3.wasm`/`drift_worker.js`; and fails on platform/dependency drift.
 - `tool/check_markdown_links.py` — Deterministic tracked-Markdown local-link validator.
-- `tool/check_repo.py` — Fast repository policy gate for required baseline, README identity text, unfinished Dart markers, generated-file policy, and ignore rules.
+- `tool/check_repo.py` — Fast repository policy gate for required baseline (including tracked `pubspec.lock`), README identity text, unfinished Dart markers, generated-file policy, and ignore rules.
 - `tool/check_repository_reference.py` — Exhaustive tracked-path coverage checker for this catalog.
 - `tool/check_version_sync.py` — App/release metadata plus exact Flutter workflow-pin synchronization gate.
 - `tool/security_scan.py` — Lightweight deterministic tracked-file credential/secret-pattern scan.
@@ -193,6 +194,7 @@ Because these paths are not returned by `git ls-files`, they are not catalog ent
 |---|---|---|
 | App semantic/build version | pubspec + visible app version | changelog, version release notes, version-sync gate |
 | Flutter SDK pin | `.flutter-version` | CI/platform/release workflows + version-sync gate |
+| Application dependency graph | `pubspec.yaml` + `pubspec.lock` | enforced restore, dependency review, affected target builds |
 | Database fields/schema | Drift tables/database | generated output, migrations, backup compatibility, architecture/tests |
 | Web database/runtime assets | database factory + platform bootstrap | Drift dependency pin, Web build/release verification, deployment docs |
 | Note lifecycle rules | note repository | backup validation, controllers/widgets, repository tests |
@@ -216,24 +218,5 @@ Because these paths are not returned by `git ls-files`, they are not catalog ent
 - Settings mutations are serialized and failed optimistic writes roll back when appropriate.
 - Onboarding is persisted before leaving the onboarding route.
 - Root app teardown delegates settings/database cleanup to the composition root.
-- Imports are byte-bounded before decoding: native targets stream validated paths; Web validates picker-reported and actual in-memory/streamed byte lengths.
+- Imports are byte-bounded before decoding: native targets validate length and use bounded paths when available; non-path/browser content is streamed with cumulative limit checks.
 - Backup data is validated before restore writes and newer local notes win conflicts.
-- App lock uses OS/device authentication only where supported, is not database encryption, and unavailable targets remain usable rather than entering an impossible lock state.
-- External URI/plugin failures are contained behind the link service.
-- Logging redacts note/user/credential/file-like fields.
-- Platform runners and Drift output are reproducible; browser SQLite worker/WASM assets are tied to the pinned Drift release instead of being silently mixed across versions.
-- Flutter workflow pins must match `.flutter-version`.
-- Platform-build path filtering includes source/assets/Web smoke changes and verifies all six Flutter targets.
-
-## How to audit this reference
-
-After any tracked-structure or release-toolchain change:
-
-```bash
-python tool/check_version_sync.py
-python tool/check_repository_reference.py
-python tool/check_repo.py
-python tool/check_markdown_links.py
-```
-
-Before release, run the full Flutter quality gate and all relevant platform/manual checks documented elsewhere. A passing repository-reference check proves catalog coverage only; it does not prove formatting, analysis, unit/widget/browser tests, native builds, accessibility, or runtime behavior.
