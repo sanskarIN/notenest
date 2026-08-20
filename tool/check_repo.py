@@ -31,6 +31,7 @@ REQUIRED_FILES = (
     ".env.example",
     ".flutter-version",
     "pubspec.yaml",
+    "pubspec.lock",
     "analysis_options.yaml",
     "build.yaml",
     "assets/branding/notenest_logo.svg",
@@ -126,10 +127,13 @@ def tracked_files() -> list[str]:
 def main() -> int:
     errors: list[str] = []
     tracked = tracked_files()
+    tracked_set = set(tracked)
 
     for relative in REQUIRED_FILES:
         if not (ROOT / relative).is_file():
             errors.append(f"missing required file: {relative}")
+        if relative not in tracked_set:
+            errors.append(f"required file is not tracked by Git: {relative}")
 
     readme_path = ROOT / "README.md"
     if readme_path.is_file():
