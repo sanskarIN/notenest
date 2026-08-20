@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -40,37 +40,11 @@ jobs:
       - name: Verify version synchronization
         run: python3 tool/check_version_sync.py
 
-      - name: Resolve dependencies
-        run: flutter pub get
-
-      - name: Upload resolved lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: resolved-pubspec-lock
-          path: pubspec.lock
-          if-no-files-found: error
-          retention-days: 14
+      - name: Restore locked dependencies
+        run: flutter pub get --enforce-lockfile
 
       - name: Generate Drift code
         run: dart run build_runner build
-
-      - name: Materialize final verification tree
-        if: >-
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.head.ref == 'verify/2.0.12-final' &&
-          github.event.pull_request.head.repo.full_name == github.repository
-        run: |
-          dart format lib test
-          git config user.name "sanskarIN"
-          git config user.email "sanskarin@outlook.in"
-          git add -f pubspec.lock
-          git add lib test
-          if git diff --cached --quiet; then
-            echo "Verification tree already contains the generated lockfile and pinned formatting."
-            exit 0
-          fi
-          git commit -m "build: materialize 2.0.12 dependency and format baseline"
-          git push --force origin HEAD:refs/heads/materialize/2.0.12-baseline
 
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib test
