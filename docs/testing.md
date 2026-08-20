@@ -1,12 +1,12 @@
 # NoteNest Testing Strategy
 
-Testing protects local user data first, then interaction quality. Deterministic invariants belong in automation; build success never substitutes for real runtime/accessibility validation.
+Testing protects local user data first, then interaction quality. Deterministic invariants belong in automation; successful compilation never substitutes for real runtime/accessibility validation.
 
-Current release-candidate target: **2.0.12** (`2.0.12+2012`).
+Current release candidate: **2.0.12** (`2.0.12+2012`).
 
 ## Platform scope
 
-The test/release strategy covers all six Flutter project targets:
+The test/release strategy covers all six Flutter targets:
 
 - Android
 - iOS / iPadOS
@@ -15,7 +15,23 @@ The test/release strategy covers all six Flutter project targets:
 - Linux
 - Web
 
-Web is a first-class target, not a documentation-only compatibility claim. The platform workflow includes a Chrome-targeted fallback regression and a release-mode Web compilation job.
+Web is a first-class target. The platform workflow runs both a Chrome-targeted platform-boundary regression and a release-mode Web build.
+
+## Reproducible test environment
+
+Use Flutter **3.44.7** and restore the committed dependency graph:
+
+```bash
+flutter pub get --enforce-lockfile
+```
+
+The current lock contains **129 resolved packages** and is part of the **109-file** tracked repository contract. Ordinary test runs must not silently change the graph.
+
+Generate Drift code with:
+
+```bash
+dart run build_runner build
+```
 
 ## Quality layers
 
@@ -26,44 +42,40 @@ Current deterministic coverage includes:
 - `test/core/markdown_lite_test.dart` — Markdown-lite transformations.
 - `test/core/markdown_document_codec_test.dart` — metadata round trips/malformed input.
 - `test/core/import_limits_test.dart` — Markdown and backup byte boundaries.
-- `test/core/bounded_file_reader_test.dart` — native streaming, oversize rejection, filesystem error translation.
+- `test/core/bounded_file_reader_test.dart` — native bounded streaming, oversize rejection, filesystem error translation.
 - `test/core/safe_file_name_test.dart` — cross-platform/Unicode filename safety.
 - `test/core/async_serial_queue_test.dart` — FIFO persistence ordering and failure continuation.
 - `test/core/app_logger_test.dart` — logger redaction.
 - `test/services/external_link_service_test.dart` — successful/refused/throwing launcher behavior.
 
-### Web platform smoke regression
+### Web platform smoke
 
-`test/web/web_platform_smoke_test.dart` runs under Chrome and protects browser-specific boundaries:
+`test/web/web_platform_smoke_test.dart` protects browser-specific boundaries:
 
 - Web app lock reports device authentication unavailable.
-- Web authentication requests fail closed rather than throwing or registering an unsupported native plugin.
-- Native filesystem path reads are unavailable in the browser and produce a domain import/export failure instead of compiling `dart:io` into the browser target.
+- Authentication requests fail safely instead of registering an unsupported native plugin.
+- Native filesystem-path access is unavailable in the browser and reaches the domain failure boundary rather than importing `dart:io` into shared Web code.
 
-Run it explicitly:
+Run:
 
 ```bash
 flutter test --platform chrome test/web/web_platform_smoke_test.dart
 ```
 
-This smoke test complements—rather than replaces—release-mode `flutter build web` and real deployed-origin persistence/import/export tests.
+This complements, but does not replace, `flutter build web --release` and real deployed-origin persistence/import/export testing.
 
-### Application-controller tests
+### Application/controller tests
 
 - `test/app/app_settings_controller_test.dart` — atomic load, serialized writes, rollback, persistence-first onboarding, app-lock preference behavior.
 - `test/features/notes/notes_controller_test.dart` — collection-switch filter reset and collection-scoped metadata.
 
 ### Repository/database tests
 
-In-memory Drift coverage:
-
 - `test/data/note_repository_test.dart`
 - `test/data/backup_repository_test.dart`
 - `test/data/settings_repository_test.dart`
 
-Note repository coverage includes create/update/search, quote-safe FTS input, lifecycle collections, pin/favorite/archive/trash invariants, snapshots, restore/cascade behavior, folder/tag metadata, and the no-pinned-trash invariant.
-
-Backup coverage includes valid round trips, conflict-safe restore, app/schema/type validation, UTC timestamps, timestamp order, tags, IDs/relationships, 32-bit colors, lifecycle validation, duplicate identifiers/snapshots, and transaction safety.
+Coverage includes create/update/search, safe FTS input, lifecycle collections, pin/favorite/archive/trash invariants, snapshots, restore/cascade behavior, folder/tag metadata, no-pinned-trash, backup schema/type/UTC/tag/ID/relationship/color/lifecycle validation, conflict-safe restore, and settings persistence.
 
 ### Widget tests
 
@@ -73,76 +85,70 @@ Backup coverage includes valid round trips, conflict-safe restore, app/schema/ty
 - `test/widgets/note_editor_save_test.dart` — save-before-pop, load recovery, and first-line formatting boundary.
 - `test/widgets/about_page_test.dart` — external-link failure feedback.
 
-Future useful coverage includes broader editor toolbar operations, destructive confirmations, injected Settings failures, note-browser mutation failure UI, large-text layout coverage, and keyboard focus traversal.
+## Cross-platform file-transfer tests
 
-## Cross-platform file transfer tests
-
-File transfer has three boundaries:
-
-1. Pure format/size validation.
-2. Platform-selected data acquisition.
-3. Persistence/import/export behavior.
+Current implementation uses `file_picker 12.0.0`.
 
 Required invariants:
 
 - Markdown/text ceiling: **16 MiB**.
 - JSON backup ceiling: **64 MiB**.
-- Exactly-at-limit input is accepted by the validator.
-- Oversized input fails before UTF-8/JSON/Markdown processing.
-- Native targets avoid eager picker byte loading and use bounded path streaming when a cached path is available.
-- Web requests picker data because browsers do not expose native filesystem paths in the same way.
-- Web validates both picker-reported size and actual bytes/stream accumulation before decoding.
+- Exactly-at-limit input is accepted.
+- Oversized input fails before UTF-8/Markdown/JSON processing.
+- `PlatformFile.length()` is validated before processing.
+- Native cached paths use `BoundedFileReader` where available.
+- Browser/non-path data is consumed through `readAsByteStream()` with cumulative validation.
 - Strict UTF-8 is required.
-- Filesystem errors become `ImportExportException`.
+- Filesystem/platform failures become `ImportExportException`.
 - Export names remain cross-platform and Unicode safe.
 
-Manual/platform picker testing must include native/cloud document providers and browser file selection/download behavior because the provider/browser owns part of that pipeline.
+Manual picker testing must include representative native/cloud document providers and browser file selection/download behavior because provider/browser behavior lies outside deterministic unit tests.
 
-## Web database and deployment tests
+## Web database/deployment tests
 
-Drift Web depends on the generated `sqlite3.wasm` + `drift_worker.js` pair from the same Drift **2.34.3** release as the direct project dependency.
+Drift Web uses `sqlite3.wasm` + `drift_worker.js` from the same Drift **2.34.3** release as the direct dependency.
 
-Automated Web verification must cover:
+Automated Web verification:
 
 ```bash
 python tool/bootstrap_platforms.py
-flutter pub get
-dart run build_runner build --delete-conflicting-outputs
+flutter pub get --enforce-lockfile
+dart run build_runner build
 flutter test --platform chrome test/web/web_platform_smoke_test.dart
 flutter build web --release
 ```
 
-Real deployment verification must additionally use the intended host/origin and check:
+Real deployment verification on the intended origin must additionally check:
 
-1. App boots without WASM/worker fetch errors.
+1. App boots without worker/WASM fetch errors.
 2. `sqlite3.wasm` is served as `application/wasm`.
 3. Create/edit/search works.
-4. Note data survives page reload.
-5. Note data survives browser restart under normal storage settings.
+4. Data survives page reload.
+5. Data survives browser restart under normal storage settings.
 6. Markdown import/export works.
 7. JSON backup export/restore works.
 8. Oversized picker input is rejected.
-9. Browser/site-data clearing behavior is documented rather than mistaken for sync durability.
-10. Actual Drift browser storage mode is recorded; use cross-origin isolation when supported/desired for the optimal OPFS path, while accepting tested fallback modes when isolation is unavailable.
+9. Browser/site-data clearing behavior is documented.
+10. Actual Drift browser storage mode is recorded instead of assuming OPFS.
 
-Test Chrome/Edge and at least one additional browser family appropriate to the intended support statement before stable browser distribution.
+Test Chrome/Edge and at least one additional browser family appropriate to the eventual Web support statement before stable browser distribution.
 
 ## App-lock platform tests
 
-`local_auth 3.0.2` is used only where implemented. The expected current behavior is:
+Expected current behavior:
 
-- Android: device authentication when supported.
-- iOS/iPadOS: device authentication when supported.
-- macOS: device authentication when supported.
-- Windows: device authentication when supported.
+- Android: device authentication where supported.
+- iOS/iPadOS: device authentication where supported.
+- macOS: device authentication where supported.
+- Windows: device authentication where supported.
 - Linux: app-lock capability unavailable with the current dependency.
 - Web: app-lock capability unavailable.
 
-Unsupported platforms must remain fully usable. Test both an unset lock preference and a previously persisted `appLockEnabled=true` condition to prove the app does not become permanently inaccessible.
+Unsupported platforms must remain fully usable. Test both an unset lock preference and a stale persisted `appLockEnabled=true` condition.
 
 ## Integration/end-to-end journeys
 
-Important release journeys include:
+Important release journeys:
 
 1. First run → persist onboarding → create note → autosave → close/reopen.
 2. Failed onboarding persistence → remain/retry.
@@ -156,18 +162,18 @@ Important release journeys include:
 10. Trash/restore/permanent-delete/no-pinned-trash behavior.
 11. Mutation/storage failure feedback.
 12. JSON export → modify fictional library → restore.
-13. Platform-supported app lock → background/resume/authenticate.
+13. Supported app lock → background/resume/authenticate.
 14. Unsupported app lock → app remains accessible and Settings reports unavailable.
 15. Preference failure → previous persisted value restored.
 16. Markdown import/export through actual native/browser picker paths.
 17. Oversized file rejection through actual provider/browser behavior.
 18. Repository/funding/mail/releases links success/failure.
-19. Bootstrap settings failure → safe startup fallback and dependency cleanup.
+19. Bootstrap settings failure → safe startup fallback and cleanup.
 20. Controlled root teardown → settings/database disposed.
 21. Web create/edit/search → reload → browser restart persistence.
 22. Web backup/Markdown download then re-import.
 
-Use only fictional data.
+Use fictional data only.
 
 ## Commands
 
@@ -175,7 +181,8 @@ Use only fictional data.
 
 ```bash
 python tool/check_version_sync.py
-dart run build_runner build --delete-conflicting-outputs
+flutter pub get --enforce-lockfile
+dart run build_runner build
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --coverage
@@ -189,8 +196,8 @@ python tool/security_scan.py
 
 ```bash
 python tool/bootstrap_platforms.py
-flutter pub get
-dart run build_runner build --delete-conflicting-outputs
+flutter pub get --enforce-lockfile
+dart run build_runner build
 flutter test --platform chrome test/web/web_platform_smoke_test.dart
 flutter build web --release
 ```
@@ -206,13 +213,13 @@ Use `python3` or Windows `py` where appropriate.
 
 ## Repository-maintenance tools
 
-- `tool/check_version_sync.py` — verifies package/UI/changelog/version-specific release notes, `.flutter-version`, and every Flutter workflow pin.
-- `tool/check_repo.py` — verifies the required documentation/automation/cross-platform source baseline, unfinished-source markers, generated-file policy, and important ignore rules.
-- `tool/check_repository_reference.py` — verifies all **108 tracked files** are cataloged exactly once.
-- `tool/check_markdown_links.py` — validates repository-local Markdown links deterministically.
+- `tool/check_version_sync.py` — verifies package/UI/changelog/version-specific notes, `.flutter-version`, and workflow Flutter pins.
+- `tool/check_repo.py` — verifies required documentation/automation/cross-platform source baseline, tracked lockfile, unfinished markers, generated-file policy, and ignore rules.
+- `tool/check_repository_reference.py` — verifies all **109 tracked files** are cataloged exactly once.
+- `tool/check_markdown_links.py` — validates repository-local Markdown links.
 - `tool/security_scan.py` — lightweight tracked credential-pattern scan.
 
-## Test data rules
+## Test-data rules
 
 - Use fictional note text and backups.
 - Keep fixtures deterministic.
@@ -220,7 +227,7 @@ Use `python3` or Windows `py` where appropriate.
 - Do not commit personal SQLite/browser storage dumps or real exported backups.
 - Use explicit UTC timestamps for ordering tests.
 - Avoid uncontrolled locale/timezone dependencies.
-- External network services must not be needed for deterministic unit/widget tests; platform bootstrap's pinned Web asset download is a separate build input.
+- Deterministic unit/widget tests must not require external services; platform bootstrap's reviewed Web asset download is a separate build input.
 
 ## Backup regression requirements
 
@@ -242,9 +249,9 @@ Every backup change should retain coverage for:
 
 Malformed input must be rejected before restore writes begin.
 
-## Search and lifecycle tests
+## Search/lifecycle tests
 
-FTS tests should cover title/body/folder/tag matches, multiple terms, quote/punctuation safety, Unicode supported by the tokenizer, collection exclusion rules, and stable ordering only where deterministic.
+FTS tests should cover title/body/folder/tag matches, multiple terms, quote/punctuation safety, appropriate Unicode, collection exclusion rules, and deterministic ordering where promised.
 
 Collection metadata must match the active lifecycle predicate. Search terms must never be concatenated as executable SQL.
 
@@ -267,44 +274,45 @@ Real platform testing still needs lifecycle/background/system-back/process-termi
 
 ## Migration tests
 
-Drift schema version remains **1** for application 2.0.12. Starting with schema 2, every migration needs fixture-driven previous-schema → new-schema validation including data, constraints, FTS/index behavior, foreign keys, and repository operations.
+Drift schema remains **1** for application 2.0.12. Starting with schema 2, every migration needs fixture-driven previous-schema → new-schema validation including data, constraints, FTS/index behavior, foreign keys, and repository operations.
 
 ## Accessibility testing
 
 Automation should check semantics, non-color selected state, minimum target size, discoverable controls, visible failure messages, and representative large-text layouts where practical.
 
-Manual verification must cover screen readers, keyboard traversal, browser focus, zoom/text scaling, dark/light themes, reduced motion, compact/wide viewports, and destructive action clarity. See [`accessibility.md`](accessibility.md).
+Manual verification must cover screen readers, keyboard traversal, browser focus, zoom/text scaling, dark/light themes, reduced motion, compact/wide viewports, and destructive-action clarity. See [`accessibility.md`](accessibility.md).
 
 ## Platform build matrix
 
-GitHub Actions separately verifies:
+GitHub Actions verifies:
 
 - Android release APK compile.
 - Linux release compile.
 - Windows release compile.
 - macOS release compile.
 - iOS release compile without signing.
-- Web Chrome smoke test + release compile.
+- Chrome Web smoke + Web release compile.
 
-A compiled target is evidence of integration/compilation only, not proof of real-device/browser runtime behavior.
+The current file-picker-12 hardening generation has already completed all seven build/smoke steps successfully. The exact final post-documentation candidate must repeat them before release tagging.
 
-The path filter includes application source, assets, package/build metadata, bootstrap changes, the workflow itself, and Web smoke tests so browser-support regressions cannot bypass the matrix.
+Compilation is integration evidence, not proof of real-device/browser runtime behavior.
 
 ## CI expectations
 
 PR/push verification should fail when:
 
 - Release/toolchain versions drift.
-- Dependency resolution or Drift generation fails.
+- The committed lock cannot be enforced.
+- Drift generation fails.
 - Formatting/analyzer/tests fail.
 - Required cross-platform repository files disappear.
-- The exhaustive tracked-file catalog is stale/duplicated.
+- The 109-file catalog is stale or duplicated.
 - Markdown links or tracked-secret checks fail.
-- Platform bootstrap cannot apply native patches or prepare compatible Web database assets.
+- Platform bootstrap cannot apply required native patches or prepare compatible Web database assets.
 - Any native compile lane fails.
 - Chrome Web smoke or release Web compilation fails.
 
-## Flaky tests and regression rule
+## Flaky-test/regression rule
 
 A flaky test is a defect. Do not rerun until green without investigating timing, external dependency, randomness, or shared-state causes.
 
