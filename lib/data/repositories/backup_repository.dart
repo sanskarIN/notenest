@@ -76,7 +76,7 @@ final class BackupRepository {
       for (final NotesCompanion incoming in notes) {
         final String id = incoming.id.value;
         final List<Note> existing = await (_db.select(_db.notes)
-              ..where((Notes row) => row.id.equals(id)))
+              ..where(($NotesTable row) => row.id.equals(id)))
             .get();
         if (existing.isNotEmpty &&
             existing.single.updatedAt.isAfter(incoming.updatedAt.value)) {
@@ -90,7 +90,7 @@ final class BackupRepository {
       for (final NoteVersionsCompanion incoming in versions) {
         final List<NoteVersion> duplicate = await (_db.select(_db.noteVersions)
               ..where(
-                (NoteVersions row) =>
+                ($NoteVersionsTable row) =>
                     row.noteId.equals(incoming.noteId.value) &
                     row.capturedAt.equals(incoming.capturedAt.value),
               ))
