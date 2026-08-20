@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:notenest/core/errors/app_exception.dart';
 import 'package:notenest/core/utils/bounded_file_reader.dart';
 import 'package:notenest/core/utils/import_limits.dart';
@@ -39,17 +40,14 @@ final class FileTransferService {
       dialogTitle: 'Restore NoteNest backup',
       type: FileType.custom,
       allowedExtensions: <String>['json'],
-      withData: false,
+      withData: kIsWeb,
     );
     if (result == null) return null;
     final PlatformFile file = result.files.single;
-    final String? path = file.path;
-    if (path == null || path.trim().isEmpty) {
-      throw const ImportExportException('Could not read the selected backup.');
-    }
-    final Uint8List bytes = await BoundedFileReader.read(
-      path,
+    final Uint8List bytes = await _readPickedFile(
+      file,
       validateLength: ImportLimits.validateBackupBytes,
+      failureMessage: 'Could not read the selected backup.',
     );
     try {
       return await _backups.restoreJson(utf8.decode(bytes, allowMalformed: false));
@@ -82,17 +80,14 @@ final class FileTransferService {
       dialogTitle: 'Import Markdown note',
       type: FileType.custom,
       allowedExtensions: <String>['md', 'markdown', 'txt'],
-      withData: false,
+      withData: kIsWeb,
     );
     if (result == null) return null;
     final PlatformFile file = result.files.single;
-    final String? path = file.path;
-    if (path == null || path.trim().isEmpty) {
-      throw const ImportExportException('Could not read the selected note.');
-    }
-    final Uint8List bytes = await BoundedFileReader.read(
-      path,
+    final Uint8List bytes = await _readPickedFile(
+      file,
       validateLength: ImportLimits.validateMarkdownBytes,
+      failureMessage: 'Could not read the selected note.',
     );
     final String text;
     try {
@@ -110,6 +105,42 @@ final class FileTransferService {
       folder: document.folder,
       tags: document.tags,
     );
+  }
+
+  Future<Uint8List> _readPickedFile(
+    PlatformFile file, {
+    required void Function(int byteLength) validateLength,
+    required String failureMessage,
+  }) async {
+    validateLength(file.size);
+
+    final Uint8List? inMemory = file.bytes;
+    if (inMemory != null) {
+      validateLength(inMemory.length);
+      return inMemory;
+    }
+
+    final Stream<List<int>>? stream = file.readStream;
+    if (stream != null) {
+      final BytesBuilder builder = BytesBuilder(copy: false);
+      int total = 0;
+      await for (final List<int> chunk in stream) {
+        total += chunk.length;
+        validateLength(total);
+        builder.add(chunk);
+      }
+      return builder.takeBytes();
+    }
+
+    final String? path = file.path;
+    if (path != null && path.trim().isNotEmpty) {
+      return BoundedFileReader.read(
+        path,
+        validateLength: validateLength,
+      );
+    }
+
+    throw ImportExportException(failureMessage);
   }
 
   String _dateStamp() {
