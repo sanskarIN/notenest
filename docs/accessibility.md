@@ -1,217 +1,216 @@
 # NoteNest Accessibility
 
-NoteNest aims for WCAG-oriented inclusive design across mobile and desktop. This document describes implementation expectations and release checks; it does **not** claim formal WCAG certification.
+NoteNest aims for WCAG-oriented inclusive design across mobile, desktop, and Web. This document describes implementation expectations and release checks; it does **not** claim formal WCAG certification.
 
 ## Principles
 
 - Core workflows must not depend on color alone.
-- Interactive controls need understandable names and sufficiently large targets.
-- Keyboard users should be able to reach and activate important desktop actions.
-- Text must remain usable when scaled.
-- Layouts must adapt to narrow/wide windows without hiding essential functionality.
+- Interactive controls need understandable names and usable targets.
+- Keyboard users must be able to reach important desktop/Web actions.
+- Browser focus must remain visible and logical.
+- Text must remain usable under system scaling and browser zoom.
+- Layouts must adapt to narrow/wide windows/viewports.
 - Screen-reader users should receive useful semantics rather than decorative noise.
 - Optional motion should respect reduced-motion preference.
 - Destructive actions must communicate consequences clearly.
+- Unsupported platform capabilities must be explained without blocking unrelated workflows.
 
 ## Current foundations
 
-The app primarily uses standard Flutter Material controls, which provide baseline semantics/focus behavior. Project-specific additions include:
+NoteNest primarily uses standard Flutter Material controls plus project-specific accessibility rules:
 
 - Tooltips for icon-only note/editor actions.
-- A semantic label on note cards.
-- A semantic save-state indicator.
-- Note-color swatches with a 48 logical-pixel interaction target, explicit selected semantics, and a visible checkmark so selection is not color-only.
-- Material buttons/chips/list tiles rather than tiny custom hit areas.
-- Responsive `NavigationBar` and `NavigationRail`.
-- Adjustable app text scale.
-- Reduced-motion preference propagated through `MediaQuery.disableAnimations`.
-- Light/dark color schemes generated from a stable seed.
-- Text/icons accompanying destructive lifecycle actions.
-- Collection-specific empty states that avoid offering actions whose result would be hidden by the active collection.
+- Semantic note-card and save-state information.
+- Note-color swatches with a 48 logical-pixel interaction target, explicit selected semantics, and a visible checkmark so state is not color-only.
+- Material buttons/chips/list tiles instead of tiny custom hit areas.
+- Responsive `NavigationBar` / `NavigationRail`.
+- Adjustable application text scale.
+- Reduced-motion preference through `MediaQuery.disableAnimations`.
+- Light/dark themes.
+- Text/icons alongside destructive lifecycle actions.
+- Collection-specific empty states with context-valid actions.
+- App-lock availability text in Settings so Web/Linux users are not presented with an impossible security action.
 
-The reusable `NoteColorSwatch` widget has deterministic widget coverage for its selected cue and minimum touch target.
+## Text scaling and browser zoom
 
-## Text scaling
+Settings provide an additional 90%–140% scale. OS/framework accessibility scaling may add more. Web users may also zoom the page/browser.
 
-Settings currently allow an additional scale from 90% to 140%. The operating system/framework may also provide accessibility text scaling. UI changes should be tested with increased system text size, not only the in-app setting.
+Do not rely on fixed heights around multiline text. Prefer wrapping, flexible layout, and scrolling.
 
-Avoid fixed-height containers around multiline text. Prefer wrapping, flexible layout, and scrollable surfaces.
-
-Critical screens to verify at large text sizes:
+Verify at large text/zoom on:
 
 - Onboarding.
-- Notes search/filter row.
+- Notes search/filter controls.
 - Note cards.
-- Editor app bar and metadata fields.
-- Settings segmented theme control.
-- About contact tiles.
+- Editor app bar/metadata fields.
+- Settings controls.
+- About/contact tiles.
 - Confirmation dialogs.
+- Web narrow and wide viewport layouts.
 
-If a layout cannot fit horizontally, it should adapt/scroll rather than clip important labels.
+If horizontal space is insufficient, adapt/scroll rather than clip essential labels.
 
 ## Color and contrast
 
-Material color schemes provide a baseline, but custom note colors use translucent surfaces and must keep foreground text/theme colors readable.
+- Never encode archive/trash/favorite state only in note color.
+- Selected state needs icon/text/shape cues in addition to color.
+- Custom note colors must retain readable foregrounds.
+- Check light and dark themes.
+- Disabled controls must remain distinguishable.
 
-Rules:
+The note-color palette uses a checkmark plus selected semantics; the default/no-color option also has a reset cue.
 
-- Never encode archive/trash/favorite state only through note color.
-- Selected state should have icon/text/shape cues in addition to color.
-- Do not place arbitrary user-chosen color directly behind low-contrast custom text without contrast handling.
-- Check both light and dark themes.
-- Check disabled controls remain distinguishable without appearing active.
+## Keyboard and browser focus
 
-The editor palette now pairs its border-color change with a checkmark plus selected semantics. The default/no-color choice also has a reset icon when it is not selected.
-
-## Keyboard navigation
-
-Desktop release review should verify, using only keyboard where practical:
+Desktop/Web release review should verify using keyboard only where practical:
 
 1. Reach navigation destinations.
-2. Reach search field.
+2. Reach search/filter controls.
 3. Create/open a note.
-4. Move among title/body/folder/tags controls.
-5. Reach formatting and action buttons.
-6. Open/choose popup-menu actions.
+4. Move among title/body/folder/tags.
+5. Reach formatting/action buttons.
+6. Open/use popup menus.
 7. Navigate Settings controls.
 8. Confirm/cancel destructive dialogs.
-9. Return/back without pointer use.
+9. Reach About/external links.
+10. Return/back without requiring pointer/touch.
 
-Flutter's default focus traversal should be preserved unless a custom order is clearly needed. If a future layout creates confusing traversal, define an explicit focus order and test it.
+On Web also verify:
+
+- visible focus indication;
+- Tab/Shift+Tab order;
+- browser Back does not unexpectedly destroy unsaved state;
+- common browser shortcuts are not unnecessarily intercepted;
+- zoom does not make key controls unreachable.
+
+Preserve Flutter's default focus traversal unless an explicit order is genuinely clearer.
 
 ## Shortcuts
 
-The initial app uses standard text/editor keyboard behavior but does not yet advertise a custom global shortcut set. Future shortcuts should:
-
-- Have a discoverable UI/menu/help surface.
-- Avoid overriding common OS/text-editing shortcuts.
-- Have equivalent pointer/touch access.
-- Be testable on desktop.
+The current app does not advertise a custom global shortcut set. Future shortcuts should be discoverable, avoid overriding standard OS/browser text/navigation shortcuts, have pointer/touch equivalents, and be tested across relevant desktop/Web targets.
 
 ## Screen readers and semantics
 
-Manual release checks should include TalkBack (Android) and, when available, VoiceOver (iOS/macOS) or a relevant desktop accessibility tool.
+Manual checks should include representative tools such as TalkBack, VoiceOver, Windows accessibility tooling, and a browser/desktop screen-reader path when available.
 
 Verify announcements for:
 
-- Navigation destinations and selected state.
-- Note card name.
-- Favorite/pin/archive/trash actions.
-- Search/filter controls.
-- Editor title/body fields.
-- Autosave state.
-- Note-color choices and selected state.
-- Version restore actions.
-- Theme/text-size/app-lock settings.
-- Import/export controls.
-- External links on About.
+- navigation destinations and selected state;
+- note-card identity;
+- favorite/pin/archive/trash actions;
+- search/filter controls;
+- editor title/body fields;
+- save state;
+- color choices/selection;
+- version restore;
+- theme/text/app-lock settings;
+- import/export controls;
+- About external actions;
+- app-lock unavailable state where applicable.
 
-Decorative imagery should not create noisy repeated announcements. The logo can have a meaningful description in documentation; in-app icons paired with text generally do not need duplicate custom labels beyond the control semantics.
+Decorative imagery should not create noisy repeated announcements.
 
-## Touch targets
+## Touch/pointer targets
 
-Use standard Material buttons, icon buttons, chips, switches, sliders, and list tiles. Do not shrink icon-only actions into visually compact regions that become difficult to tap.
+Use standard Material buttons/icon buttons/chips/switches/sliders/list tiles. Custom note-color targets use `AppTokens.minimumTouchTarget` = 48 logical pixels.
 
-Custom editor color swatches use the shared `AppTokens.minimumTouchTarget` value of 48 logical pixels while retaining a smaller visual color circle inside that target.
-
-When adding custom gestures, provide a visible/focusable control alternative and semantic action.
+Custom gestures should have a visible/focusable/semantic alternative. Pointer hover must not be required to discover essential actions.
 
 ## Motion
 
-The reduced-motion preference sets `MediaQuery.disableAnimations`. New custom animation should read/respect that preference or be non-essential enough to disable cleanly.
+Reduced motion sets `MediaQuery.disableAnimations`. New non-essential animation should respect it.
 
-Avoid:
-
-- Fake loading delays.
-- Constant decorative motion.
-- Rapid flashing.
-- Required drag gestures when a button/menu alternative can perform the same action.
+Avoid fake delays, constant decorative motion, rapid flashing, or required drag gestures when a button/menu alternative can exist.
 
 ## Error and status communication
 
-Status should be concise and understandable:
-
-- Loading: progress indicator where work is real.
-- Empty: icon + title + descriptive message + relevant action.
-- Error: message + retry when appropriate.
-- Save: semantic/icon state with text meaning available to assistive technology.
-- Destructive actions: confirmation explaining irreversibility only where necessary.
-
-Do not communicate “saved” solely by changing an icon color.
+- Loading: progress only for real work.
+- Empty: icon + title + explanation + valid action.
+- Error: concise message + retry where useful.
+- Save: semantic/text meaning, not icon color alone.
+- Destructive action: clear confirmation when irreversible.
+- Unsupported capability: explain unavailable state while keeping unrelated functionality accessible.
 
 ## Forms and validation
 
-Current editor fields use clear labels/hints for Folder and Tags. Future forms should:
-
-- Use persistent labels when the value's meaning could become ambiguous.
-- Associate error text with the field.
-- Avoid validation only through red borders.
-- Preserve entered data when validation fails.
-- Put focus on the first actionable error only when that improves rather than disrupts navigation.
+- Use persistent labels where meaning could become ambiguous.
+- Associate errors with the relevant field.
+- Do not communicate validation only via red borders.
+- Preserve entered data after validation failure.
+- Use focus movement only when it helps rather than disrupts navigation.
 
 ## Responsive layout
 
-Test at representative widths rather than device names. Current major thresholds:
+Current major thresholds:
 
-- Compact navigation below 760 logical pixels.
-- Navigation rail at 760+.
-- Extended rail at 1120+.
-- Notes grid expands from one through four columns.
+- compact navigation below 760 logical pixels;
+- navigation rail at 760+;
+- extended rail at 1120+;
+- notes grid expands up to four columns.
 
-Resize desktop windows while content is open. Essential controls must not disappear unexpectedly.
+Resize desktop windows and browser viewports with content open. Essential controls must not disappear.
+
+## Web-specific accessibility
+
+Web support adds browser behavior to the release matrix:
+
+- Test keyboard/focus on the deployed Web build, not only `flutter run`.
+- Test at common browser zoom levels including 200% where practical.
+- Verify page/worker loading failures do not leave inaccessible blank states.
+- Verify browser file import/download controls remain operable without pointer-only assumptions.
+- App-lock should be announced as unavailable rather than leaving a disabled unlabeled switch.
+- Test at least one screen-reader/browser combination appropriate to the claimed browser support before a stable Web release claim.
 
 ## Localization readiness
 
-Even English-only UI should be designed for future longer translations:
-
-- Do not encode meaning in fixed English abbreviations.
-- Avoid narrow fixed-width text controls.
-- Allow wrapping in informational content.
-- Future RTL support requires directional layout review rather than merely adding a locale.
+English-only UI should still allow longer future translations. Avoid fixed English abbreviations, narrow fixed-width labels, and assumptions incompatible with RTL. A locale is not supported until major journeys are reviewed in it.
 
 ## Manual release matrix
 
-Record the result in a release issue or `what_changed.md`.
+Record actual results in release tracking / `what_changed.md`.
 
-| Check | Android | Windows | Linux | macOS | iOS |
-|---|---:|---:|---:|---:|---:|
-| Large text | Required primary | Required | Required | Required | Before advertised release |
-| Keyboard | External keyboard where useful | Required | Required | Required | External keyboard optional |
-| Screen reader | TalkBack required primary | Review | Review | VoiceOver review | VoiceOver before advertised release |
-| Light/dark | Required | Required | Required | Required | Required |
-| Reduced motion | Required | Required | Required | Required | Required |
-| Narrow/wide layout | Phone/tablet | Window resize | Window resize | Window resize | Phone/tablet |
+| Check | Android | iOS/iPadOS | Windows | macOS | Linux | Web |
+|---|---:|---:|---:|---:|---:|---:|
+| Large text / zoom | Required | Required | Required | Required | Required | Required incl. browser zoom |
+| Keyboard | External keyboard where useful | External keyboard useful | Required | Required | Required | Required |
+| Screen reader | TalkBack | VoiceOver | Review | VoiceOver | Review | Browser/AT review |
+| Light/dark | Required | Required | Required | Required | Required | Required |
+| Reduced motion | Required | Required | Required | Required | Required | Required |
+| Narrow/wide | Phone/tablet | Phone/tablet | Window resize | Window resize | Window resize | Viewport resize |
+| Import/export operability | Required | Required | Required | Required | Required | Required browser flow |
+| App-lock presentation | Supported-device check | Supported-device check | Supported-device check | Supported-device check | Unavailable state | Unavailable state |
 
-“Required” here means required before claiming the corresponding platform was manually release-verified, not that every contributor needs every device for every code change.
+“Required” means required before claiming that target was manually release-verified, not that every contributor needs every device for every code change.
 
 ## Automated testing opportunities
 
-Useful tests include:
+Useful automation includes:
 
-- Widget semantics labels for custom controls.
-- Layout smoke tests at multiple surface sizes.
-- Text-scale overflow regression tests.
-- Focus traversal tests for important desktop screens.
-- Test that destructive dialogs expose cancel/confirm actions.
+- semantics labels for custom controls;
+- layout smoke tests at multiple sizes;
+- text-scale overflow regressions;
+- focus traversal for important desktop/Web screens;
+- destructive dialog action semantics;
+- unsupported-capability state semantics.
 
-Current automated accessibility-adjacent coverage includes the note-color selected cue/minimum target and collection-specific empty actions. Golden tests should be added only where they remain stable and provide more value than maintenance noise across Flutter versions.
+Current deterministic coverage protects note-color selected state/target size, collection-specific empty actions, editor recovery/save-before-pop behavior, About failure feedback, and Web platform capability fallbacks. Golden tests should be added only where stable enough to justify maintenance.
 
 ## Accessibility bugs
 
-Treat a blocked core workflow for keyboard/screen-reader/large-text users as a real product defect, not cosmetic polish. Add a regression test whenever the behavior is deterministic enough to automate.
+A blocked core workflow for keyboard/screen-reader/large-text/browser-zoom users is a product defect, not cosmetic polish. Add a regression test when deterministic.
 
-When reporting, include platform, assistive technology, text scale, reproduction steps, and fictional content. Avoid attaching private notes.
+Bug reports should include platform/browser, assistive technology, text/zoom scale, fictional reproduction data, and viewport/device size without exposing private notes.
 
-## Checklist for UI pull requests
+## UI pull-request checklist
 
-- [ ] Icon-only controls have a tooltip/accessible name.
-- [ ] Status is not color-only.
-- [ ] Custom interactive targets meet the shared minimum target unless a documented platform control owns a larger hit area.
-- [ ] Text can scale without critical clipping.
-- [ ] Narrow layout remains usable.
-- [ ] Wide layout does not create unreachable controls.
-- [ ] Keyboard focus behavior remains logical on desktop.
-- [ ] Screen-reader reading order remains sensible.
-- [ ] Reduced motion is respected by new non-essential animation.
-- [ ] Destructive actions explain consequence appropriately.
-- [ ] New custom gestures have an accessible alternative.
+- [ ] Icon-only controls have accessible names/tooltips.
+- [ ] Status/selection is not color-only.
+- [ ] Custom targets meet the shared minimum.
+- [ ] Text/zoom does not critically clip.
+- [ ] Compact/wide layouts remain usable.
+- [ ] Keyboard/browser focus order remains logical.
+- [ ] Screen-reader reading order is sensible.
+- [ ] Reduced motion is respected.
+- [ ] Destructive consequences are clear.
+- [ ] Custom gestures have alternatives.
+- [ ] Unsupported platform capability states are understandable and do not block unrelated use.
