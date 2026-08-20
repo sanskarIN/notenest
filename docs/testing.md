@@ -1,155 +1,177 @@
 # NoteNest Testing Strategy
 
-Testing protects local user data first, then interaction quality. A passing test suite does not replace manual accessibility/platform checks, but every deterministic invariant that can be tested cheaply should be automated.
+Testing protects local user data first, then interaction quality. Deterministic invariants belong in automation; build success never substitutes for real runtime/accessibility validation.
 
 Current release-candidate target: **2.0.12** (`2.0.12+2012`).
+
+## Platform scope
+
+The test/release strategy covers all six Flutter project targets:
+
+- Android
+- iOS / iPadOS
+- Windows
+- macOS
+- Linux
+- Web
+
+Web is a first-class target, not a documentation-only compatibility claim. The platform workflow includes a Chrome-targeted fallback regression and a release-mode Web compilation job.
 
 ## Quality layers
 
 ### Core/service unit tests
 
-Use for deterministic logic without real platform services or user databases.
+Current deterministic coverage includes:
 
-Current coverage includes:
+- `test/core/markdown_lite_test.dart` — Markdown-lite transformations.
+- `test/core/markdown_document_codec_test.dart` — metadata round trips/malformed input.
+- `test/core/import_limits_test.dart` — Markdown and backup byte boundaries.
+- `test/core/bounded_file_reader_test.dart` — native streaming, oversize rejection, filesystem error translation.
+- `test/core/safe_file_name_test.dart` — cross-platform/Unicode filename safety.
+- `test/core/async_serial_queue_test.dart` — FIFO persistence ordering and failure continuation.
+- `test/core/app_logger_test.dart` — logger redaction.
+- `test/services/external_link_service_test.dart` — successful/refused/throwing launcher behavior.
 
-- `test/core/markdown_lite_test.dart` — Markdown-lite transformations and preview behavior.
-- `test/core/markdown_document_codec_test.dart` — NoteNest Markdown metadata round trips and malformed metadata rejection.
-- `test/core/import_limits_test.dart` — accepted/rejected Markdown and backup byte-size boundaries.
-- `test/core/bounded_file_reader_test.dart` — bounded native-file reads, early oversize rejection, and filesystem-error wrapping.
-- `test/core/safe_file_name_test.dart` — invalid characters, Windows reserved names, trailing-dot/space handling, Unicode preservation, maximum filename length, and surrogate-safe truncation.
-- `test/core/async_serial_queue_test.dart` — FIFO async task ordering and continuation after an earlier task fails.
-- `test/core/app_logger_test.dart` — structured logger redaction behavior.
-- `test/services/external_link_service_test.dart` — launcher success, refusal, and exception containment.
+### Web platform smoke regression
 
-These tests protect the primitives used by autosave, imports, exports, logging, and external links independently of UI timing.
+`test/web/web_platform_smoke_test.dart` runs under Chrome and protects browser-specific boundaries:
+
+- Web app lock reports device authentication unavailable.
+- Web authentication requests fail closed rather than throwing or registering an unsupported native plugin.
+- Native filesystem path reads are unavailable in the browser and produce a domain import/export failure instead of compiling `dart:io` into the browser target.
+
+Run it explicitly:
+
+```bash
+flutter test --platform chrome test/web/web_platform_smoke_test.dart
+```
+
+This smoke test complements—rather than replaces—release-mode `flutter build web` and real deployed-origin persistence/import/export tests.
 
 ### Application-controller tests
 
-Current application-state coverage includes:
-
-- `test/app/app_settings_controller_test.dart` — atomic settings load, serialized writes, rollback after failed writes, persistence-first onboarding, and app-lock preference rollback.
-- `test/features/notes/notes_controller_test.dart` — collection-switch filter reset and collection-scoped folder/tag metadata loading.
-
-Controller tests are useful for async ordering/state behavior that should not depend on widget rendering.
+- `test/app/app_settings_controller_test.dart` — atomic load, serialized writes, rollback, persistence-first onboarding, app-lock preference behavior.
+- `test/features/notes/notes_controller_test.dart` — collection-switch filter reset and collection-scoped metadata.
 
 ### Repository/database tests
 
-Use an in-memory SQLite database through Drift `NativeDatabase.memory()`.
-
-Current files:
+In-memory Drift coverage:
 
 - `test/data/note_repository_test.dart`
 - `test/data/backup_repository_test.dart`
 - `test/data/settings_repository_test.dart`
 
-Current note-repository coverage includes:
+Note repository coverage includes create/update/search, quote-safe FTS input, lifecycle collections, pin/favorite/archive/trash invariants, snapshots, restore/cascade behavior, folder/tag metadata, and the no-pinned-trash invariant.
 
-- Create/read/update behavior.
-- Full-text search and quote punctuation.
-- Pin/favorite/archive/trash collection invariants.
-- Snapshot creation/restore/cascade deletion.
-- Collection-scoped folder metadata.
-- Collection-scoped tag metadata, including Trash.
-
-Current backup coverage includes:
-
-- Valid round trip.
-- Conflict-safe restore.
-- Wrong app identity.
-- Unsupported backup schema.
-- Malformed JSON.
-- Missing/invalid root export timestamp.
-- Invalid note timestamps.
-- Timestamps missing explicit UTC `Z`.
-- `updatedAt` before `createdAt`.
-- Malformed serialized tags.
-- Tag canonicalization on import.
-- Out-of-range ARGB colors.
-- Duplicate note IDs.
-- IDs with surrounding whitespace.
-- Impossible archived+trashed and pinned+trashed lifecycle states.
-- Versions that reference missing notes.
-
-Settings repository tests use mocked `SharedPreferences` values for safe defaults and successful persistence behavior. Failure/rollback semantics are covered at the injectable `SettingsStore`/controller boundary.
+Backup coverage includes valid round trips, conflict-safe restore, app/schema/type validation, UTC timestamps, timestamp order, tags, IDs/relationships, 32-bit colors, lifecycle validation, duplicate identifiers/snapshots, and transaction safety.
 
 ### Widget tests
 
-Current deterministic widget coverage includes:
+- `test/widgets/onboarding_page_test.dart` — privacy/offline messaging and persistence success/failure.
+- `test/widgets/notes_page_empty_state_test.dart` — collection-specific empty states/actions.
+- `test/widgets/note_editor_accessibility_test.dart` — selected/reset semantics and touch target.
+- `test/widgets/note_editor_save_test.dart` — save-before-pop, load recovery, and first-line formatting boundary.
+- `test/widgets/about_page_test.dart` — external-link failure feedback.
 
-- `test/widgets/onboarding_page_test.dart` — privacy/offline messaging, successful completion, and persistence-failure feedback.
-- `test/widgets/notes_page_empty_state_test.dart` — collection-specific empty states and prevention of mismatched create/import actions in Favorites, Archive, and Trash.
-- `test/widgets/note_editor_accessibility_test.dart` — reusable note-color swatch selected/reset cues, tap behavior, and minimum interaction target.
-- `test/widgets/note_editor_save_test.dart` — latest-draft persistence before normal back navigation, retryable missing-note load failure instead of an endless progress state, and the caret-offset-zero first-line formatting boundary.
-- `test/widgets/about_page_test.dart` — user-visible feedback when an external About link cannot be opened.
+Future useful coverage includes broader editor toolbar operations, destructive confirmations, injected Settings failures, note-browser mutation failure UI, large-text layout coverage, and keyboard focus traversal.
 
-Remaining useful widget coverage includes broader editor toolbar transformations, destructive confirmation behavior, Settings failure messages with injected stores/services, note-browser mutation failure UI with a future injectable note store, broader large-text layout checks, and explicit keyboard focus traversal.
+## Cross-platform file transfer tests
 
-### Integration/end-to-end tests
+File transfer has three boundaries:
 
-Important journeys that should receive platform integration coverage as CI/device capacity allows:
+1. Pure format/size validation.
+2. Platform-selected data acquisition.
+3. Persistence/import/export behavior.
+
+Required invariants:
+
+- Markdown/text ceiling: **16 MiB**.
+- JSON backup ceiling: **64 MiB**.
+- Exactly-at-limit input is accepted by the validator.
+- Oversized input fails before UTF-8/JSON/Markdown processing.
+- Native targets avoid eager picker byte loading and use bounded path streaming when a cached path is available.
+- Web requests picker data because browsers do not expose native filesystem paths in the same way.
+- Web validates both picker-reported size and actual bytes/stream accumulation before decoding.
+- Strict UTF-8 is required.
+- Filesystem errors become `ImportExportException`.
+- Export names remain cross-platform and Unicode safe.
+
+Manual/platform picker testing must include native/cloud document providers and browser file selection/download behavior because the provider/browser owns part of that pipeline.
+
+## Web database and deployment tests
+
+Drift Web depends on the generated `sqlite3.wasm` + `drift_worker.js` pair from the same Drift **2.34.3** release as the direct project dependency.
+
+Automated Web verification must cover:
+
+```bash
+python tool/bootstrap_platforms.py
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+flutter test --platform chrome test/web/web_platform_smoke_test.dart
+flutter build web --release
+```
+
+Real deployment verification must additionally use the intended host/origin and check:
+
+1. App boots without WASM/worker fetch errors.
+2. `sqlite3.wasm` is served as `application/wasm`.
+3. Create/edit/search works.
+4. Note data survives page reload.
+5. Note data survives browser restart under normal storage settings.
+6. Markdown import/export works.
+7. JSON backup export/restore works.
+8. Oversized picker input is rejected.
+9. Browser/site-data clearing behavior is documented rather than mistaken for sync durability.
+10. Actual Drift browser storage mode is recorded; use cross-origin isolation when supported/desired for the optimal OPFS path, while accepting tested fallback modes when isolation is unavailable.
+
+Test Chrome/Edge and at least one additional browser family appropriate to the intended support statement before stable browser distribution.
+
+## App-lock platform tests
+
+`local_auth 3.0.2` is used only where implemented. The expected current behavior is:
+
+- Android: device authentication when supported.
+- iOS/iPadOS: device authentication when supported.
+- macOS: device authentication when supported.
+- Windows: device authentication when supported.
+- Linux: app-lock capability unavailable with the current dependency.
+- Web: app-lock capability unavailable.
+
+Unsupported platforms must remain fully usable. Test both an unset lock preference and a previously persisted `appLockEnabled=true` condition to prove the app does not become permanently inaccessible.
+
+## Integration/end-to-end journeys
+
+Important release journeys include:
 
 1. First run → persist onboarding → create note → autosave → close/reopen.
-2. Failed onboarding preference write → remain on onboarding → retry.
-3. Rapid edit → immediate Back → route remains until the latest draft is saved → reopen and verify newest content.
-4. First-line Markdown toolbar formatting with the caret at offset zero in a document that begins with a newline.
-5. Simulated save failure → Back remains blocked → failure message appears → content remains editable/retryable.
-6. Edit note → snapshot → restore prior version.
-7. Save failure before Version history/Export → requested action does not continue against stale persisted content.
-8. Search → result → editor.
-9. Change folder/tag filter → switch collection → verify stale filters clear.
-10. Archive → archive collection → collection-specific folder/tag filters → unarchive.
-11. Trash → trash collection → trashed folder/tag filters → restore/permanent-delete.
-12. Browser mutation/storage failure → concise feedback rather than uncaught asynchronous error.
-13. Export backup → modify fictional library → restore backup.
-14. App-lock enable → background/resume → authenticate.
-15. Preference write failure → previous saved setting restored.
-16. Markdown import/export through platform picker adapters.
-17. Oversized file selection → safe rejection on supported picker/provider platforms.
-18. Repository/funding/mail/release external links → success and no-handler/failure feedback.
-19. Bootstrap settings failure → startup fallback is shown and partially created local dependencies are cleaned up.
-20. Controlled root-app teardown → owned settings/database dependencies are disposed without lifecycle errors.
+2. Failed onboarding persistence → remain/retry.
+3. Rapid edit → immediate Back → latest draft persists before navigation.
+4. Offset-zero first-line Markdown formatting.
+5. Failed editor save → Back/export/history blocked with feedback.
+6. Snapshot creation → history → restore.
+7. Search → result → editor.
+8. Collection switch clears incompatible filters.
+9. Archive/unarchive and collection-scoped metadata.
+10. Trash/restore/permanent-delete/no-pinned-trash behavior.
+11. Mutation/storage failure feedback.
+12. JSON export → modify fictional library → restore.
+13. Platform-supported app lock → background/resume/authenticate.
+14. Unsupported app lock → app remains accessible and Settings reports unavailable.
+15. Preference failure → previous persisted value restored.
+16. Markdown import/export through actual native/browser picker paths.
+17. Oversized file rejection through actual provider/browser behavior.
+18. Repository/funding/mail/releases links success/failure.
+19. Bootstrap settings failure → safe startup fallback and dependency cleanup.
+20. Controlled root teardown → settings/database disposed.
+21. Web create/edit/search → reload → browser restart persistence.
+22. Web backup/Markdown download then re-import.
 
-Plugin-heavy behavior requires a real/emulated platform or a wrapper/fake boundary rather than relying only on widget tests.
+Use only fictional data.
 
 ## Commands
 
-Verify release and Flutter workflow metadata first:
-
-```bash
-python tool/check_version_sync.py
-```
-
-Generate Drift code:
-
-```bash
-dart run build_runner build --delete-conflicting-outputs
-```
-
-Run all Flutter tests:
-
-```bash
-flutter test
-```
-
-Run one test file:
-
-```bash
-flutter test test/data/note_repository_test.dart
-```
-
-Run by test name:
-
-```bash
-flutter test --plain-name "full-text search finds note content"
-```
-
-Coverage:
-
-```bash
-flutter test --coverage
-```
-
-Complete local quality gate:
+### Full deterministic quality gate
 
 ```bash
 python tool/check_version_sync.py
@@ -163,228 +185,127 @@ python tool/check_markdown_links.py
 python tool/security_scan.py
 ```
 
-Use `python3` or Windows `py` if that is the executable provided by the host.
+### Web-specific verification
 
-### Repository-maintenance tools
+```bash
+python tool/bootstrap_platforms.py
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+flutter test --platform chrome test/web/web_platform_smoke_test.dart
+flutter build web --release
+```
 
-`tool/check_version_sync.py` verifies:
+### Individual tests
 
-- `pubspec.yaml` declares `MAJOR.MINOR.PATCH+BUILD`.
-- Build number is positive.
-- `AppStrings.version` matches the package semantic version.
-- `CHANGELOG.md` has a matching release section.
-- `docs/releases/<version>.md` exists and contains the exact package/visible version values.
-- `.flutter-version` is an exact `MAJOR.MINOR.PATCH` pin.
-- Every Flutter action pin in CI, platform-build, and release workflows matches `.flutter-version`.
+```bash
+flutter test test/data/note_repository_test.dart
+flutter test --plain-name "full-text search finds note content"
+```
 
-`tool/check_repo.py` verifies the complete required repository/documentation/automation baseline, forbidden unfinished markers in tracked Dart source, generated-file policy, and important ignore rules.
+Use `python3` or Windows `py` where appropriate.
 
-`tool/check_repository_reference.py` compares the tracked Git file set against `docs/repository-reference.md` and rejects missing, stale, or duplicate catalog entries.
+## Repository-maintenance tools
 
-`tool/check_markdown_links.py` checks tracked Markdown documents for repository-local inline links, reference-link definitions, and HTML `href`/`src` targets that point to missing files or escape the repository. External URLs are intentionally not fetched so the quality gate remains deterministic.
-
-`tool/security_scan.py` performs the project's lightweight tracked-file credential-pattern scan.
+- `tool/check_version_sync.py` — verifies package/UI/changelog/version-specific release notes, `.flutter-version`, and every Flutter workflow pin.
+- `tool/check_repo.py` — verifies the required documentation/automation/cross-platform source baseline, unfinished-source markers, generated-file policy, and important ignore rules.
+- `tool/check_repository_reference.py` — verifies all **108 tracked files** are cataloged exactly once.
+- `tool/check_markdown_links.py` — validates repository-local Markdown links deterministically.
+- `tool/security_scan.py` — lightweight tracked credential-pattern scan.
 
 ## Test data rules
 
-- Use fictional note text.
+- Use fictional note text and backups.
 - Keep fixtures deterministic.
-- Do not depend on current network services.
-- Do not depend on real credentials.
-- Do not commit a personal SQLite file or exported personal backup.
-- Prefer explicit UTC timestamps when date ordering is the subject of a test.
-- Avoid tests whose success depends on locale/timezone unless the locale/timezone is set by the test.
-- Test malformed data without including real sensitive content.
+- Never require real credentials.
+- Do not commit personal SQLite/browser storage dumps or real exported backups.
+- Use explicit UTC timestamps for ordering tests.
+- Avoid uncontrolled locale/timezone dependencies.
+- External network services must not be needed for deterministic unit/widget tests; platform bootstrap's pinned Web asset download is a separate build input.
 
-## Backup tests
+## Backup regression requirements
 
-Backup/restore is data-sensitive. Every validation change should preserve the invariant that malformed input is rejected **before** restore writes begin.
-
-Required coverage for the current backup schema includes:
+Every backup change should retain coverage for:
 
 - Valid round trip.
-- Malformed JSON.
-- Wrong `app` identifier.
-- Unsupported backup schema version.
-- Valid explicit-UTC `exportedAt`.
-- Missing/wrong field types.
-- Explicit UTC note/version timestamp validation.
-- `updatedAt >= createdAt` for notes.
-- Malformed serialized tags.
-- Canonicalized imported tags (trim, remove empty, deduplicate, sort).
-- Valid/null and invalid/out-of-range ARGB values.
-- Duplicate note IDs.
-- Whitespace-polluted note/version identifiers.
-- Impossible lifecycle states rejected.
-- Snapshot references to missing notes.
-- Newer-local-note conflict preservation.
-- Duplicate snapshot behavior.
-- Transaction rollback if a parsed/restored operation fails.
-- Unicode note content.
-- Empty library.
-- Large but reasonable fixture.
+- Malformed JSON/app/schema/type failures.
+- Explicit UTC root/note/version timestamps.
+- `updatedAt >= createdAt`.
+- Tag parsing/canonicalization.
+- Valid/null and invalid ARGB colors.
+- Duplicate/whitespace-polluted identifiers.
+- Invalid lifecycle combinations.
+- Version-to-note relationships.
+- Newer-local conflict preservation.
+- Duplicate snapshots.
+- Transaction rollback.
+- Unicode content, empty library, and a large reasonable fixture.
 
-Whenever a backup bug is fixed, add the smallest regression fixture before or with the fix.
+Malformed input must be rejected before restore writes begin.
 
-## Import/export tests
+## Search and lifecycle tests
 
-File transfer has pure validation/normalization plus platform picker integration.
+FTS tests should cover title/body/folder/tag matches, multiple terms, quote/punctuation safety, Unicode supported by the tokenizer, collection exclusion rules, and stable ordering only where deterministic.
 
-Pure coverage keeps these invariants stable:
+Collection metadata must match the active lifecycle predicate. Search terms must never be concatenated as executable SQL.
 
-- Markdown/text import limit is 16 MiB.
-- JSON backup import limit is 64 MiB.
-- Files exactly at a configured limit are accepted by the limit validator.
-- Native picked files are not requested with eager `withData` loading.
-- The cached native file is length-checked and read incrementally through `BoundedFileReader` before a final byte buffer is produced.
-- Files exceeding the active validator fail before NoteNest constructs a full oversized buffer.
-- Filesystem read failures become `ImportExportException`.
-- Strict UTF-8 is required.
-- Cross-platform invalid filename characters are normalized.
-- Windows reserved device names cannot become raw export basenames.
-- Trailing dots/spaces are removed.
-- Empty/invalid titles fall back to `untitled-note`.
-- Unicode titles remain usable.
-- Truncation does not split UTF-16 surrogate pairs; output is constructed from complete Unicode code points.
+## Editor/autosave tests
 
-Platform picker behavior must still be smoke-tested on real supported targets because native/cloud providers may perform their own caching before NoteNest receives a local path.
+Protect:
 
-## External-link tests
+- Snapshot-before-change.
+- No snapshot on unchanged content.
+- Restore makes snapshot content current.
+- Cascade cleanup on permanent delete.
+- Ordered saves.
+- Stale completion cannot mark a newer draft saved.
+- Back waits for successful current-draft save.
+- Failed final save blocks Back/export/history.
+- Retryable missing-note load state.
+- Offset-zero first-line formatting.
 
-The service layer must cover:
-
-- Successful launch.
-- Platform launcher returning `false`.
-- Platform/plugin launcher throwing.
-
-The widget layer should verify failure feedback without invoking a real external application. Real platform smoke tests still need to exercise HTTP(S) and `mailto:` handlers.
-
-## Settings persistence tests
-
-Preference state has two responsibilities: persist correctly and avoid misleading visible state when persistence fails.
-
-Coverage should verify:
-
-- Loaded values appear atomically.
-- Rapid writes preserve submission order.
-- Failed theme/text/motion/app-lock writes restore the last persisted value when the failed value is still current.
-- A stale failed write must not overwrite a newer visible value.
-- Plugin setter failure results are converted into storage failures.
-- Onboarding does not transition away until completion persistence succeeds.
-- Failed onboarding persistence remains retryable.
-
-Do not use preferences for credentials or note content.
-
-## Search and collection-filter tests
-
-FTS behavior should cover:
-
-- Title match.
-- Body match.
-- Folder/tag match.
-- Multiple terms.
-- Search punctuation/quotes that must not break SQL syntax.
-- Unicode text supported by the configured tokenizer.
-- Exclusion rules for archive/trash/favorites after search.
-- Ranking behavior only where exact ordering is stable enough to assert.
-
-Collection-filter metadata should cover:
-
-- All Notes metadata excludes Archive/Trash.
-- Favorites metadata includes only active favorites.
-- Archive metadata includes only archive rows.
-- Trash metadata includes trashed folders/tags.
-- Switching collection clears stale folder/tag selections.
-
-Search input must never be concatenated into executable SQL syntax.
-
-## Snapshot, editor and autosave tests
-
-Version/editor behavior should cover:
-
-- Changed content creates one pre-change snapshot.
-- Unchanged save creates no snapshot.
-- Restore makes the snapshot content current.
-- Permanent note deletion removes related snapshots.
-- Snapshot timestamps are UTC values.
-- Missing-note initial load becomes a retryable error state.
-- Editor save submissions remain ordered.
-- A stale save completion cannot mark a newer draft as saved.
-- Normal back navigation does not pop until the current draft save succeeds.
-- A failed save blocks normal back navigation and export/history actions.
-- First-line Markdown prefix formatting at caret offset zero does not skip an empty first line.
-
-`AsyncSerialQueue` has deterministic ordering/failure-continuation tests. `note_editor_save_test.dart` protects save-before-pop and the first-line formatting boundary at widget level. Real platform/editor smoke testing should still cover system back gestures/buttons, desktop back navigation, lifecycle backgrounding, process termination behavior, and real storage/plugin failures.
-
-If snapshot retention/pruning is introduced, add boundary tests around the retention policy.
+Real platform testing still needs lifecycle/background/system-back/process-termination behavior.
 
 ## Migration tests
 
-Drift schema version 1 remains the initial schema even though application release candidate is version 2.0.12. These are independent version domains.
-
-Starting with database schema version 2, every migration requires fixture-driven tests:
-
-1. Create/open a database at the previous released schema.
-2. Populate representative fictional data.
-3. Run the upgrade.
-4. Verify values, constraints, indexes/FTS, and foreign keys.
-5. Run repository operations on upgraded data.
-
-Do not test migrations only from an empty database.
+Drift schema version remains **1** for application 2.0.12. Starting with schema 2, every migration needs fixture-driven previous-schema → new-schema validation including data, constraints, FTS/index behavior, foreign keys, and repository operations.
 
 ## Accessibility testing
 
-Automated checks should be complemented by manual review. Useful automated assertions include:
+Automation should check semantics, non-color selected state, minimum target size, discoverable controls, visible failure messages, and representative large-text layouts where practical.
 
-- Semantics label exists for icon-only/custom controls.
-- Selected state is not communicated only by color.
-- Custom interaction targets meet the shared minimum size.
-- Controls can be found/tapped without relying on pixel coordinates.
-- Failure messages are user-visible and readable.
-- Large text does not overflow representative layouts.
+Manual verification must cover screen readers, keyboard traversal, browser focus, zoom/text scaling, dark/light themes, reduced motion, compact/wide viewports, and destructive action clarity. See [`accessibility.md`](accessibility.md).
 
-Current deterministic coverage verifies the custom note-color swatch's selected/reset cues and 48-logical-pixel target plus About failure feedback and editor load/save-before-pop states. Manual matrix is documented in [`accessibility.md`](accessibility.md).
+## Platform build matrix
 
-## Performance testing
+GitHub Actions separately verifies:
 
-Do not turn unit tests into flaky timing benchmarks. Use dedicated benchmark/profile runs for search/list/editor/import hot paths. Document device/host, build mode, fixture size, and repeated measurements.
+- Android release APK compile.
+- Linux release compile.
+- Windows release compile.
+- macOS release compile.
+- iOS release compile without signing.
+- Web Chrome smoke test + release compile.
 
-See [`performance.md`](performance.md).
+A compiled target is evidence of integration/compilation only, not proof of real-device/browser runtime behavior.
 
-## Platform build checks
-
-Unit/widget tests run on Linux CI. Native build workflows validate platform integration separately because plugin compilation and generated runners vary by host OS.
-
-A platform build passing means the project compiled under that runner; it does not prove every plugin runtime behavior on a physical device.
-
-All automated Flutter workflows use the exact project SDK rather than an unpinned moving stable release. `tool/check_version_sync.py` rejects workflow pins that drift from `.flutter-version`. A Flutter-version upgrade must update `.flutter-version` and all Flutter workflows together.
-
-Platform-build path filtering includes `assets/**`, application source, package/build metadata, native bootstrap tooling, and the workflow itself so bundled asset changes receive native compile verification too.
+The path filter includes application source, assets, package/build metadata, bootstrap changes, the workflow itself, and Web smoke tests so browser-support regressions cannot bypass the matrix.
 
 ## CI expectations
 
-Pull requests/pushes to `main` should fail when:
+PR/push verification should fail when:
 
-- Release metadata or Flutter workflow pins are out of sync.
-- Dependency resolution fails.
-- Drift generation fails.
-- Formatting differs.
-- Analyzer reports an error/warning under configured policy.
-- Tests fail.
-- Required repository/documentation/automation files are absent.
-- The exhaustive tracked-file repository reference is missing, stale, or duplicated.
-- Tracked Markdown contains a broken repository-local link.
-- Lightweight secret scan finds a known credential pattern.
-- Native runner bootstrap can no longer apply/verify required platform patches during platform builds.
+- Release/toolchain versions drift.
+- Dependency resolution or Drift generation fails.
+- Formatting/analyzer/tests fail.
+- Required cross-platform repository files disappear.
+- The exhaustive tracked-file catalog is stale/duplicated.
+- Markdown links or tracked-secret checks fail.
+- Platform bootstrap cannot apply native patches or prepare compatible Web database assets.
+- Any native compile lane fails.
+- Chrome Web smoke or release Web compilation fails.
 
-Build workflows add native compile confidence.
+## Flaky tests and regression rule
 
-## Flaky tests
+A flaky test is a defect. Do not rerun until green without investigating timing, external dependency, randomness, or shared-state causes.
 
-A flaky test is a defect in the test suite. Do not repeatedly rerun it until green without investigating. Remove timing assumptions, external dependencies, uncontrolled random values, or shared mutable state.
-
-If a test must be temporarily quarantined to unblock an urgent fix, document why and create a concrete follow-up; do not silently skip data-integrity coverage.
-
-## Regression rule
-
-Every confirmed bug should result in a regression test at the lowest layer that reliably reproduces the bug, unless automation is genuinely infeasible. When automation is unavailable, document the exact manual regression procedure in the related issue/PR/release handoff and consider adding a testable abstraction.
+Every confirmed bug should get the smallest reliable regression test. If automation is genuinely infeasible, record the exact manual regression in the issue/PR/release handoff and look for a future injectable boundary.
