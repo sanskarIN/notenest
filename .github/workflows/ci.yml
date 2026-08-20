@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -50,6 +50,19 @@ jobs:
           path: pubspec.lock
           if-no-files-found: error
           retention-days: 14
+
+      - name: Commit resolver-generated application lockfile
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          if git ls-files --error-unmatch pubspec.lock >/dev/null 2>&1; then
+            echo "pubspec.lock is already tracked."
+            exit 0
+          fi
+          git config user.name "sanskarIN"
+          git config user.email "sanskarin@outlook.in"
+          git add pubspec.lock
+          git commit -m "build: lock Flutter dependencies for 2.0.12"
+          git push origin HEAD:main
 
       - name: Generate Drift code
         run: dart run build_runner build --delete-conflicting-outputs
