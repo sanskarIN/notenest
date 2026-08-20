@@ -17,7 +17,7 @@ void main() {
 
   test('returns false when the platform launcher declines the URI', () async {
     final ExternalLinkService service = ExternalLinkService(
-      launcher: (Uri _, LaunchMode __) async => false,
+      launcher: (Uri _, LaunchMode _) async => false,
     );
 
     expect(await service.open(Uri.parse('https://example.com')), isFalse);
@@ -25,7 +25,7 @@ void main() {
 
   test('converts launcher exceptions into a safe false result', () async {
     final ExternalLinkService service = ExternalLinkService(
-      launcher: (Uri _, LaunchMode __) async {
+      launcher: (Uri _, LaunchMode _) async {
         throw StateError('launcher unavailable');
       },
     );
