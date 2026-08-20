@@ -50,8 +50,8 @@ jobs:
           cache: true
       - name: Generate platform runners
         run: python tool/bootstrap_platforms.py
-      - name: Resolve packages
-        run: flutter pub get
+      - name: Restore locked packages
+        run: flutter pub get --enforce-lockfile
       - name: Generate Drift code
         run: dart run build_runner build
       - name: Build release APK
@@ -74,8 +74,8 @@ jobs:
           cache: true
       - name: Generate platform runners
         run: python tool/bootstrap_platforms.py
-      - name: Resolve packages
-        run: flutter pub get
+      - name: Restore locked packages
+        run: flutter pub get --enforce-lockfile
       - name: Generate Drift code
         run: dart run build_runner build
       - name: Build Linux release
@@ -94,8 +94,8 @@ jobs:
           cache: true
       - name: Generate platform runners
         run: python tool/bootstrap_platforms.py
-      - name: Resolve packages
-        run: flutter pub get
+      - name: Restore locked packages
+        run: flutter pub get --enforce-lockfile
       - name: Generate Drift code
         run: dart run build_runner build
       - name: Build Windows release
@@ -114,8 +114,8 @@ jobs:
           cache: true
       - name: Generate platform runners
         run: python tool/bootstrap_platforms.py
-      - name: Resolve packages
-        run: flutter pub get
+      - name: Restore locked packages
+        run: flutter pub get --enforce-lockfile
       - name: Generate Drift code
         run: dart run build_runner build
       - name: Build macOS release
@@ -136,8 +136,8 @@ jobs:
           cache: true
       - name: Generate platform runners and web database assets
         run: python tool/bootstrap_platforms.py
-      - name: Resolve packages
-        run: flutter pub get
+      - name: Restore locked packages
+        run: flutter pub get --enforce-lockfile
       - name: Generate Drift code
         run: dart run build_runner build
       - name: Run browser platform smoke test
