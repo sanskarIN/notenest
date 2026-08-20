@@ -37,7 +37,7 @@ final class NoteRepository {
   }
 
   Future<Note> getById(String id) {
-    return (_db.select(_db.notes)..where((Notes row) => row.id.equals(id)))
+    return (_db.select(_db.notes)..where(($NotesTable row) => row.id.equals(id)))
         .getSingle();
   }
 
@@ -108,7 +108,7 @@ final class NoteRepository {
               capturedAt: Value<DateTime>(now),
             ),
           );
-      await (_db.update(_db.notes)..where((Notes row) => row.id.equals(id)))
+      await (_db.update(_db.notes)..where(($NotesTable row) => row.id.equals(id)))
           .write(
         NotesCompanion(
           title: Value<String>(normalizedTitle),
@@ -125,16 +125,16 @@ final class NoteRepository {
   Future<List<NoteVersion>> versions(String noteId) {
     final SimpleSelectStatement<$NoteVersionsTable, NoteVersion> query =
         _db.select(_db.noteVersions)
-          ..where((NoteVersions row) => row.noteId.equals(noteId))
-          ..orderBy(<OrderingTerm Function(NoteVersions)>[
-            (NoteVersions row) => OrderingTerm.desc(row.capturedAt),
+          ..where(($NoteVersionsTable row) => row.noteId.equals(noteId))
+          ..orderBy(<OrderingTerm Function($NoteVersionsTable)>[
+            ($NoteVersionsTable row) => OrderingTerm.desc(row.capturedAt),
           ]);
     return query.get();
   }
 
   Future<void> restoreVersion(int versionId) async {
     final NoteVersion version = await (_db.select(_db.noteVersions)
-          ..where((NoteVersions row) => row.id.equals(versionId)))
+          ..where(($NoteVersionsTable row) => row.id.equals(versionId)))
         .getSingle();
     await saveContent(
       id: version.noteId,
@@ -192,11 +192,13 @@ final class NoteRepository {
       );
 
   Future<void> permanentlyDelete(String id) async {
-    await (_db.delete(_db.notes)..where((Notes row) => row.id.equals(id))).go();
+    await (_db.delete(_db.notes)..where(($NotesTable row) => row.id.equals(id)))
+        .go();
   }
 
   Future<int> emptyTrash() {
-    return (_db.delete(_db.notes)..where((Notes row) => row.isTrashed.equals(true)))
+    return (_db.delete(_db.notes)
+          ..where(($NotesTable row) => row.isTrashed.equals(true)))
         .go();
   }
 
@@ -248,7 +250,8 @@ final class NoteRepository {
   }
 
   Future<void> _patch(String id, NotesCompanion patch) async {
-    await (_db.update(_db.notes)..where((Notes row) => row.id.equals(id))).write(
+    await (_db.update(_db.notes)..where(($NotesTable row) => row.id.equals(id)))
+        .write(
       patch.copyWith(updatedAt: Value<DateTime>(DateTime.now().toUtc())),
     );
   }
