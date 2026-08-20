@@ -1,85 +1,80 @@
 # NoteNest Release Guide
 
-This guide describes how to prepare, verify, package, and publish a NoteNest release without committing signing secrets or claiming checks that were not run.
+This guide defines how to prepare, verify, package, and publish NoteNest without committing secrets or claiming checks that were not run.
 
 Current release-candidate target: **2.0.12** (`2.0.12+2012`).
 
 ## Release principles
 
-- Release from a clean, reviewed commit.
-- Keep package version, visible app version, changelog, release notes, and documentation synchronized.
-- Use the Flutter SDK version pinned by `.flutter-version`; the current NoteNest 2.0.12 release-candidate pin is **3.44.7**.
-- Keep the exact Flutter version in CI, platform-build, and release workflows synchronized with `.flutter-version`; the version-sync gate enforces this relationship.
-- Generate native runners using the documented script and treat a bootstrap patch-verification failure as a release blocker until the template change is reviewed.
-- Generate Drift code using the pinned project dependencies.
-- Run the full quality gate before packaging.
-- Build each native target on a supported host OS.
+- Release only from an exact reviewed commit.
+- Keep package/UI/changelog/version-specific release notes synchronized.
+- Use Flutter **3.44.7** from `.flutter-version`; all Flutter workflows must match it.
+- Commit the real resolver-generated application lockfile before stable release; never fabricate dependency versions/hashes.
+- Generate all six platform runners with the bootstrap script.
+- Treat native patch drift, Drift Web runtime mismatch, or Web asset download/validation failure as blockers.
+- Generate Drift Dart code from the pinned dependency graph.
+- Run the full deterministic quality gate.
+- Verify Android, iOS, Windows, macOS, Linux, and Web compilation.
+- Run representative real-device/browser accessibility/runtime checks.
 - Keep signing credentials outside Git.
-- Record exact results and limitations in `what_changed.md`.
-- Do not publish an artifact if a blocker/critical data-loss defect is known.
+- Record exact results/limitations in `what_changed.md`.
+- Do not tag/publish while a critical data-loss/security/release blocker is known.
 
-## Versioning
+## Version and dependency reproducibility
 
-`pubspec.yaml` uses Flutter's version format:
+Current metadata:
 
 ```yaml
 version: 2.0.12+2012
 ```
 
-- `2.0.12` is the user-facing semantic version.
-- `+2012` is the platform build number for this release candidate.
-- `AppStrings.version` must be exactly `2.0.12`.
-- `CHANGELOG.md` must contain a `## [2.0.12]` section.
-- `docs/releases/2.0.12.md` must exist and contain the exact package/visible version values.
-- `.flutter-version` must be an exact semantic SDK pin and every Flutter GitHub Actions workflow pin must match it.
+Required relationships:
 
-The repository enforces these relationships with:
+- Package semantic version: `2.0.12`.
+- Build number: `2012`.
+- Visible `AppStrings.version`: `2.0.12`.
+- `CHANGELOG.md`: matching 2.0.12 section.
+- `docs/releases/2.0.12.md`: matching package/visible values.
+- `.flutter-version`: exact `3.44.7`.
+- CI/platform/release Flutter pins: exact `3.44.7`.
+
+Verify:
 
 ```bash
 python tool/check_version_sync.py
 ```
 
-Before a future release:
+### `pubspec.lock` blocker for 2.0.12
 
-1. Choose the semantic version.
-2. Increment the platform build number as required.
-3. Update `pubspec.yaml`.
-4. Update `AppStrings.version`.
-5. Add/update the matching changelog section.
-6. Add `docs/releases/<version>.md`.
-7. Update `.flutter-version` and every Flutter workflow together if the SDK changes.
-8. Run `python tool/check_version_sync.py` before other release work.
-9. Confirm `README.md`, privacy/security docs, roadmap, and handoff still match behavior.
+NoteNest is an application and stable release builds must use a committed resolver-generated dependency lock. GitHub issue #8 tracks completion.
 
-## Clean checkout verification
+From a clean checkout with Flutter **3.44.7**:
 
-Prefer a fresh clone or a clean worktree:
+```bash
+flutter pub get
+```
+
+Then review and commit the generated `pubspec.lock`, add it to the exhaustive repository reference, and re-run final verification. Do not manually invent the lock contents. After the lock is committed, final CI/release dependency installation should enforce the committed graph using the supported locked/enforced command for the pinned toolchain.
+
+Stable `v2.0.12` is blocked until this is complete.
+
+## Clean checkout preparation
 
 ```bash
 git status --short
 git clean -ndx
-```
-
-Review before using any destructive clean command. Verify the SDK first:
-
-```bash
 flutter --version
-```
-
-For the current 2.0.12 release candidate this must report Flutter **3.44.7**. Then verify version metadata before generating environment-dependent files:
-
-```bash
 python tool/check_version_sync.py
 python tool/bootstrap_platforms.py
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs
 ```
 
-`tool/bootstrap_platforms.py` validates that the required Android authentication/minimum-SDK/AppCompat configuration and the iOS Face ID usage description were actually applied. If a future Flutter template changes those paths, the script is expected to fail instead of silently producing an incompletely patched runner.
+Review before any destructive `git clean` operation.
 
-## Quality gate
+`tool/bootstrap_platforms.py` generates Android/iOS/Linux/macOS/Windows/Web runners, applies/verifies Android/iOS authentication requirements, and prepares the Drift Web runtime assets matching direct dependency Drift **2.34.3**.
 
-Run:
+## Deterministic quality gate
 
 ```bash
 python tool/check_version_sync.py
@@ -93,138 +88,161 @@ python tool/check_markdown_links.py
 python tool/security_scan.py
 ```
 
-`tool/check_version_sync.py` verifies package/UI/changelog/release-note synchronization and Flutter workflow pin synchronization. `tool/check_repo.py` enforces the required repository/documentation/automation baseline. `tool/check_repository_reference.py` proves that every tracked path is represented exactly once in the exhaustive repository catalog. `tool/check_markdown_links.py` validates repository-local links in tracked Markdown without depending on live third-party sites. Run `flutter doctor -v` and record relevant host/toolchain versions for reproducibility.
+Also record `flutter doctor -v` on relevant build hosts.
+
+## Web-specific automated gate
+
+```bash
+python tool/bootstrap_platforms.py
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+flutter test --platform chrome test/web/web_platform_smoke_test.dart
+flutter build web --release
+```
+
+The Chrome regression proves the browser-safe app-lock/filesystem fallbacks compile and behave safely. It does not prove persistence/file-download behavior on a deployed production origin.
 
 ## Manual product smoke test
 
-Use fictional data and exercise:
+Use fictional data only and exercise:
 
-1. Fresh first run/onboarding.
-2. Create, edit, autosave, rapidly edit again, then close/reopen the note to confirm the newest draft wins.
-3. Place the caret at offset zero in a note that starts with an empty line and verify Heading/Bullet/Checklist formatting applies to that first line.
-4. Folder, tags, color, pin, and favorite.
-5. Verify note-color selection has a visible selected cue and usable touch target.
+1. First-run onboarding persistence.
+2. Create/edit/autosave/rapid edit/close/reopen newest-draft behavior.
+3. Heading/Bullet/Checklist at caret offset zero on an empty first line.
+4. Folder/tags/color/pin/favorite.
+5. Non-color selected cue for note color.
 6. Full-text search.
 7. Archive/unarchive.
-8. Trash/restore.
-9. Permanent delete confirmation.
-10. Version snapshot/restore.
-11. Markdown import/export, including a title that would be a reserved/invalid filename on Windows.
-12. Oversized Markdown/text import rejection beyond 16 MiB.
-13. JSON backup export and conflict-safe restore.
-14. Oversized JSON backup rejection beyond 64 MiB.
-15. Theme modes.
-16. Large text.
-17. Reduced motion.
-18. Repository/funding/business/support email links from About.
-19. Release-updates link from Settings.
-20. External-link failure feedback on a platform/device where an external handler is unavailable.
-21. Optional app lock on a supported device and safe failure on unsupported targets.
-22. Controlled root-app teardown where practical to confirm owned settings/database resources dispose without lifecycle errors.
-
-Do not use real personal notes for release testing.
+8. Trash/restore/permanent delete/empty trash.
+9. Version snapshot/restore.
+10. Markdown import/export and cross-platform filename edge cases.
+11. >16 MiB Markdown/text rejection.
+12. JSON backup export/restore/conflict behavior.
+13. >64 MiB backup rejection.
+14. Theme/text-scale/reduced-motion persistence.
+15. Repository/funding/mail/releases links and failure feedback.
+16. Supported app-lock authentication and background/resume behavior.
+17. Unsupported app-lock behavior on Web/Linux: app remains accessible and Settings reports unavailable.
+18. Controlled root-app teardown where practical.
+19. Web create/edit/search → reload → browser restart persistence.
+20. Web Markdown/backup download and re-import.
 
 ## Accessibility release check
 
-Follow the matrix in [`accessibility.md`](accessibility.md). At minimum:
+Follow [`accessibility.md`](accessibility.md). At minimum verify:
 
-- Keyboard traversal on a desktop build.
-- Screen-reader/semantics review on at least one mobile build.
-- 200% or maximum reasonable text scaling review for critical screens.
-- Narrow and wide window/device layouts.
-- Dark and light themes.
-- Reduced-motion setting.
-- Destructive action labels/confirmations.
-- Editor color selection must expose a non-color selected cue and comfortable target.
-- External-link failure messages must remain reachable/readable.
+- Keyboard traversal on desktop and Web.
+- Browser focus visibility and common zoom/text-scale conditions.
+- Screen-reader/semantics on representative mobile plus browser/desktop coverage where practical.
+- Narrow/wide layouts.
+- Dark/light themes.
+- Reduced motion.
+- Destructive confirmations.
+- Note-color non-color selection cue and target size.
+- Failure/status messages remain reachable/readable.
 
-Document known non-blocking gaps honestly.
+Document limitations instead of claiming certification.
 
-## Android
+## Platform compile and runtime checks
 
-Host: Windows, macOS, or Linux with Android toolchain supported by the pinned Flutter version.
-
-Compile checks:
+### Android
 
 ```bash
 flutter build apk --release
 flutter build appbundle --release
 ```
 
-For store distribution, configure signing outside source control. Keep keystore files/passwords and `key.properties` out of Git.
+Before distribution verify package identity, 2.0.12/2012 version values, permissions/minimum SDK, signed artifact behavior, file picker, links, and supported authentication. Keep signing material outside Git.
 
-Before publishing:
-
-- Verify application ID/package identity.
-- Verify version is `2.0.12` and build number is `2012`.
-- Verify minimum/target SDK values from generated/current Android files.
-- Review requested permissions.
-- Test the signed artifact on a representative device.
-- Verify optional local authentication behavior.
-- Verify file-picker and external-link behavior.
-
-## Windows
-
-Host: Windows with supported Visual Studio C++ desktop tooling.
-
-```powershell
-flutter build windows --release
-```
-
-The output directory is under `build/windows/.../Release` according to the current Flutter generator/toolchain.
-
-If creating an installer/package later, document the packaging tool and signing process separately. Do not commit code-signing private keys.
-
-## Linux
-
-Host: Linux with Flutter desktop native prerequisites.
-
-```bash
-flutter build linux --release
-```
-
-Distribution packaging varies by target distro/package format. A release artifact should state what runtime/library assumptions it has rather than implying one binary works identically on every Linux distribution.
-
-## macOS
+### iOS / iPadOS
 
 Host: macOS/Xcode.
-
-```bash
-flutter build macos --release
-```
-
-Distribution outside local testing may require Apple signing/notarization. Keep certificates/private credentials out of the repository.
-
-## iOS
-
-Host: macOS/Xcode.
-
-Compile validation without signing:
 
 ```bash
 flutter build ios --release --no-codesign
 ```
 
-A distributable archive requires Apple developer signing/provisioning. Verify the Face ID usage description remains present when optional app lock is enabled by platform configuration.
+Distribution requires Apple signing/provisioning. Verify Face ID usage configuration and supported authentication on a representative device.
 
-## Release artifacts
+### Windows
 
-Artifacts should be named clearly with product, version, and platform/architecture where meaningful.
+```powershell
+flutter build windows --release
+```
 
-Example naming conventions for 2.0.12:
+Verify local storage, file picker/save, links, keyboard navigation, resize behavior, and Windows authentication on a capable system.
+
+### macOS
+
+```bash
+flutter build macos --release
+```
+
+Distribution may require signing/notarization. Verify storage/file/link/authentication behavior on a representative macOS system.
+
+### Linux
+
+```bash
+flutter build linux --release
+```
+
+Record distro/runtime assumptions. Verify storage, file picker/save, links, keyboard/resize behavior, and the expected unavailable app-lock state.
+
+### Web
+
+```bash
+flutter test --platform chrome test/web/web_platform_smoke_test.dart
+flutter build web --release
+```
+
+Deploy the **actual `build/web` output** to the intended host/origin and verify:
+
+- App loads without missing worker/WASM errors.
+- `sqlite3.wasm` is served as `application/wasm`.
+- `drift_worker.js` and `sqlite3.wasm` remain reachable at the configured root-relative URIs.
+- Create/edit/search works.
+- Data survives reload and browser restart under normal storage settings.
+- Markdown import/export and backup export/restore work.
+- Oversized browser-selected files are rejected.
+- App lock is visibly unavailable without blocking the app.
+- External links/mail handlers behave as expected.
+- Browser keyboard/focus/zoom/screen-reader behavior is checked.
+
+For compatible hosts/browsers, cross-origin isolation can enable Drift's optimal OPFS-backed mode. If those headers are unavailable, verify/document the actual fallback storage mode rather than claiming OPFS.
+
+Browser-local data is tied to browser/profile/origin and can be removed by site-data controls. Backups are the portable recovery path.
+
+## GitHub Actions release matrix
+
+The platform workflow verifies:
+
+- Android release compile.
+- Linux release compile.
+- Windows release compile.
+- macOS release compile.
+- unsigned iOS release compile.
+- Web Chrome smoke regression.
+- Web release compile.
+
+The release workflow additionally uploads Android/Linux/Windows/macOS/iOS-validation and Web outputs. Artifacts are evidence of build output, not store signing/runtime certification.
+
+## Artifact naming
+
+Examples:
 
 ```text
 notenest-2.0.12-android.apk
 notenest-2.0.12-windows-x64.zip
 notenest-2.0.12-linux-x64.tar.gz
 notenest-2.0.12-macos.zip
+notenest-2.0.12-web.zip
 ```
 
-Do not rename an unsigned/no-codesign validation artifact in a way that suggests it is store-ready.
+Never label an unsigned/no-codesign artifact as store-ready.
 
 ## Checksums
 
-For downloadable archives/binaries, publish SHA-256 checksums generated from the final artifacts.
+Publish SHA-256 checksums for distributed archives/binaries.
 
 Linux/macOS:
 
@@ -238,92 +256,106 @@ Windows PowerShell:
 Get-FileHash <artifact> -Algorithm SHA256
 ```
 
-Checksums detect accidental corruption/download mismatch; they are not a replacement for code signing.
+Checksums are integrity metadata, not a substitute for signing/authenticity.
+
+## Web deployment headers
+
+At minimum ensure your server emits the correct WebAssembly MIME type. Optional cross-origin isolation for supported Drift/OPFS operation normally involves compatible COOP/COEP configuration; validate it against your hosting/CDN requirements and any third-party resources before enabling it.
+
+Do not add telemetry, remote note processing, or unrelated third-party scripts merely to host the static Web bundle without reviewing privacy/security documentation.
+
+## Release notes
+
+Use [`releases/2.0.12.md`](releases/2.0.12.md) as the candidate source. Final notes should state:
+
+- User-facing changes/fixes.
+- Supported **and actually verified** platforms.
+- Browser storage/deployment limitations where relevant.
+- Security/privacy changes without disclosing an unpatched vulnerability.
+- Backup compatibility.
+- Signing status.
+- Artifact/checksum details.
+- Known limitations.
+
+Avoid “bug-free”, “perfectly secure”, or similar unsupported claims.
+
+## Branch protection recommendation
+
+For `main`, where repository/account settings permit:
+
+- Require pull requests for non-emergency changes.
+- Require quality/platform checks.
+- Require current branches when practical.
+- Require conversation resolution.
+- Prevent force pushes/deletion.
+- Restrict bypass permissions.
+
+A solo-maintainer flow can preserve emergency maintenance without allowing accidental history rewrite.
 
 ## Git tag
 
-After the exact release commit has passed required checks:
+Only after the **exact final release commit** passes the full checklist:
 
 ```bash
 git tag -a v2.0.12 -m "NoteNest 2.0.12"
 git push origin v2.0.12
 ```
 
-Do not move a published release tag to a different commit. If a released version has a problem, publish a new patch version.
-
-## GitHub release notes
-
-Use [`releases/2.0.12.md`](releases/2.0.12.md) as the release-candidate source. Final release notes should include:
-
-- User-facing additions/changes/fixes.
-- Security/privacy changes without prematurely disclosing an unpatched vulnerability.
-- Migration/backup compatibility notes.
-- Supported/verified platforms.
-- Known limitations.
-- Upgrade instructions if needed.
-- Artifact checksums/signing status.
-- Link to full `CHANGELOG.md`.
-
-Avoid marketing claims such as “bug-free” or “fully secure.” State what was actually verified.
-
-## Release workflow automation
-
-GitHub Actions generates compile-validation artifacts for supported targets. The workflow uses the same exact Flutter SDK version as the project pin so a tagged build cannot silently move to a newer stable SDK. The separate platform-build workflow is also path-filtered for bundled `assets/**`, source, build metadata, and runner-bootstrap changes so asset-only changes cannot bypass compile verification.
-
-Automated artifacts still require review. Store signing secrets should be configured only in appropriate protected CI secrets/environments and only when a distribution workflow is intentionally added. The project does not embed any real release signing secret.
-
-## Branch protection recommendation
-
-For `main`, enable a branch ruleset/protection rule that, where available for the repository/account plan:
-
-- Requires pull requests for non-emergency changes.
-- Requires the CI quality status check.
-- Requires branches to be up to date before merge when practical.
-- Prevents force pushes/deletion.
-- Requires conversation resolution.
-- Restricts bypass permissions appropriately.
-
-If a solo-maintainer workflow needs direct maintenance pushes, choose rules that preserve practical recovery while still preventing accidental history rewrite.
+Never move a published release tag. Publish a new patch version for post-release fixes.
 
 ## Final 2.0.12 release checklist
 
-- [x] `pubspec.yaml` set to `2.0.12+2012`.
-- [x] `AppStrings.version` set to `2.0.12`.
-- [x] Matching changelog section prepared.
-- [x] Matching `docs/releases/2.0.12.md` prepared.
-- [x] Version/toolchain synchronization checker added to CI.
-- [x] Repository-reference checker added to CI.
-- [x] Native bootstrap now verifies required platform patches instead of silently accepting template drift.
-- [x] Platform-build workflow includes bundled asset changes in its verification paths.
-- [ ] `python tool/check_version_sync.py` passes on clean checkout/CI.
-- [ ] `.flutter-version` matches CI/platform/release workflow Flutter versions on the verified candidate.
-- [ ] `python tool/check_repository_reference.py` passes on the exact candidate.
-- [ ] `flutter --version` matches the project pin on verification hosts.
-- [ ] `what_changed.md` finalized for 2.0.12 verification results.
-- [ ] Clean checkout/setup succeeds.
+### Metadata/reproducibility
+
+- [x] `pubspec.yaml` = `2.0.12+2012`.
+- [x] Visible version = `2.0.12`.
+- [x] Matching changelog/release notes exist.
+- [x] Flutter 3.44.7 pin synchronized across workflows.
+- [x] Six-platform source/bootstrap/build automation implemented.
+- [x] Repository reference updated to 108 tracked files for cross-platform additions.
+- [ ] Resolver-generated `pubspec.lock` committed and cataloged (issue #8).
+- [ ] Final dependency installation enforces the committed lock.
+
+### Quality/security
+
+- [ ] Version sync passes on exact final candidate.
 - [ ] Drift generation succeeds.
 - [ ] Formatter passes.
 - [ ] Analyzer passes.
-- [ ] Tests pass.
-- [ ] Repository policy scan passes.
-- [ ] Markdown local-link scan passes.
+- [ ] Flutter tests/coverage pass.
+- [ ] Repository policy passes.
+- [ ] 108-file reference check passes.
+- [ ] Markdown-link scan passes.
 - [ ] Secret scan passes.
 - [ ] Dependency/security review complete.
-- [ ] Android build verified.
-- [ ] Windows build verified on Windows.
-- [ ] Linux build verified on Linux.
-- [ ] macOS build verified on macOS.
-- [ ] iOS no-codesign compile verified on macOS.
-- [ ] Manual primary journeys verified.
-- [ ] Serialized autosave final-draft behavior manually verified.
-- [ ] First-line editor formatting boundary manually smoke-tested.
-- [ ] Root dependency teardown lifecycle manually/automatically verified where practical.
-- [ ] Bounded oversized import rejection manually verified through real picker/provider behavior.
-- [ ] External-link success/failure paths verified on representative targets.
-- [ ] Accessibility checks recorded.
-- [ ] Privacy/security documentation matches build.
+
+### Platform automation
+
+- [ ] Android release compile green.
+- [ ] Linux release compile green.
+- [ ] Windows release compile green.
+- [ ] macOS release compile green.
+- [ ] iOS no-codesign compile green.
+- [ ] Chrome Web fallback smoke green.
+- [ ] Web release compile green.
+
+### Manual/runtime/accessibility
+
+- [ ] Primary note/editor/lifecycle journeys verified.
+- [ ] Native and browser import/export/size limits verified.
+- [ ] Backup export/restore verified with fictional data.
+- [ ] Supported app-lock targets verified.
+- [ ] Web/Linux unavailable app-lock paths verified usable.
+- [ ] Web persistence/reload/restart verified on intended deployment origin.
+- [ ] Web MIME/worker/WASM serving verified.
+- [ ] External links success/failure verified.
+- [ ] Keyboard/screen-reader/large-text/zoom/themes/reduced-motion checks recorded.
 - [ ] Runtime screenshots captured from verified builds.
-- [ ] Signing status clearly recorded.
-- [ ] Release notes prepared from the candidate notes.
-- [ ] Tag points to exact verified commit.
-- [ ] Checksums generated for distributed artifacts.
+
+### Distribution
+
+- [ ] Signing status recorded.
+- [ ] Final artifacts reviewed.
+- [ ] SHA-256 checksums generated.
+- [ ] Final release notes identify verified platform scope honestly.
+- [ ] `v2.0.12` points to the exact fully verified commit.
