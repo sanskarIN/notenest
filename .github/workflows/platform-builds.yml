@@ -6,6 +6,7 @@ on:
     paths:
       - "assets/**"
       - "lib/**"
+      - "test/web/**"
       - "pubspec.yaml"
       - "build.yaml"
       - "tool/bootstrap_platforms.py"
@@ -15,6 +16,7 @@ on:
     paths:
       - "assets/**"
       - "lib/**"
+      - "test/web/**"
       - "pubspec.yaml"
       - "build.yaml"
       - "tool/bootstrap_platforms.py"
@@ -118,3 +120,25 @@ jobs:
         run: flutter build macos --release
       - name: Compile iOS without code signing
         run: flutter build ios --release --no-codesign
+
+  web:
+    name: Web release compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.7
+          channel: stable
+          cache: true
+      - name: Generate platform runners and web database assets
+        run: python tool/bootstrap_platforms.py
+      - name: Resolve packages
+        run: flutter pub get
+      - name: Generate Drift code
+        run: dart run build_runner build --delete-conflicting-outputs
+      - name: Run browser platform smoke test
+        run: flutter test --platform chrome test/web/web_platform_smoke_test.dart
+      - name: Build Web release
+        run: flutter build web --release
