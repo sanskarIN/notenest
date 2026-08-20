@@ -51,35 +51,26 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Commit resolver-generated application lockfile
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          if git ls-files --error-unmatch pubspec.lock >/dev/null 2>&1; then
-            echo "pubspec.lock is already tracked."
-            exit 0
-          fi
-          git config user.name "sanskarIN"
-          git config user.email "sanskarin@outlook.in"
-          git add pubspec.lock
-          git commit -m "build: lock Flutter dependencies for 2.0.12"
-          git push origin HEAD:main
-
       - name: Generate Drift code
         run: dart run build_runner build
 
-      - name: Apply pinned Dart formatting
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Materialize final verification tree
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.ref == 'verify/2.0.12-final' &&
+          github.event.pull_request.head.repo.full_name == github.repository
         run: |
           dart format lib test
-          if git diff --quiet -- lib test; then
-            echo "Dart sources are already formatted."
-            exit 0
-          fi
           git config user.name "sanskarIN"
           git config user.email "sanskarin@outlook.in"
+          git add -f pubspec.lock
           git add lib test
-          git commit -m "style: format Dart sources with 3.12.2"
-          git push origin HEAD:main
+          if git diff --cached --quiet; then
+            echo "Verification branch already contains the generated lockfile and pinned formatting."
+            exit 0
+          fi
+          git commit -m "build: materialize 2.0.12 dependency and format baseline"
+          git push origin HEAD:verify/2.0.12-final
 
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed lib test
