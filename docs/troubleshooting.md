@@ -1,73 +1,82 @@
 # NoteNest Troubleshooting
 
-Use this guide for common development/setup problems. Do not delete a real user's database or signing configuration as a first response to a build error.
+Use this guide for development/setup/runtime problems across Android, iOS/iPadOS, Windows, macOS, Linux, and Web. Do not delete real user data or signing configuration as a first response to a build error.
 
-## `flutter` is not recognized / command not found
-
-Check whether the Flutter SDK `bin` directory is on `PATH`:
-
-```bash
-flutter --version
-```
-
-If the command is not found, fix `PATH`, restart the terminal/editor, and try again. Do not install a random package named Flutter from an unrelated package source.
-
-## `dart` is not recognized
-
-Dart ships with Flutter. If `flutter` works but `dart` does not, inspect your Flutter installation/path configuration:
+## Flutter/Dart command not found
 
 ```bash
 flutter --version
 dart --version
 ```
 
-Reopen the terminal after PATH changes.
+Fix the Flutter SDK `bin` path and reopen the terminal/editor. Dart is included with Flutter; do not install an unrelated random SDK/package to mask a PATH problem.
 
-## `flutter doctor` reports missing platform tooling
-
-Run:
+## `flutter doctor` reports missing tooling
 
 ```bash
 flutter doctor -v
 ```
 
-Only the toolchains for targets you intend to build must be resolved immediately. Examples:
+Examples:
 
 - Android: Android SDK/JDK/licenses.
 - Windows: Visual Studio C++ desktop workload.
 - Linux: compiler/CMake/Ninja/GTK development packages.
-- macOS/iOS: Xcode and related tooling.
+- macOS/iOS: Xcode/CocoaPods as required.
+- Web: compatible browser/tooling for local run/test.
 
-Use current Flutter platform setup documentation because native dependency versions can change independently of NoteNest.
+Only resolve native toolchains needed for the platform you are building, but final release verification needs the complete CI matrix.
 
-## Python bootstrap fails with “Flutter is required”
-
-`tool/bootstrap_platforms.py` calls the `flutter` executable. Make sure Flutter works in the same terminal:
+## Platform bootstrap cannot find Flutter
 
 ```bash
 flutter --version
 python tool/bootstrap_platforms.py
 ```
 
-On Windows try:
+Windows:
 
 ```powershell
 py tool/bootstrap_platforms.py
 ```
 
-## Bootstrap reports expected Android/iOS file missing
+The script requires Flutter on PATH.
 
-This usually means the Flutter project generator changed its template path/format or platform generation failed.
+## Bootstrap reports Android/iOS template drift
 
-1. Read the Flutter command output above the Python exception.
-2. Check `flutter doctor -v`.
-3. Run `flutter create --help` and verify the installed version supports requested platforms.
-4. Do not simply remove the patch from the script if it is still required by `local_auth`.
-5. Update the script/documentation in a dedicated compatibility commit once the new template is understood.
+The Flutter generator likely changed or platform generation failed.
+
+1. Inspect the preceding Flutter output.
+2. Confirm Flutter **3.44.7** for the current candidate.
+3. Run `flutter doctor -v`.
+4. Do not remove a required authentication/min-SDK/theme patch simply to make bootstrap green.
+5. Update the script/tests/docs deliberately once the new template is understood.
+
+## Bootstrap cannot download Web database assets
+
+The bootstrap obtains `sqlite3.wasm` and `drift_worker.js` from the matching Drift **2.34.3** GitHub release.
+
+Check:
+
+- Network/DNS/proxy access to GitHub release assets.
+- The direct `drift:` pin in `pubspec.yaml` still matches the bootstrap's reviewed version.
+- GitHub availability/rate/network policy.
+
+Do not replace the assets with files from a random Drift/sqlite release. The worker/WASM pair is a compatibility surface.
+
+## Bootstrap says Drift version changed
+
+This is deliberate fail-fast behavior. A `drift` dependency upgrade requires:
+
+1. Review Drift release notes.
+2. Update the bootstrap's expected Web version.
+3. Regenerate the worker/WASM assets.
+4. Run native tests plus Chrome Web smoke and Web release build.
+5. Update lockfile and cross-platform docs.
 
 ## `flutter pub get` fails
 
-Collect:
+Capture:
 
 ```bash
 flutter --version
@@ -75,42 +84,22 @@ dart --version
 flutter pub get
 ```
 
-Common causes:
+Common causes: incompatible SDK/package constraints, unavailable registry/network, or a transitive dependency conflict. Do not change constraints to `any` blindly.
 
-- Flutter/Dart is below the minimum in `pubspec.yaml`.
-- A package constraint is incompatible with the current SDK.
-- Network/package registry is temporarily unavailable.
-- A dependency update introduced an incompatible transitive constraint.
+### Missing `pubspec.lock`
 
-Do not resolve a solver error by deleting type-safety constraints or blindly changing every package to `any`.
+Current stable 2.0.12 preparation explicitly requires a genuine lock generated by Flutter 3.44.7 (issue #8). Run `flutter pub get` in a clean checkout and commit the generated lock after review. Never hand-author dependency hashes/versions.
 
-## Drift generated class/types are missing
-
-Symptoms include missing `_$AppDatabase`, `$NotesTable`, or `NotesCompanion`-related generated symbols.
-
-Run:
+## Drift generated symbols are missing
 
 ```bash
 dart run build_runner build --delete-conflicting-outputs
-```
-
-Then:
-
-```bash
 flutter analyze
 ```
 
-Generated `*.g.dart` files are intentionally not committed.
+Generated `*.g.dart` files are intentionally untracked.
 
-## build_runner reports conflicting outputs
-
-Regenerate with:
-
-```bash
-dart run build_runner build --delete-conflicting-outputs
-```
-
-If the conflict remains after a dependency/SDK upgrade:
+## build_runner conflicts
 
 ```bash
 flutter clean
@@ -118,201 +107,196 @@ flutter pub get
 dart run build_runner build --delete-conflicting-outputs
 ```
 
-Do not manually edit generated `app_database.g.dart`.
+Do not manually edit generated Drift code.
 
-## Analyzer errors after Flutter upgrade
+## Analyzer errors after Flutter/package upgrade
 
-1. Regenerate platform files/code.
-2. Run formatter/analyzer.
-3. Read the specific deprecated/removed API migration guidance.
-4. Update source in focused commits.
-5. Re-run tests and native builds.
+Regenerate runners/code, read the specific migration/deprecation guidance, make focused fixes, and re-run all affected platform builds. Do not disable strict analysis globally to conceal compatibility problems.
 
-Do not disable strict analysis globally to make upgrade errors disappear.
+## FTS/search issues
 
-## FTS search returns unexpected results
+Verify note rows, FTS triggers, active collection filters, and query text with fictional data. Search input must be bound as variables.
 
-First verify normal note creation/listing works. In a development/test database, check:
+For Web, also verify the SQLite worker/WASM loaded successfully before diagnosing FTS as application logic.
 
-- The note row exists.
-- FTS infrastructure was created.
-- Search query is non-empty.
-- Collection filters are not excluding the result (archive/trash/favorites).
+## Web build fails because `dart:io` is unsupported
 
-The initial database creates FTS triggers/index on `onCreate`. Future migrations that change indexed columns must also update FTS infrastructure.
+Shared/browser code must not import native filesystem implementation files directly.
 
-For a reproducible defect, use an in-memory database test with fictional data instead of sending a real user database.
+The bounded file reader is intentionally split through conditional imports. If a new feature reintroduces `dart:io` into Web-reachable source:
 
-## Search with punctuation throws an error
+1. Move native behavior behind a conditional implementation.
+2. Define a browser behavior or safe unavailable result.
+3. Add/extend the Chrome platform regression.
+4. Run `flutter build web --release`.
 
-Search input should be normalized and supplied as a bound FTS variable. If an input can break FTS syntax, add the exact fictional input as a regression test and fix `_ftsQuery`/search handling rather than sanitizing by deleting arbitrary user content.
+Do not disable Web to avoid fixing a portable boundary.
 
-## Note does not appear in All Notes
+## Web app fails to load SQLite WASM
 
-Check whether it is:
+Inspect browser developer tools/network console.
 
-- Archived.
-- In trash.
-- Excluded by folder/tag filter.
-- Excluded by current search query.
+Check:
 
-`All notes` intentionally excludes archive and trash.
+- `sqlite3.wasm` exists in the deployed bundle/root expected by `AppDatabase`.
+- Response is successful, not an HTML error page.
+- Server MIME type is `application/wasm`.
+- `drift_worker.js` is reachable.
+- Hosting base path/routing did not move those relative assets unexpectedly.
 
-## An edited note did not create a version
+Rebuild from a fresh bootstrap if assets are missing:
 
-A snapshot is created when `NoteRepository.saveContent` detects changed title/body/folder/tags/color. An unchanged autosave should not create redundant snapshots.
+```bash
+python tool/bootstrap_platforms.py
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+flutter build web --release
+```
 
-Pin/favorite/archive/trash flag operations are not currently part of content snapshot creation.
+## Web persistence disappears after reload/restart
 
-## Backup restore is rejected
+First distinguish application defects from browser storage policy.
 
-NoteNest rejects malformed/unrecognized backups deliberately. Check that the file:
+Check:
 
-- Is valid UTF-8 JSON.
-- Has root object field `"app": "NoteNest"`.
-- Uses a supported backup `schemaVersion`.
-- Contains `notes` and `versions` lists with required typed fields.
-- Contains valid timestamp strings.
+- Same deployment origin (scheme/host/port).
+- Normal browser profile rather than private/incognito mode.
+- Site data was not cleared.
+- Browser storage permissions/policies/quota.
+- Browser console for Drift storage fallback/errors.
+- Whether hosting/cross-origin isolation changed between runs.
 
-Do not hand-edit a personal backup unless you have another untouched copy. For testing, create a fictional export.
+Use fictional data. Do not ask users to publish raw browser storage. Export a NoteNest JSON backup before destructive browser-storage experiments.
 
-## Restore says it kept newer local notes
+## Web works but OPFS is not used
 
-This is expected conflict-safe behavior. If the current device's `updatedAt` is later than the incoming backup note's timestamp, the local note is not overwritten.
+This may be expected. Drift can use fallback browser storage when cross-origin isolation/OPFS conditions are unavailable.
 
-If users later need a conflict UI instead of timestamp-based preservation, that should be implemented as a deliberate new feature with tests/backup semantics.
+If optimal OPFS is desired, review the actual host's COOP/COEP configuration and third-party resources. Verify behavior rather than assuming a header change is harmless.
 
-## File picker returns no data
+## Web file picker returns no native path
 
-Platform file-picker behavior varies. Confirm:
+This is expected. Browser imports use picker bytes/streams, not native filesystem paths. Do not “fix” Web by trying to create a fake local path.
 
-- The selected file is accessible to the app.
-- The picker operation was not cancelled.
-- The target plugin/platform is supported by the installed package version.
-- Platform runner generation and native build succeeded.
+If browser bytes are missing unexpectedly, record Flutter/file_picker/browser versions with a small fictional file and reproduce through the Web build.
 
-If `PlatformFile.bytes` is unexpectedly null despite `withData: true`, capture platform/package versions with a fictional file and file a reproducible issue.
+## Browser download/export seems different from desktop save dialogs
+
+Web export is browser-mediated download/save behavior. Check browser download permissions/settings and `file_picker` behavior for the current browser. The app should treat cancellation/refusal safely and must not assume a writable filesystem path.
+
+## Native file picker returns no path/data
+
+Confirm selection was not cancelled, plugin platform support exists, runner/build registration succeeded, and the selected provider returned usable content. Use a fictional file and include package/platform versions in a bug report.
+
+## Oversized import not rejected
+
+Limits are 16 MiB Markdown/text and 64 MiB backup.
+
+Native: verify reported file length and cumulative streamed length checks.
+
+Web: verify picker-reported `size` plus actual byte/stream length are validated before decode. Add the smallest fictional regression for any bypass.
+
+## Backup restore rejected
+
+Check valid UTF-8 JSON, `app: NoteNest`, supported schema, typed fields, explicit UTC timestamps, valid IDs/relationships/tags/colors/lifecycle states. Test with a fictional export rather than hand-editing your only personal backup.
+
+## Restore keeps newer local notes
+
+Expected conflict behavior: a newer local `updatedAt` wins an older incoming note. A future manual conflict UI would be a deliberate feature/change to backup semantics.
 
 ## App lock cannot be enabled
 
-NoteNest checks whether device authentication is supported. Common reasons include:
+Expected current support is platform-dependent.
 
-- No device authentication configured.
-- Target platform/plugin capability unavailable.
-- Native runner configuration missing.
-- Android activity not using the required fragment activity setup for the plugin version.
-- iOS Face ID usage description missing for Face ID use.
+Supported `local_auth` targets may still be unavailable because no device authentication is configured or native configuration is wrong.
 
-Regenerate native runners with:
+Web and Linux currently intentionally report app lock unavailable. This is not a reason for the app itself to stop working.
+
+For Android/iOS configuration problems regenerate runners:
 
 ```bash
 python tool/bootstrap_platforms.py
 ```
 
-Then rebuild. App lock should fail closed/safely rather than pretending authentication succeeded.
+## App is stuck locked on an unsupported platform
+
+That would be a regression. Current root lock logic checks `canAuthenticate()` first and unlocks the application when authentication is unavailable. Settings also allows a stale enabled preference to be turned off.
+
+Reproduce with fictional data and report platform/version. Run the Chrome smoke test for Web:
+
+```bash
+flutter test --platform chrome test/web/web_platform_smoke_test.dart
+```
 
 ## App lock is not database encryption
 
-This is not a bug. Current app lock gates UI access through operating-system authentication. The SQLite database is not independently encrypted by NoteNest. See `SECURITY.md` and `PRIVACY.md`.
+Expected behavior. App lock gates UI access only. See [`../SECURITY.md`](../SECURITY.md) and [`../PRIVACY.md`](../PRIVACY.md).
 
-## About links do not open
+## External links do not open
 
-External links use `url_launcher`. Verify the device has an application able to handle the selected `https:` or `mailto:` URI and that native plugin registration/build succeeded.
+Verify an external handler exists and plugin/browser launch behavior supports the URI. Failure should show feedback and never affect local notes.
 
-A failed external link should not affect local note data.
+## Android `local_auth` problems
 
-## Android `local_auth` build/runtime problems
+Bootstrap ensures FragmentActivity, biometric permission, min SDK, and AppCompat configuration. Regenerate runners and inspect generated platform state after Flutter/plugin upgrades.
 
-Regenerate runners:
+## Windows build says Visual Studio missing
 
-```bash
-python tool/bootstrap_platforms.py
-```
+Install Visual Studio **Desktop development with C++** plus Windows SDK components recommended by `flutter doctor -v`. VS Code is not the native toolchain.
 
-The NoteNest bootstrap patches the Android activity to use `FlutterFragmentActivity` and sets the project Android minimum SDK baseline. Review generated Android configuration after Flutter/plugin upgrades.
+## Linux build misses GTK/CMake/Ninja/pkg-config
 
-## Windows build says Visual Studio is missing
-
-Flutter Windows desktop requires native Visual Studio build tools/workload; VS Code is not a substitute.
-
-Install/modify Visual Studio with the **Desktop development with C++** workload and Windows SDK components recommended by `flutter doctor -v`.
-
-## Linux build cannot find GTK/CMake/Ninja/pkg-config
-
-Install the current Flutter Linux desktop native prerequisites for your Linux distribution. Package names differ across distributions/releases. After installing, rerun:
+Install Flutter's current Linux desktop prerequisites for your distribution, then:
 
 ```bash
 flutter doctor -v
 flutter build linux --release
 ```
 
-## macOS/iOS CocoaPods errors
+## macOS/iOS CocoaPods problems
 
-Native plugins may require CocoaPods. Follow `flutter doctor -v` guidance, repair/install CocoaPods, then regenerate/install dependencies as required by Flutter.
-
-Do not commit `Pods/` simply to hide a local CocoaPods installation problem.
+Follow `flutter doctor -v`; repair/install CocoaPods appropriately. Do not commit `Pods/` to hide workstation problems.
 
 ## iOS signing failure
 
-`flutter build ios --release --no-codesign` can validate compilation without a distribution identity. Installing/publishing requires valid Apple signing/provisioning owned by the developer/distributor.
+Compile validation can use:
 
-Signing identities cannot be created or safely stored by NoteNest source code.
+```bash
+flutter build ios --release --no-codesign
+```
 
-## Tests fail only on time/date assertions
+Distribution needs developer-owned Apple signing/provisioning outside NoteNest source control.
 
-Store domain timestamps in UTC and convert at display boundaries. In tests, prefer explicit fixed UTC timestamps where ordering/calendar logic is being asserted. Do not rely on the machine's local timezone accidentally.
+## Time/date test failures
+
+Use explicit UTC timestamps where ordering/calendar behavior is under test. Do not rely accidentally on the host timezone.
 
 ## CI format failure
 
-Apply formatter locally:
-
 ```bash
 dart format lib test
-```
-
-Then verify:
-
-```bash
 dart format --output=none --set-exit-if-changed lib test
 ```
 
-Commit only the intentional formatting diff.
+Commit only intentional formatting changes.
 
-## Repository policy check fails
-
-Run:
+## Repository policy failure
 
 ```bash
 python tool/check_repo.py
+python tool/check_repository_reference.py
 ```
 
-The output lists missing required files or unfinished source markers. This script protects the project's documentation/handoff baseline; update it if the repository's deliberate structure changes.
+The policy gate now requires the cross-platform conditional boundaries/Web smoke test, while the reference gate requires every tracked path to appear exactly once in the 108-file catalog.
 
-## Secret scan fails
+## Secret scan failure
 
-`tool/security_scan.py` reports path, line, and rule without echoing the matched credential value.
+If real: revoke/rotate immediately, remove current-tree exposure, assess history, and do not simply allowlist the secret. For a clearly fictional false positive, narrowly improve the fixture/rule without weakening real credential detection.
 
-If the match is a real secret:
+## `what_changed.md` is stale
 
-1. Revoke/rotate it immediately.
-2. Remove it from the current tree.
-3. Assess/remove history exposure as appropriate.
-4. Do not simply add the secret to an allowlist.
-
-If it is a false positive from a clearly fictional test fixture, adjust the fixture or narrowly improve the scanner rule without weakening protection for real tokens.
-
-## `what_changed.md` appears stale
-
-That file is the cross-chat/session handoff. Update it after a meaningful phase with:
-
-- Completed work.
-- Verification commands/results.
-- Known limitations.
-- Exact next tasks.
-- Recent commit hashes/messages.
-
-Do not use it as marketing copy; it should remain an engineering record.
+Update it after a meaningful phase with completed work, exact unrun/run verification, limitations, blockers, PR/commit checkpoints, and next release actions. It is an engineering record, not marketing copy.
 
 ## Still blocked?
 
-Read [SUPPORT.md](../SUPPORT.md) and open a bug/support request with the smallest reproducible fictional case. For security issues, follow [SECURITY.md](../SECURITY.md) instead of posting details publicly.
+Read [`../SUPPORT.md`](../SUPPORT.md) and open a minimal fictional bug report. The issue template supports Android, iOS/iPadOS, Windows, macOS, Linux, and Web; include browser/version/origin context for Web where relevant. For vulnerabilities, follow [`../SECURITY.md`](../SECURITY.md) privately.
