@@ -43,6 +43,14 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
+      - name: Upload resolved lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: resolved-pubspec-lock
+          path: pubspec.lock
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Generate Drift code
         run: dart run build_runner build --delete-conflicting-outputs
 
