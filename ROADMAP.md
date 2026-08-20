@@ -2,7 +2,7 @@
 
 The roadmap keeps future work aligned with NoteNest's local-first, private, accessible notes experience. It is not a promise of release dates.
 
-Current release-candidate target: **2.0.12** (`2.0.12+2012`).
+Current release candidate: **2.0.12** (`2.0.12+2012`).
 
 ## Product principles
 
@@ -13,7 +13,7 @@ Future features should:
 3. Keep data portable.
 4. Prefer local processing where practical.
 5. Be accessible by keyboard, touch, browser, and assistive technologies.
-6. Work coherently across compact/wide layouts.
+6. Work coherently across compact and wide layouts.
 7. Treat Android, iOS/iPadOS, Windows, macOS, Linux, and Web as explicit platform-impact surfaces.
 8. Have tests/documentation proportional to risk.
 9. Avoid intrusive monetization/donation flows.
@@ -21,16 +21,16 @@ Future features should:
 
 ## 2.0.12 hardening already implemented
 
-Implementation is listed separately from pending verification because source completion is not release certification.
+Implementation is listed separately from pending stable verification because source/build completion is not the same as runtime certification.
 
 ### Data integrity and persistence
 
 - Ordered editor save submissions prevent old autosaves overtaking newer drafts.
-- Stale save completions cannot mark a newer draft saved.
-- Back/export/history waits for the appropriate current-draft save.
+- Stale save completions cannot mark a newer visible draft saved.
+- Normal Back, export, and history paths wait for the appropriate current-draft save.
 - Settings writes are serialized with rollback after applicable failures.
 - Onboarding is persistence-first.
-- Root composition cleanup owns settings/database disposal.
+- Root composition owns settings/database cleanup.
 - Collection metadata/filter lifecycle rules are consistent.
 - A trashed note cannot be pinned.
 
@@ -38,20 +38,21 @@ Implementation is listed separately from pending verification because source com
 
 - 16 MiB Markdown/text and 64 MiB backup ceilings.
 - Strict UTF-8 processing.
-- Native imports use bounded cached-path streaming rather than eager picker bytes.
-- Web imports use picker bytes/streams with reported and actual length validation.
+- `file_picker 12.0.0` single-file selection with reported-length validation.
+- Native cached paths use bounded filesystem streaming when available.
+- Browser/non-path data uses cumulative `readAsByteStream()` bounds before decoding.
 - Backup app/schema/type/tag/ID/relationship/UTC/timestamp/color/lifecycle validation.
 - Conflict-safe transactional restore.
 - Cross-platform/Unicode-safe Markdown export names.
 
 ### Six-platform baseline
 
-- Android target/bootstrap/build automation.
-- iOS/iPadOS target/bootstrap/no-codesign compile automation.
-- Windows target/build automation.
+- Android target/bootstrap/build automation with min SDK 24, FragmentActivity, biometric permission, and AppCompat requirements.
+- iOS/iPadOS target/bootstrap/no-codesign compile automation with explicit **iOS 14.0+** floor.
+- Windows target/build automation with current-MSVC compatibility for the `local_auth_windows` coroutine dependency.
 - macOS target/build automation.
 - Linux target/build automation.
-- **Web target with Drift SQLite WASM/worker storage, browser file import/export, Chrome fallback regression, and release bundle packaging.**
+- Web target with Drift SQLite WASM/worker storage, browser file behavior, Chrome fallback regression, and release bundle packaging.
 - Responsive compact/wide UI spans phones, tablets, desktop windows, and browser viewports.
 - App-lock service degrades safely where `local_auth` is unavailable; Web/Linux remain usable.
 
@@ -65,26 +66,64 @@ Implementation is listed separately from pending verification because source com
 ### Release/repository engineering
 
 - Flutter **3.44.7** exact pin across project/CI/platform/release automation.
-- Six-platform runner bootstrap with fail-fast Android/iOS configuration checks.
-- Drift **2.34.3** Web runtime asset pin tied to the direct dependency.
-- Version, repository, 108-file exhaustive-reference, Markdown-link, and secret policy gates.
+- Genuine resolver-generated application `pubspec.lock` committed for the current **129-package** graph.
+- Lock-enforced dependency restoration across quality, all platform-build lanes, and release packaging.
+- `tool/check_repo.py` requires the application lockfile to be tracked.
+- Six-platform runner bootstrap uses `flutter create --no-pub`, keeping runner generation separate from dependency resolution.
+- Drift **2.34.3** Web runtime assets are tied to the direct dependency.
+- Version, repository, **109-file** exhaustive-reference, Markdown-link, and secret policy gates.
 - Six-platform build matrix including Chrome Web smoke + release compile.
 - Six-platform release packaging including Web output.
-- Complete setup/testing/release/security/privacy documentation for browser-local operation.
+- Complete setup/development/release/security/privacy documentation for native/browser behavior.
+- Android GitHub Actions Java setup migrated to `actions/setup-java@v5`.
 
 ## Milestone: 2.0.12 — stable verification
 
-### Required before stable tag
+### Release engineering completed
 
 - [x] Version `2.0.12+2012` / visible 2.0.12 synchronized.
 - [x] Flutter 3.44.7 workflow/toolchain pin synchronized.
 - [x] All six Flutter targets implemented in bootstrap/build/release automation.
 - [x] Web browser-safe file and app-lock boundaries implemented.
 - [x] Drift Web runtime assets pinned to matching Drift 2.34.3 release.
-- [x] Chrome Web platform smoke regression added.
-- [x] Exhaustive repository reference expanded to 108 tracked files.
-- [ ] Resolver-generated `pubspec.lock` committed/reviewed/cataloged/enforced (issue #8).
-- [ ] Full deterministic quality/security gates green on the exact post-lock candidate.
+- [x] Chrome Web platform smoke regression implemented.
+- [x] Resolver-generated `pubspec.lock` committed and reviewed from the pinned toolchain.
+- [x] Dependency restore enforced with `--enforce-lockfile` in CI/platform/release workflows.
+- [x] Exhaustive repository reference expanded to **109 tracked files**.
+- [x] Canonical Dart 3.12.2 formatter baseline committed.
+- [x] Android file-picker 11 registration blocker replaced with file_picker 12 federated implementation.
+- [x] Windows VS2026 coroutine compatibility blocker fixed without pinning an obsolete runner.
+- [x] Explicit iOS 14 deployment floor applied for file_picker 12.
+
+### Diagnostic automated evidence already reached
+
+The immediate file-picker-12 hardening candidate completed:
+
+- [x] Android release APK compile.
+- [x] Windows release compile on current hosted VS2026.
+- [x] Linux release compile.
+- [x] macOS release compile.
+- [x] unsigned iOS release compile.
+- [x] Chrome Web platform smoke.
+- [x] Web release compile.
+- [x] Repository secret scan.
+- [x] Dependency review.
+
+Those results validate the implemented platform fixes. Because documentation/lint/lock-enforcement commits followed, one exact final-candidate rerun is still required before release tagging.
+
+### Required exact final automated verification
+
+- [ ] Version/toolchain synchronization green.
+- [ ] Enforced locked dependency restore green.
+- [ ] Drift generation green.
+- [ ] Formatter green.
+- [ ] Analyzer green.
+- [ ] Flutter tests/coverage green.
+- [ ] Repository policy green.
+- [ ] 109-file repository-reference check green.
+- [ ] Markdown-link scan green.
+- [ ] Secret scan green.
+- [ ] Dependency review green.
 - [ ] Android release compile green.
 - [ ] Windows release compile green.
 - [ ] Linux release compile green.
@@ -92,7 +131,11 @@ Implementation is listed separately from pending verification because source com
 - [ ] iOS no-codesign compile green.
 - [ ] Chrome Web smoke green.
 - [ ] Web release compile green.
+
+### Required manual/runtime/accessibility verification
+
 - [ ] Rapid-edit/Back latest-draft behavior manually verified.
+- [ ] Save-failure blocking/retry behavior verified.
 - [ ] Settings rollback/onboarding persistence verified.
 - [ ] Collection/lifecycle behavior verified.
 - [ ] Native file picker/import/export and oversize rejection verified.
@@ -135,7 +178,7 @@ Candidate work:
 - 1k/10k/50k fictional benchmark fixtures.
 - Search ranking/highlighting improvements.
 - Snapshot pruning/retention policy.
-- Backup corruption-detection metadata/checksum using maintained primitives (not an encryption/authenticity claim).
+- Backup corruption-detection metadata/checksum using maintained primitives, without treating it as encryption/authenticity.
 - Backup dry-run report.
 - Migration fixtures for every released database schema.
 - Streaming/staged structured backup parsing only if profiling demonstrates need.
@@ -186,7 +229,7 @@ Potential improvements:
 Remote synchronization is **not** part of the current core architecture. Any proposal must first define:
 
 - Optionality and full local/offline core use.
-- Threat/encryption/key recovery model.
+- Threat/encryption/key-recovery model.
 - Device/browser transfer and conflict semantics.
 - Metadata leakage.
 - Account/deletion/export obligations.
@@ -207,7 +250,7 @@ Until these questions have robust answers, validated local backup/export is pref
 - Plugin marketplace before core stability.
 - AI processing that silently uploads private notes.
 - A backend merely to make the architecture appear larger.
-- A custom Web/Linux password system merely to claim app-lock feature parity.
+- A custom Web/Linux password system merely to claim app-lock parity.
 
 ## Maintenance track
 
@@ -223,5 +266,6 @@ Every release cycle includes:
 - Settings/lifecycle/import/export/link failure-path review.
 - Exhaustive tracked-file documentation review.
 - Security/privacy documentation review.
+- GitHub Actions runtime-major review; remaining Node-runtime modernization is tracked separately from 2.0.12 product changes.
 
 See [`what_changed.md`](what_changed.md) for the exact current engineering checkpoint.
