@@ -1,19 +1,21 @@
 # NoteNest Setup Guide
 
-This guide starts from a clean machine and gets the repository ready for development and the current **2.0.12** release candidate. NoteNest targets Android, Windows, Linux, macOS, and is iOS-ready. Native builds must be produced on operating systems supported by Flutter for those targets.
+This guide starts from a clean machine and prepares the repository for development of the current **2.0.12** release candidate. NoteNest targets the complete Flutter platform set: **Android, iOS/iPadOS, Windows, macOS, Linux, and Web**.
 
 ## 1. Required tools
 
 You need:
 
 - Git.
-- Flutter SDK **3.44.7**, pinned by `.flutter-version` and the GitHub Actions workflows.
+- Flutter SDK **3.44.7**, pinned by `.flutter-version` and GitHub Actions.
 - Dart (included with Flutter).
-- Python 3 for repository/bootstrap quality tools.
-- A code editor such as VS Code or Android Studio.
-- Native platform tooling for the target you want to build.
+- Python 3 for repository/bootstrap tools.
+- Network access during platform bootstrap so the matching Drift Web runtime assets can be obtained.
+- An editor such as VS Code or Android Studio.
+- Native platform tooling for whichever native target you intend to build.
+- Chrome when running the Web smoke regression locally.
 
-Do not install a separate random Dart SDK ahead of Flutter unless you have a specific reason; Flutter ships a compatible Dart SDK.
+Do not install a separate random Dart SDK ahead of Flutter unless you have a specific reason; Flutter includes the compatible Dart SDK.
 
 ## 2. Install Git
 
@@ -23,13 +25,13 @@ Verify:
 git --version
 ```
 
-Use the official Git installer/package manager for your operating system. On Windows, Git for Windows is the common choice. On macOS, Xcode Command Line Tools or a package manager can provide Git. On Linux, use the distribution package manager.
+Use the supported Git installer/package manager for your OS.
 
 ## 3. Install Flutter
 
-Use the official Flutter installation instructions for your operating system and stable channel. Keep the SDK in a user-writable development directory rather than a protected system folder. For reproducible NoteNest work, select the version recorded in `.flutter-version` instead of silently using a newer stable release.
+Use Flutter's official installation instructions and keep the SDK in a user-writable development location. For reproducible NoteNest work, select the version recorded in `.flutter-version` instead of silently following a newer stable channel.
 
-After adding Flutter's `bin` directory to `PATH`, verify:
+Verify:
 
 ```bash
 flutter --version
@@ -37,19 +39,20 @@ dart --version
 flutter doctor -v
 ```
 
-`flutter --version` should report **3.44.7** for the current NoteNest 2.0.12 release-candidate toolchain. Resolve `flutter doctor` errors relevant to the platforms you intend to use.
+`flutter --version` must report **3.44.7** for final 2.0.12 verification.
 
 ### Updating Flutter
 
-Flutter upgrades are deliberate project changes. Do not update only a developer machine while leaving CI on another SDK. When adopting a new Flutter release:
+A Flutter upgrade is a project change, not a workstation-only update:
 
-1. Review Flutter release notes and package compatibility.
+1. Review Flutter release/package compatibility.
 2. Update `.flutter-version`.
-3. Update the exact `flutter-version` used in CI, platform-build, and release workflows.
-4. Regenerate platform runners and generated Dart code.
-5. Run the full quality and native build suites before merging the upgrade.
+3. Update exact `flutter-version` values in CI, platform-build, and release workflows.
+4. Regenerate all six platform runners.
+5. Re-run code generation, tests, browser smoke checks, and all affected platform builds.
+6. Update release documentation before claiming the new toolchain.
 
-A developer may use their preferred Flutter version manager, but it must resolve the project to the pinned version before verification.
+`tool/check_version_sync.py` rejects workflow pin drift.
 
 ## 4. Editor setup
 
@@ -57,18 +60,14 @@ A developer may use their preferred Flutter version manager, but it must resolve
 
 Recommended extensions:
 
-- Dart (publisher: Dart Code).
-- Flutter (publisher: Dart Code).
+- Dart (Dart Code).
+- Flutter (Dart Code).
 
-Helpful behavior:
-
-- Format on save using the Dart formatter.
-- Show analyzer diagnostics.
-- Do not manually edit generated Drift files.
+Enable Dart formatting/analyzer diagnostics and do not manually edit generated Drift files.
 
 ### Android Studio
 
-Install the Flutter plugin; it brings Dart integration. Keep Android SDK/SDK tools updated through the SDK Manager. Use an Android emulator or physical device for runtime testing.
+Install Flutter/Dart integration and keep relevant Android SDK tooling available when building Android.
 
 ## 5. Clone NoteNest
 
@@ -77,63 +76,60 @@ git clone https://github.com/sanskarIN/notenest.git
 cd notenest
 ```
 
-Check the current branch:
+Check state:
 
 ```bash
 git status
 git branch --show-current
 ```
 
-For local project commits, configure the requested email:
+Configure the requested project commit identity:
 
 ```bash
 git config user.email "sanskarin@outlook.in"
-```
-
-Optionally configure your display name:
-
-```bash
 git config user.name "Sanskar"
 ```
 
 ## 6. Verify release metadata
 
-Before dependency generation or release work, run:
-
 ```bash
 python tool/check_version_sync.py
 ```
 
-For the current candidate it verifies:
+For 2.0.12 this verifies the package/visible/changelog/release-note relationship plus the exact Flutter SDK pin used by the project and workflows.
 
-- `pubspec.yaml` is `2.0.12+2012`.
-- `AppStrings.version` is `2.0.12`.
-- `CHANGELOG.md` contains the 2.0.12 section.
-- `docs/releases/2.0.12.md` exists and contains the exact package/visible version values.
+On Windows, use `py` if that is your configured Python launcher.
 
-On Windows use `py` if that is your Python launcher.
-
-## 7. Generate native platform runners
-
-The repository intentionally generates runner templates from the pinned Flutter SDK:
+## 7. Generate all platform runners
 
 ```bash
 python tool/bootstrap_platforms.py
 ```
 
-On Windows:
+Windows:
 
 ```powershell
 py tool/bootstrap_platforms.py
 ```
 
-The script runs Flutter's project generator for Android, iOS, Linux, macOS, and Windows, then applies NoteNest-specific native requirements:
+The bootstrap runs Flutter project generation for:
 
-- Android activity uses `FlutterFragmentActivity` for `local_auth` compatibility.
-- Android minimum SDK is patched to the project baseline.
-- iOS `Info.plist` gets a Face ID usage description for optional app lock.
+- Android
+- iOS
+- Linux
+- macOS
+- Windows
+- Web
 
-The script is intended to be re-runnable after a clean checkout or intentional Flutter upgrade.
+It then applies/verifies NoteNest platform requirements:
+
+- Android `FlutterFragmentActivity` for `local_auth`.
+- Android biometric permission, minimum SDK, AppCompat dependency/theme baseline.
+- iOS Face ID usage description.
+- Web `sqlite3.wasm` and `drift_worker.js` from the exact **Drift 2.34.3** release used by `pubspec.yaml`.
+- Basic downloaded Web asset sanity checks and explicit failure if the Drift pin changes without bootstrap review.
+
+The Web assets are generated build/runtime inputs and intentionally remain untracked with the rest of the generated platform runners.
 
 ## 8. Fetch dependencies
 
@@ -141,7 +137,11 @@ The script is intended to be re-runnable after a clean checkout or intentional F
 flutter pub get
 ```
 
-If dependency resolution fails after an SDK upgrade, do not immediately widen every version constraint. First inspect the solver message, Flutter/Dart version, and package compatibility.
+### Required 2.0.12 lockfile completion
+
+Stable 2.0.12 still requires the real resolver-generated `pubspec.lock` tracked by GitHub issue #8. Generate it from a clean checkout using Flutter **3.44.7**, review it, and commit the generated file. Do **not** hand-author dependency hashes/versions.
+
+Once committed, final release verification should enforce the lock rather than silently resolving a different graph.
 
 ## 9. Generate Drift code
 
@@ -149,9 +149,9 @@ If dependency resolution fails after an SDK upgrade, do not immediately widen ev
 dart run build_runner build --delete-conflicting-outputs
 ```
 
-This creates `lib/data/database/app_database.g.dart` and other generated output required by Drift. Generated `*.g.dart` files are ignored by Git and should be regenerated locally/CI.
+Generated `*.g.dart` output is intentionally untracked and regenerated locally/CI.
 
-For continuous generation while editing schema/query declarations:
+Continuous mode:
 
 ```bash
 dart run build_runner watch --delete-conflicting-outputs
@@ -168,79 +168,52 @@ dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --coverage
 python tool/check_repo.py
+python tool/check_repository_reference.py
 python tool/check_markdown_links.py
 python tool/security_scan.py
 ```
 
-If all applicable commands pass, list runnable devices:
+Browser-specific boundary test:
+
+```bash
+flutter test --platform chrome test/web/web_platform_smoke_test.dart
+```
+
+Then list/run targets:
 
 ```bash
 flutter devices
-```
-
-Then launch:
-
-```bash
 flutter run -d <device-id>
 ```
 
 ## Android setup
 
-Install:
-
-- Android Studio or Android command-line tooling.
-- Android SDK platform/build tools accepted by the installed Flutter version.
-- Android SDK command-line tools.
-- A compatible JDK (Flutter/Android Studio may manage/recommend one).
-
-Accept required Android licenses:
+Install Android Studio or compatible Android command-line tooling, required SDK/build tools, and a compatible JDK.
 
 ```bash
 flutter doctor --android-licenses
-```
-
-Verify:
-
-```bash
 flutter doctor -v
 flutter devices
-```
-
-For a physical device, enable developer options/USB debugging and authorize the computer. For an emulator, create a current virtual device through Android Studio Device Manager.
-
-Build smoke test:
-
-```bash
 flutter build apk --debug
 ```
 
-Release candidates should additionally compile the release artifacts documented in [`release.md`](release.md). Release artifacts require your own secure signing configuration; never commit keystores/passwords.
+Release verification additionally uses release APK/App Bundle compilation as documented in [`release.md`](release.md). Keep keystores/passwords outside Git.
 
 ## Windows desktop setup
 
-Use Windows with Visual Studio's **Desktop development with C++** workload and the Windows SDK components required by the installed Flutter version.
-
-Verify:
+Use Windows with Visual Studio **Desktop development with C++** and required Windows SDK components.
 
 ```powershell
 flutter config --enable-windows-desktop
 flutter doctor -v
-flutter devices
-```
-
-Build:
-
-```powershell
 flutter build windows --release
 ```
 
-Visual Studio Code is an editor; it does not replace the native Visual Studio C++ build toolchain for Flutter Windows desktop builds.
+VS Code does not replace the native Visual Studio C++ build toolchain.
 
 ## Linux desktop setup
 
-Install Flutter's Linux desktop prerequisites for your distribution. Typical requirements include a C/C++ compiler, CMake, Ninja, GTK development headers, and pkg-config.
-
-Then:
+Install Flutter's Linux desktop prerequisites for your distribution (typically compiler, CMake, Ninja, GTK development headers, and pkg-config).
 
 ```bash
 flutter config --enable-linux-desktop
@@ -248,13 +221,11 @@ flutter doctor -v
 flutter build linux --release
 ```
 
-Package names vary by distribution, so use Flutter's current Linux desktop documentation rather than copying package names meant for another distro/version.
+The current `local_auth` dependency has no Linux implementation, so NoteNest reports app-lock device authentication unavailable on Linux rather than blocking the rest of the app.
 
 ## macOS desktop setup
 
-Install current Xcode and command-line tools, accept the Xcode license, and configure Xcode's active developer directory if needed.
-
-Then:
+Install Xcode/command-line tools and CocoaPods when required by current Flutter/plugins.
 
 ```bash
 flutter config --enable-macos-desktop
@@ -262,20 +233,56 @@ flutter doctor -v
 flutter build macos --release
 ```
 
-CocoaPods may be required by plugins/native dependencies. If `flutter doctor` reports it missing for your target, install/repair CocoaPods using its supported installation method.
+## iOS / iPadOS setup
 
-## iOS setup
-
-An iOS build requires macOS with Xcode. After runner generation:
+Requires macOS + Xcode.
 
 ```bash
 flutter doctor -v
 flutter build ios --release --no-codesign
 ```
 
-The no-codesign build is suitable for compile validation. Installing/distributing on real devices or the App Store requires Apple signing identities/provisioning under your account.
+The no-codesign command validates compilation. Real-device/App Store distribution requires your Apple signing/provisioning. Never commit signing credentials.
 
-Never commit Apple signing secrets, exported certificates, or private provisioning material.
+## Web setup
+
+Flutter Web can be developed from a supported desktop host with a compatible browser.
+
+Run in Chrome:
+
+```bash
+flutter run -d chrome
+```
+
+Run the browser platform regression:
+
+```bash
+flutter test --platform chrome test/web/web_platform_smoke_test.dart
+```
+
+Build the release bundle:
+
+```bash
+flutter build web --release
+```
+
+### Web database runtime
+
+`AppDatabase` points Drift Web at root assets `sqlite3.wasm` and `drift_worker.js`. `tool/bootstrap_platforms.py` writes the matching Drift 2.34.3 assets into the generated `web/` runner before build.
+
+When hosting `build/web`:
+
+- Serve `sqlite3.wasm` with MIME type `application/wasm`.
+- Do not omit or rename `drift_worker.js` / `sqlite3.wasm` without updating the database configuration.
+- Keep the worker and WASM accessible from the deployed app root implied by the current relative URIs.
+- For Drift's optimal OPFS-backed path on compatible browsers, configure cross-origin isolation headers when your host supports them. Drift can fall back to other browser storage modes when isolation is unavailable, so verify the actual backend on the intended host instead of assuming OPFS.
+- Test page reload, browser restart, import/export, and storage retention on the real deployment origin.
+
+Browser note data is local to the browser profile/origin and can be removed by site-data clearing/private browsing policies. JSON backup export is the portable recovery mechanism.
+
+### Web app lock
+
+`local_auth 3.0.2` does not implement Web. NoteNest therefore uses a browser-safe app-lock fallback that reports authentication unavailable. It does not create a custom browser password/biometric system merely to claim parity.
 
 ## Python setup
 
@@ -285,25 +292,15 @@ Verify:
 python --version
 ```
 
-or on Windows:
+or:
 
 ```powershell
 py --version
 ```
 
-The repository Python tools use only the standard library; no `pip install` is required.
-
-Current maintenance scripts include:
-
-- `tool/bootstrap_platforms.py`
-- `tool/check_version_sync.py`
-- `tool/check_repo.py`
-- `tool/check_markdown_links.py`
-- `tool/security_scan.py`
+Repository tools use the Python standard library only. Current tools include platform bootstrap, version sync, repository policy/reference validation, Markdown links, and secret scanning.
 
 ## Clean rebuild
-
-When generated/native state becomes suspicious:
 
 ```bash
 flutter clean
@@ -314,62 +311,60 @@ dart run build_runner build --delete-conflicting-outputs
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --coverage
+flutter test --platform chrome test/web/web_platform_smoke_test.dart
 python tool/check_repo.py
+python tool/check_repository_reference.py
 python tool/check_markdown_links.py
 python tool/security_scan.py
 ```
 
-Do not delete user application data on a real device simply to fix a compile problem.
+Do not delete real application/browser user data merely to repair a build environment.
 
 ## Dependency upgrade workflow
 
-Before changing dependencies:
+Before dependency changes:
 
 ```bash
 flutter pub outdated
 ```
 
-Upgrade deliberately, review changelogs/migrations, then:
+After a deliberate change:
 
 ```bash
 python tool/check_version_sync.py
+python tool/bootstrap_platforms.py
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test
+flutter test --platform chrome test/web/web_platform_smoke_test.dart
 python tool/check_repo.py
+python tool/check_repository_reference.py
 python tool/check_markdown_links.py
 python tool/security_scan.py
 ```
 
-For native-plugin upgrades, rebuild on every affected target before release.
+When changing `drift`, review/update the bootstrap's Web runtime version in the same change and rebuild Web. For plugin changes, rebuild every affected target.
 
 ## Runtime/plugin smoke checks for 2.0.12
 
-A compile/test pass does not replace real platform checks. Before stable 2.0.12, exercise at least:
+Before stable 2.0.12, use fictional data and verify:
 
-- Markdown/text file selection and bounded oversized-file rejection.
-- JSON backup selection, restore, and oversized-file rejection.
-- Repository/funding/release links and `mailto:` actions.
-- No-handler/external-link failure feedback where practical.
-- Optional local authentication supported/unsupported paths.
-- Settings persistence across restart.
+- Markdown/text selection/import and oversized rejection on native plus Web.
+- JSON backup export/restore and oversized rejection on native plus Web.
+- Web local persistence across page reload and browser restart on the actual deployment origin.
+- Web file download/save behavior.
+- Repository/funding/release/mail links and no-handler feedback.
+- App-lock supported paths on Android/iOS/macOS/Windows.
+- App-lock unavailable-but-usable paths on Web/Linux.
+- Settings persistence across restart/reload.
 - Rapid settings changes and rapid note edits.
-
-Use fictional note data.
+- Keyboard/browser navigation, zoom/large text, screen-reader semantics, dark/light themes, and reduced motion.
 
 ## Secrets and local configuration
 
-Core NoteNest requires no secret `.env` values. `.env.example` exists only as a safe placeholder for future non-secret build configuration.
-
-Never commit:
-
-- `.env` values with credentials.
-- Android keystores or `key.properties`.
-- Apple signing files.
-- API tokens.
-- Real note databases/backups.
+Core NoteNest requires no secret `.env` values. Never commit credentials, Android/Apple signing material, API tokens, real note databases, real backups, or private user data.
 
 See [`../SECURITY.md`](../SECURITY.md).
 
