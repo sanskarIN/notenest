@@ -2,8 +2,8 @@
 """Fast repository-level policy checks used by CI.
 
 These checks catch missing handoff/documentation/platform-baseline files and
-accidental placeholder markers before a release. Flutter/Dart correctness is
-checked separately.
+accidental placeholder/generated content before a release. Flutter/Dart
+correctness is checked separately.
 """
 
 from __future__ import annotations
@@ -88,6 +88,28 @@ FORBIDDEN_SOURCE_MARKERS = (
     "HACK:",
 )
 
+REQUIRED_IGNORE_RULES = (
+    ".env",
+    "*.jks",
+    "*.keystore",
+    "lib/**/*.g.dart",
+    "android/",
+    "ios/",
+    "linux/",
+    "macos/",
+    "windows/",
+    "web/",
+)
+
+GENERATED_RUNNER_PREFIXES = (
+    "android/",
+    "ios/",
+    "linux/",
+    "macos/",
+    "windows/",
+    "web/",
+)
+
 
 def tracked_files() -> list[str]:
     result = subprocess.run(
@@ -102,6 +124,7 @@ def tracked_files() -> list[str]:
 
 def main() -> int:
     errors: list[str] = []
+    tracked = tracked_files()
 
     for relative in REQUIRED_FILES:
         if not (ROOT / relative).is_file():
@@ -114,7 +137,7 @@ def main() -> int:
             if value not in readme:
                 errors.append(f"README is missing required text: {value}")
 
-    for relative in tracked_files():
+    for relative in tracked:
         path = ROOT / relative
         if relative.startswith("lib/") and path.suffix == ".dart":
             text = path.read_text(encoding="utf-8")
@@ -127,10 +150,15 @@ def main() -> int:
                 f"generated Drift/build_runner file should not be tracked: {relative}",
             )
 
+        if relative.startswith(GENERATED_RUNNER_PREFIXES):
+            errors.append(
+                f"generated Flutter runner file should not be tracked: {relative}",
+            )
+
     gitignore_path = ROOT / ".gitignore"
     if gitignore_path.is_file():
         gitignore = gitignore_path.read_text(encoding="utf-8")
-        for required_rule in (".env", "*.jks", "*.keystore", "lib/**/*.g.dart"):
+        for required_rule in REQUIRED_IGNORE_RULES:
             if required_rule not in gitignore:
                 errors.append(f".gitignore missing rule: {required_rule}")
 
