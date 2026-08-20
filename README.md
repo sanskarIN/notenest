@@ -5,7 +5,7 @@
 
 **Your thoughts, safely nested.**
 
-A private, offline-first notes app built with Flutter, Dart, Drift, and SQLite.
+A private, offline-first notes app built with Flutter, Dart, Drift, and SQLite for **Android, iOS, Windows, macOS, Linux, and Web**.
 
 **Current release-candidate target: 2.0.12 (`2.0.12+2012`)**
 
@@ -20,9 +20,13 @@ A private, offline-first notes app built with Flutter, Dart, Drift, and SQLite.
 
 ## Release status
 
-NoteNest `main` is currently prepared as a **2.0.12 release candidate**, not yet claimed as a fully verified stable release.
+NoteNest `main` is a **2.0.12 release candidate**, not yet a claimed fully verified stable release.
 
-The package/visible/changelog/release-note version surfaces and exact Flutter workflow pins are synchronized by `tool/check_version_sync.py`, and the current package version is `2.0.12+2012`. The repository also maintains an exhaustive tracked-file catalog in `docs/repository-reference.md`, enforced by `tool/check_repository_reference.py`. A `v2.0.12` tag should be created only after configured CI/native builds and the documented manual platform/accessibility checks pass on the exact candidate commit.
+The application now has source, runner bootstrap, platform fallbacks, browser persistence wiring, CI compile lanes, and release packaging for the complete Flutter target set: Android, iOS, Windows, macOS, Linux, and Web. “Supported project target” means the repository is implemented and automated for that platform; it does **not** mean every current 2.0.12 runtime/manual check has already completed successfully.
+
+The package/visible/changelog/release-note versions and Flutter workflow pins are synchronized by `tool/check_version_sync.py`. The exhaustive repository map currently catalogs **108 tracked files** and is enforced by `tool/check_repository_reference.py`.
+
+Stable `v2.0.12` remains blocked until the resolver-generated `pubspec.lock` tracked by issue #8 is committed with Flutter 3.44.7 and the exact resulting candidate passes the configured quality/security/six-platform builds plus documented manual accessibility/runtime/release checks.
 
 See:
 
@@ -34,13 +38,13 @@ See:
 
 ## Why NoteNest?
 
-NoteNest is designed for people who want a serious notes experience without requiring an account, project-operated cloud service, or permanent internet connection. Notes live in a local Drift/SQLite database, search uses SQLite FTS5, edits autosave, earlier content is preserved as snapshots, and users explicitly choose when to import/export files or open external project/support links.
+NoteNest is designed for people who want a serious notes experience without requiring an account, project-operated cloud service, or permanent internet connection. Notes remain in local application/browser storage, search uses SQLite FTS5, edits autosave, prior content is preserved as snapshots, and users explicitly choose when to import/export files or open external project/support links.
 
-The repository is structured as a production-oriented open-source project rather than a framework demo. It includes modular application code, storage/import validation, deterministic regression tests, security/privacy documentation, GitHub automation, accessibility guidance, release procedures, and a detailed engineering handoff.
+The repository is production-oriented rather than a framework demo. It includes modular application code, validated storage/import boundaries, deterministic regression tests, cross-platform fallbacks, security/privacy documentation, GitHub automation, accessibility guidance, release procedures, and an engineering handoff.
 
 ## Screenshots
 
-Real device captures belong in [`docs/assets/screenshots/`](docs/assets/screenshots/). Until verified runtime captures are produced by the release-validation environment, the repository uses a clearly labeled illustrative layout reference rather than presenting a mockup as a real screenshot.
+Verified runtime captures belong in [`docs/assets/screenshots/`](docs/assets/screenshots/). Until current-candidate captures are produced by release validation, the repository uses a clearly labeled illustrative reference rather than presenting a mockup as runtime evidence.
 
 ![Illustrative NoteNest layout reference](docs/assets/screenshots/layout-reference.svg)
 
@@ -49,130 +53,133 @@ Real device captures belong in [`docs/assets/screenshots/`](docs/assets/screensh
 ### Notes and organization
 
 - Create and edit local notes.
-- Automatic local saving with a debounce before persistence submission.
+- Automatic local saving with debounced submission.
 - Serialized editor writes so an older submitted autosave cannot overtake a newer one.
-- Pin important notes.
-- Mark notes as favorites.
-- Archive notes without deleting them.
-- Move notes to trash, restore them, delete one permanently, or empty trash.
-- Organize with folders and normalized comma-separated tags.
-- Give notes optional colors with explicit selected semantics and a non-color checkmark cue.
-- Filter by collection, folder, and tag.
-- Collection-specific folder/tag metadata for All Notes, Favorites, Archive, and Trash.
-- Switching collections clears stale folder/tag filters.
-- Fast full-text search backed by SQLite FTS5.
-- Collection-specific empty states avoid offering actions whose result would be hidden by the current collection.
+- Pin and favorite notes.
+- Archive, trash, restore, permanently delete, or empty trash.
+- Folders, normalized tags, and optional note colors.
+- Collection/folder/tag filters with collection-scoped metadata.
+- Switching collections clears stale filters from the previous collection.
+- SQLite FTS5 full-text search.
+- Collection-specific empty states avoid offering actions whose results would be hidden.
 
 ### Writing experience
 
 - Distraction-free editor mode.
-- Markdown-lite helpers for headings, emphasis, bullet lists, and checklists.
-- First-line Markdown prefix actions correctly target an empty first line when the caret is at offset zero.
-- Accessible text sizing and Material 3 typography.
+- Markdown-lite helpers for headings, emphasis, bullets, and checklists.
+- Offset-zero prefix actions correctly target an empty first line.
+- Material 3 typography and adjustable text scale.
 - Immutable draft capture before each submitted save.
-- Save-state feedback that does not report a stale draft as current.
-- Version snapshots before changed content is persisted.
-- Restore an earlier version from note history.
+- Save-state feedback protected from stale completions.
+- Version snapshots before changed persisted content.
+- Version-history browser and restore.
 
 ### Import, export, and recovery
 
-- Import UTF-8 Markdown, Markdown-like text, and text files as notes.
-- Native import uses cached file paths and a bounded reader rather than requesting eager NoteNest byte loading.
+- Import UTF-8 Markdown, Markdown-like text, and text files.
+- **Native targets:** use picker-provided cached paths and bounded incremental file streaming.
+- **Web:** uses picker bytes/streams, validates picker-reported size, and re-validates actual received bytes before decoding.
 - Markdown/text import ceiling: **16 MiB**.
 - NoteNest JSON backup import ceiling: **64 MiB**.
-- Strict UTF-8 decoding after the bounded read.
-- Export an individual note as Markdown with small NoteNest front-matter metadata.
-- Cross-platform-safe Markdown filenames.
-- Protection against Windows reserved device names and trailing dots/spaces.
-- Unicode-safe filename truncation that does not split surrogate pairs/code points.
-- Export all notes and snapshots as human-readable JSON.
-- Validate backup application identity, schema version, field types, serialized tags, IDs, note/version relationships, UTC timestamps, timestamp order, and 32-bit ARGB colors before restore writes.
-- Conflict-safe restore: an older backup does not overwrite a newer local note.
-- Restore operations use a database transaction.
+- Strict UTF-8 decoding after bounds validation.
+- Export individual notes as Markdown with NoteNest metadata.
+- Cross-platform-safe Unicode filenames with Windows reserved-name/trailing-dot protection.
+- Export notes and snapshots as validated human-readable JSON.
+- Validate backup app identity, schema, field types, tags, IDs, relationships, UTC timestamps, timestamp order, lifecycle combinations, and 32-bit ARGB color values before restore writes.
+- Conflict-safe restore keeps newer local revisions.
+- Restore writes are transactional.
 
 ### Settings and onboarding reliability
 
 - Light, dark, and system appearance modes.
 - Adjustable text scale.
 - Reduced-motion preference.
-- Optional local app-lock preference.
-- Preference writes are serialized.
-- Failed visible preference writes roll back to the last successfully persisted value when appropriate.
-- Preference setter failures are treated as real storage failures.
-- Onboarding completion is persistence-first: the app does not leave onboarding until the completion flag is saved.
-- User-visible feedback is provided when settings/onboarding persistence fails.
-- Root application teardown delegates final settings-controller/database cleanup to the composition root.
+- Optional device-authentication app lock **where the platform/plugin supports it**.
+- Unsupported app-lock targets remain usable and show the capability as unavailable rather than trapping the user behind an impossible unlock screen.
+- Serialized preference writes and rollback after applicable persistence failures.
+- Persistence-first onboarding.
+- User-visible settings/onboarding persistence feedback.
+- Root application teardown releases the owned settings controller and database.
 
 ### Privacy and security
 
 - Core functionality is local and requires no NoteNest account.
-- Optional device-authentication app lock through `local_auth` where supported.
-- No analytics, ads, remote note synchronization, tracking SDKs, or production secrets are required by core functionality.
+- No required project-operated note sync, analytics, ads, tracking SDK, or production secret.
 - No custom cryptography.
-- App lock is UI access control and is **not** described as SQLite database encryption.
+- App lock is UI access control, **not SQLite database encryption**.
+- `local_auth` is used only where supported; Web and Linux currently treat app-lock device authentication as unavailable.
 - Secrets/signing material are excluded from source control.
-- Imported local files are size-bounded before NoteNest creates a complete import buffer.
-- Backup data is validated before transaction writes.
+- Imports are bounded before decoding/structured processing.
+- Backup data is validated before transactional writes.
 - SQL search values are parameterized.
-- Security policy and responsible-disclosure process are documented.
-
-### External links
-
-- Repository, funding, business/support email, and Releases actions go through a centralized `ExternalLinkService`.
-- Launcher refusals/exceptions are contained instead of escaping as uncaught feature errors.
-- About/Settings surfaces show concise user feedback when a link cannot be opened.
+- Security policy and responsible-disclosure guidance are documented.
 
 ### Product quality
 
-- Responsive layout for phones, tablets, and desktops.
+- Responsive layout for phones, tablets, desktop windows, and browser viewports.
 - Bottom navigation on compact layouts and navigation rail on wider layouts.
 - Keyboard- and semantics-friendly Material controls.
-- Custom color swatches use a 48 logical-pixel interaction target and explicit selected state.
+- 48 logical-pixel minimum custom color targets with visible non-color selected cues.
 - Empty, loading, error, destructive-confirmation, save, and progress states.
-- English first, with Flutter localization delegates and project-string centralization preparing future localization work.
-- Dedicated Settings and About areas.
-- Structured redacting logger for safe diagnostic events.
+- English-first localization structure.
+- Centralized safe external-link service.
+- Structured redacting diagnostic logger.
 
 ## Supported project targets
 
-| Platform | Project target | Notes |
+| Platform | Project target | Current platform design |
 |---|---:|---|
-| Android | ✅ Primary | Local auth can use supported device credentials/biometrics. |
-| Windows | ✅ Primary | Responsive desktop layout and local SQLite storage. |
-| Linux | ✅ Primary | Responsive desktop layout and local SQLite storage. |
-| macOS | ✅ Primary | Responsive desktop layout and local SQLite storage. |
-| iOS | 🟡 Ready | Runner bootstrap and Face ID usage-description patch provided; release signing requires an Apple environment. |
+| Android | ✅ Supported | Local Drift/SQLite, file import/export, responsive UI, supported device authentication. |
+| iOS / iPadOS | ✅ Supported | Local Drift/SQLite, file import/export, Face ID usage configuration; distribution requires Apple signing. |
+| Windows | ✅ Supported | Local Drift/SQLite, desktop-responsive UI, file import/export, supported Windows authentication. |
+| macOS | ✅ Supported | Local Drift/SQLite, desktop-responsive UI, file import/export, supported macOS authentication. |
+| Linux | ✅ Supported | Local Drift/SQLite, desktop-responsive UI and file import/export; app-lock device authentication is unavailable with current dependencies. |
+| Web | ✅ Supported | Browser-local Drift SQLite via WASM/worker, browser file import/export and responsive UI; app-lock device authentication is unavailable. |
 
-This table describes project targets, **not** a claim that the current 2.0.12 candidate has already passed every native runtime/build test. Exact verification status is recorded in [`what_changed.md`](what_changed.md).
+All six targets are included in platform automation. The current candidate still requires final completed CI/runtime/manual evidence before the table should be interpreted as a stable-release certification.
 
-Native runner templates are generated with [`tool/bootstrap_platforms.py`](tool/bootstrap_platforms.py), which now validates that required native authentication/platform patches were actually applied. Flutter is pinned to **3.44.7** in [`.flutter-version`](.flutter-version) and CI/platform/release workflows; `tool/check_version_sync.py` rejects pin drift.
+### Web persistence and hosting
+
+The database factory uses Drift Web support with generated root assets:
+
+- `sqlite3.wasm`
+- `drift_worker.js`
+
+`tool/bootstrap_platforms.py` downloads these from the **Drift 2.34.3** release, matching the project dependency, and refuses to proceed if the direct Drift pin changes without an explicit bootstrap review.
+
+For deployment:
+
+- Serve `sqlite3.wasm` with the correct WebAssembly MIME type (`application/wasm`).
+- Serve the generated Flutter Web bundle and worker from the same deployment as expected by the root-relative configuration.
+- Cross-origin isolation headers can enable Drift's optimal OPFS path on compatible hosts. Drift can use fallback browser storage when those headers are unavailable, so NoteNest does not require claiming every host has OPFS.
+- Browser storage is local to the browser/profile/origin and can be cleared by browser/site-data controls. Use NoteNest JSON backup export for portable recovery.
 
 ## Technology stack
 
 - **UI:** Flutter + Material 3
 - **Language:** Dart
-- **Persistence:** Drift + SQLite
+- **Persistence:** Drift + SQLite; SQLite WASM/worker on Web
 - **Search:** SQLite FTS5
 - **Settings:** `shared_preferences`
-- **Device app lock:** `local_auth`
+- **Device app lock:** `local_auth` where supported, safe unavailable fallback elsewhere
 - **File selection/export:** `file_picker`
 - **External links:** `url_launcher` behind `ExternalLinkService`
 - **Identifiers:** UUID v7
-- **Testing:** `flutter_test`, in-memory Drift/SQLite tests, injectable service/store boundaries
+- **Testing:** `flutter_test`, in-memory Drift/SQLite tests, Chrome Web smoke regression, injectable service/store boundaries
 - **Automation:** GitHub Actions + Dependabot + repository Python quality tools
 
 ## Quick start
 
 ### 1. Install prerequisites
 
-Install Flutter **3.44.7** for the current NoteNest 2.0.12 release-candidate toolchain plus native build requirements for the target you intend to run.
+Install Flutter **3.44.7** and the host prerequisites for the target you intend to build.
 
 ```bash
 flutter --version
 flutter doctor -v
 ```
 
-Full OS setup instructions: [`docs/setup.md`](docs/setup.md).
+Full setup instructions: [`docs/setup.md`](docs/setup.md).
 
 ### 2. Clone
 
@@ -181,40 +188,42 @@ git clone https://github.com/sanskarIN/notenest.git
 cd notenest
 ```
 
-For local commits made for this project:
+For local project commits:
 
 ```bash
 git config user.email "sanskarin@outlook.in"
 ```
 
-### 3. Verify release/toolchain metadata
+### 3. Verify version/toolchain metadata
 
 ```bash
 python tool/check_version_sync.py
 ```
 
-This checks the package version, visible About version, changelog section, matching version-specific release notes, the exact `.flutter-version` pin, and the Flutter pins used by quality/platform/release workflows.
+This verifies package/UI/changelog/release-note version synchronization, `.flutter-version`, and the Flutter pins in quality/platform/release workflows.
 
-### 4. Generate native runners
+### 4. Generate all platform runners
 
 ```bash
 python tool/bootstrap_platforms.py
 ```
 
-On Windows, use `py` if that is your Python launcher:
+On Windows:
 
 ```powershell
 py tool/bootstrap_platforms.py
 ```
 
-The bootstrap command fails if required NoteNest native patches cannot be applied and verified against the generated Flutter templates.
+The bootstrap generates Android, iOS, Linux, macOS, Windows, and Web runners. It applies and verifies the Android/iOS authentication requirements and obtains/verifies the Web database runtime assets matching Drift 2.34.3. Network access is therefore required during bootstrap for those Web assets.
 
-### 5. Install packages and generate Drift code
+### 5. Resolve dependencies and generate Drift code
 
 ```bash
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs
 ```
+
+Before stable 2.0.12 release work, generate and commit the real `pubspec.lock` with this pinned toolchain as required by issue #8; do not hand-author the lockfile.
 
 ### 6. Run
 
@@ -223,9 +232,13 @@ flutter devices
 flutter run -d <device-id>
 ```
 
-## Development workflow
+For a browser target, for example:
 
-A normal development loop is:
+```bash
+flutter run -d chrome
+```
+
+## Development workflow
 
 ```bash
 python tool/check_version_sync.py
@@ -243,23 +256,11 @@ For continuous Drift generation:
 dart run build_runner watch --delete-conflicting-outputs
 ```
 
-See [`docs/development.md`](docs/development.md) for module boundaries, settings/file/external-link rules, generated-code handling, database changes, and contribution workflow.
+See [`docs/development.md`](docs/development.md).
 
 ## Testing and quality gate
 
-Run all tests:
-
-```bash
-flutter test
-```
-
-Run with coverage:
-
-```bash
-flutter test --coverage
-```
-
-Before submitting/releasing, run:
+Primary test/quality commands:
 
 ```bash
 python tool/check_version_sync.py
@@ -273,19 +274,25 @@ python tool/check_markdown_links.py
 python tool/security_scan.py
 ```
 
+Web-specific boundary regression:
+
+```bash
+flutter test --platform chrome test/web/web_platform_smoke_test.dart
+```
+
 Quality tools:
 
-- `tool/check_version_sync.py` — package/UI/changelog/release-note version consistency plus exact Flutter workflow-pin synchronization.
-- `tool/check_repo.py` — complete required repository/documentation/automation baseline, source-marker/generated-file policy, and important ignore rules.
-- `tool/check_repository_reference.py` — exhaustive one-entry-per-tracked-file repository documentation contract.
-- `tool/check_markdown_links.py` — repository-local Markdown links.
+- `tool/check_version_sync.py` — app/release metadata plus exact Flutter workflow-pin synchronization.
+- `tool/check_repo.py` — required repository/documentation/automation and source/generated/ignore policy.
+- `tool/check_repository_reference.py` — exhaustive tracked-file documentation contract.
+- `tool/check_markdown_links.py` — deterministic repository-local Markdown links.
 - `tool/security_scan.py` — lightweight tracked credential-pattern scan.
 
-See [`docs/testing.md`](docs/testing.md) for the current regression map and platform verification plan.
+See [`docs/testing.md`](docs/testing.md).
 
 ## Build and release
 
-After runner generation, common compile/release commands are:
+After bootstrap/code generation, target commands include:
 
 ```bash
 flutter build apk --release
@@ -294,87 +301,88 @@ flutter build windows --release
 flutter build linux --release
 flutter build macos --release
 flutter build ios --release --no-codesign
+flutter build web --release
 ```
 
-Only run commands supported by the host OS. Store releases additionally require signing identities that **must not** be committed.
+Only run native commands supported by the host OS. Store/native distribution additionally requires signing identities that must stay outside Git. Web deployment must preserve the generated WASM/worker assets and correct serving behavior.
 
-2.0.12 candidate details:
+GitHub's platform-build workflow compiles all six targets, and the release workflow uploads a Web bundle alongside native validation/package artifacts.
+
+Candidate details:
 
 - [`docs/releases/2.0.12.md`](docs/releases/2.0.12.md)
 - [`docs/release.md`](docs/release.md)
 
-Do not create `v2.0.12` until the exact commit passes the documented automated/native/manual release checks.
+Do not create `v2.0.12` until the exact final commit passes all documented automated/platform/manual checks.
 
 ## Architecture overview
 
 ```text
 lib/
 ├── app/                 # Composition root and application controllers
-├── core/                # Constants, errors, logging, theme, pure utilities
+├── core/                # Constants, errors, logging, theme, pure/platform utilities
 ├── data/
-│   ├── database/        # Drift schema, SQLite and FTS infrastructure
+│   ├── database/        # Drift schema, SQLite/FTS and Web database configuration
 │   └── repositories/    # Notes, settings and backup persistence
 ├── domain/              # UI-independent filter/value models
-├── features/
-│   ├── about/
-│   ├── home/
-│   ├── notes/
-│   ├── onboarding/
-│   └── settings/
-├── services/            # File transfer, app lock, external links
-├── widgets/             # Reusable presentation components
+├── features/            # About, home, notes, onboarding, settings
+├── services/            # Cross-platform file transfer, app lock, external links
+├── widgets/             # Reusable presentation controls
 └── main.dart            # Application entry point
 ```
 
-[`AppDependencies`](lib/app/app_dependencies.dart) owns composition and final settings/database cleanup. Repositories isolate storage invariants, services isolate plugin/platform boundaries, controllers own feature/application state, and pure helpers stay outside widgets where practical.
+[`AppDependencies`](lib/app/app_dependencies.dart) owns composition and final settings/database cleanup. Repositories isolate storage invariants, services isolate plugin/platform boundaries, controllers own feature/application state, and conditional imports prevent browser builds from importing native-only filesystem/authentication implementation code.
 
 Read [`docs/architecture.md`](docs/architecture.md) and [`docs/adr/`](docs/adr/).
 
 ## Data model
 
-Drift schema version **1** currently contains:
+Drift schema version **1** contains:
 
-- `notes`: current note state, organization metadata, ARGB color value, lifecycle flags, UTC timestamps.
+- `notes`: current note state and organization/lifecycle metadata.
 - `note_versions`: pre-change snapshots tied to a note with cascade deletion.
-- `notes_fts`: FTS5 external-content index maintained by SQLite triggers for title, body, folder, and serialized tags.
+- `notes_fts`: FTS5 external-content index maintained by SQLite triggers.
+
+On native targets Drift uses the normal platform SQLite path. On Web, Drift uses the generated compatible SQLite WASM/worker configuration and browser-local storage selection.
 
 **Application version 2.0.12 does not mean database schema version 2.** These are independent version domains.
 
-Future database schema changes must increment Drift `schemaVersion`, add deterministic migrations, and include migration-fixture coverage.
-
 ## Backup format
 
-Backup schema version is also independent from the application and Drift schema versions. Current restore logic validates the full payload before transaction writes and preserves newer local note revisions.
+Backup schema versioning is also independent. Restore validates the full payload before writes and preserves newer local note revisions. JSON backup export/import is the portable recovery path across native installations and browser origins/profiles.
 
 See [`docs/architecture.md`](docs/architecture.md), [`docs/testing.md`](docs/testing.md), and [`SECURITY.md`](SECURITY.md).
 
 ## Privacy
 
-Core NoteNest note data remains local. The app does not require a NoteNest account or upload note contents to a project-operated server. File import/export and external URI launching happen only after explicit user actions.
+Core NoteNest note data remains local to the installed application or browser storage. The app does not require a NoteNest account or upload note contents to a project-operated server. File import/export and external URI launching happen only after explicit user actions.
 
-Read [`PRIVACY.md`](PRIVACY.md) before distributing a modified build—especially if adding networking, telemetry, sync, accounts, AI processing, ads, or third-party data services.
+The Web build necessarily downloads its static application bundle/SQLite runtime assets from whichever site hosts it. That delivery is different from uploading users' note contents; NoteNest has no project-operated note-sync path in core functionality.
+
+Read [`PRIVACY.md`](PRIVACY.md) before distributing a modified build, especially if adding networking, telemetry, sync, accounts, AI processing, ads, or third-party data services.
 
 ## Security
 
 - Never commit signing keys, API keys, tokens, passwords, private endpoints, `.env` secrets, or real user databases/backups.
-- Treat imports/backups as untrusted and bounded input.
+- Treat imports/backups as untrusted bounded input.
 - Validate backup structure before database writes.
 - Keep user search values parameterized.
-- Keep generated export filenames cross-platform and Unicode safe.
-- Treat preference persistence failure as a real storage failure.
-- Use `ExternalLinkService` instead of invoking launcher plugins directly from feature widgets.
-- Use OS authentication rather than storing custom biometric/password credentials.
-- Report suspected vulnerabilities privately according to [`SECURITY.md`](SECURITY.md).
+- Keep export filenames cross-platform/Unicode safe.
+- Treat preference persistence failure as real storage failure.
+- Use `ExternalLinkService` instead of direct launcher calls from feature widgets.
+- Use OS authentication where supported rather than storing custom biometric/password credentials.
+- Do not invent a browser app-lock password scheme merely to claim feature parity; unavailable platforms degrade safely.
+- Report vulnerabilities privately according to [`SECURITY.md`](SECURITY.md).
 
 ## Accessibility
 
-The project aims for WCAG-oriented inclusive behavior rather than claiming formal certification. It uses semantic Material controls, tooltips, scalable typography, theme-aware colors, touch-friendly custom controls, explicit non-color selection cues, reduced-motion preference, responsive layouts, and safe user-visible failure states.
+The project aims for WCAG-oriented inclusive behavior rather than claiming formal certification. It uses semantic Material controls, tooltips, scalable typography, theme-aware colors, touch-friendly custom controls, explicit non-color selection cues, reduced motion, responsive layouts, and safe visible failure states.
 
-Manual screen-reader, keyboard, large-text, and device checks remain release requirements. See [`docs/accessibility.md`](docs/accessibility.md).
+Manual screen-reader, keyboard, large-text, browser zoom/viewport, and representative-device checks remain release requirements. See [`docs/accessibility.md`](docs/accessibility.md).
 
 ## Performance
 
-Note discovery uses SQLite FTS5 rather than loading all note bodies solely for substring search. Note saves and settings writes have explicit async ordering. Native imports are size-bounded before the final NoteNest buffer is built. Collection folder/tag metadata currently scans local notes and is a documented candidate for future database-side optimization if profiling shows a need.
+Note discovery uses SQLite FTS5. Editor/settings persistence has explicit async ordering. Native imports stream within limits; Web imports validate reported and actual picker data before decoding. Browser persistence performance depends on the storage backend available to Drift on the deployed origin/browser.
 
 See [`docs/performance.md`](docs/performance.md).
 
@@ -386,29 +394,20 @@ See [`docs/performance.md`](docs/performance.md).
 - [`docs/testing.md`](docs/testing.md) — regression strategy and quality gates
 - [`docs/accessibility.md`](docs/accessibility.md) — accessibility requirements/manual checks
 - [`docs/performance.md`](docs/performance.md) — performance budgets/profiling
-- [`docs/release.md`](docs/release.md) — packaging/release process
+- [`docs/release.md`](docs/release.md) — packaging/release/deployment process
 - [`docs/releases/2.0.12.md`](docs/releases/2.0.12.md) — current release candidate
-- [`docs/repository-reference.md`](docs/repository-reference.md) — exhaustive tracked-file responsibility/maintenance catalog
-- [`docs/troubleshooting.md`](docs/troubleshooting.md) — setup/build/runtime problems
+- [`docs/repository-reference.md`](docs/repository-reference.md) — exhaustive 108-file responsibility catalog
+- [`docs/troubleshooting.md`](docs/troubleshooting.md) — setup/build/runtime recovery
 - [`docs/adr/`](docs/adr/) — architecture decision records
-- [`what_changed.md`](what_changed.md) — exact continuation/verification handoff
+- [`what_changed.md`](what_changed.md) — exact engineering/verification handoff
 
 ## Contributing
 
-Contributions are welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) before opening a pull request.
-
-Small, reviewable Conventional Commits are preferred, for example:
-
-```text
-feat: add note sorting control
-fix: preserve newer note during restore
-test: cover malformed backup timestamps
-docs: document Linux setup
-```
+Contributions are welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) before opening a pull request. Small, reviewable Conventional Commits are preferred.
 
 ## Roadmap
 
-The current roadmap is maintained in [`ROADMAP.md`](ROADMAP.md). Future work should remain coherent with NoteNest's offline-first privacy model; a feature should not introduce a required cloud dependency merely to increase feature count.
+See [`ROADMAP.md`](ROADMAP.md). Future features should remain coherent with NoteNest's local-first privacy model.
 
 ## Support and contact
 
@@ -419,7 +418,7 @@ The current roadmap is maintained in [`ROADMAP.md`](ROADMAP.md). Future work sho
 - Repository: <https://github.com/sanskarIN/notenest>
 - Buy Me a Coffee: <https://buymeacoffee.com/sanskarIN>
 
-See [`SUPPORT.md`](SUPPORT.md) for support-request guidance.
+See [`SUPPORT.md`](SUPPORT.md).
 
 ## Funding
 
