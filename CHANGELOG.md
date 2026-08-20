@@ -26,11 +26,14 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 - Material 3 light, dark, and system themes.
 - User-adjustable text scale and reduced-motion preference.
 - Privacy-first onboarding.
-- Optional operating-system-backed app lock through `local_auth`.
+- Optional operating-system-backed app lock through `local_auth` where that plugin is supported.
 - Settings and About screens with project/support/funding information.
 - Editable NoteNest SVG logo source and labeled layout-reference artwork.
-- In-memory repository/database tests, backup-validation tests, settings tests, application-controller tests, feature-controller tests, Markdown helper/metadata tests, logger-redaction tests, import-bound/bounded-reader tests, safe-filename tests, async-save-order tests, external-link tests, onboarding coverage, collection-empty-state coverage, About-link failure coverage, editor load/save-before-pop coverage, editor first-line formatting-boundary coverage, and custom color-swatch accessibility coverage.
-- Reproducible native runner bootstrap script for Android, iOS, Linux, macOS, and Windows.
+- In-memory repository/database tests, backup-validation tests, settings tests, application-controller tests, feature-controller tests, Markdown helper/metadata tests, logger-redaction tests, import-bound/bounded-reader tests, safe-filename tests, async-save-order tests, external-link tests, onboarding coverage, collection-empty-state coverage, About-link failure coverage, editor load/save-before-pop coverage, editor first-line formatting-boundary coverage, custom color-swatch accessibility coverage, and a Chrome-targeted Web platform smoke regression.
+- Reproducible platform runner bootstrap for **Android, iOS, Linux, macOS, Windows, and Web**.
+- First-class Flutter Web target with local Drift/SQLite persistence through the matching `sqlite3.wasm` and `drift_worker.js` assets.
+- Browser-safe Markdown/text and backup import using picker bytes/streams with reported and actual byte-limit validation.
+- Web release-mode build verification and Web release artifact packaging in GitHub Actions.
 - Repository documentation, contribution policy, security policy, privacy disclosure, support guide, ADRs, CI configuration, templates, and dependency automation.
 - Deterministic Markdown local-link checker integrated into the CI quality gate.
 - Exact Flutter SDK pin (`3.44.7`) synchronized across project, quality, platform-build, and release workflows.
@@ -46,24 +49,35 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 
 - Project semantic version advanced to **2.0.12** with Flutter build number **2012**.
 - About UI now reports version **2.0.12**.
+- Supported project targets now cover the complete Flutter platform set: Android, iOS, Linux, macOS, Windows, and Web.
+- The Drift database factory now explicitly supplies the Web SQLite WASM and worker locations while retaining the normal Drift Flutter database behavior on native targets.
+- Platform bootstrap pins browser SQLite runtime assets to Drift **2.34.3**, matching `pubspec.yaml`, and fails if the dependency pin changes without an explicit asset review.
+- Browser bootstrap validates that downloaded WASM/worker payloads look like their expected asset types before writing them into the generated Web runner.
+- File transfer chooses browser picker data on Web and native path streaming elsewhere instead of assuming every selected file exposes a filesystem path.
+- App-lock implementation is selected conditionally so Web does not import an unsupported `local_auth` implementation.
+- Unsupported app-lock targets remain usable even if an app-lock preference exists; Settings reports capability instead of allowing an impossible enable flow.
 - CI verifies version synchronization before dependency resolution and Flutter compilation work.
 - Version synchronization also rejects a `.flutter-version`/workflow Flutter SDK mismatch.
-- Platform-build verification now runs when bundled `assets/**` change, not only when source/build/bootstrap files change.
-- Native-runner bootstrap validates that required Android authentication/minimum-SDK/AppCompat theme patches and the iOS Face ID usage description were actually applied; upstream template drift now fails the bootstrap instead of being silently accepted.
-- Repository policy checks now require the complete release/documentation/automation baseline, including the pinned SDK file, all release/security/platform workflows, canonical assets, GitHub guidance, bootstrap tooling, security scanner, and issue-template configuration.
+- Platform-build verification runs when bundled assets or Web smoke tests change, not only when application source/build/bootstrap files change.
+- Native/platform bootstrap validates required Android authentication/minimum-SDK/AppCompat and iOS Face ID configuration while also preparing Web database assets; upstream template/dependency drift fails loudly.
+- Repository policy checks require the complete release/documentation/automation baseline.
 - External repository, funding, support-email, business-email, and release links share the same safe launcher behavior.
 - Folder/tag filter metadata is collection-scoped rather than global.
 - Switching between All Notes, Favorites, Archive, and Trash clears folder/tag selections that belong to the previous collection.
 - Onboarding completion is persisted before the UI leaves onboarding.
 - Settings mutations are serialized through the same ordered async primitive used for other ordering-sensitive work.
-- Normal editor back navigation now waits for the current draft save to finish successfully before the route is allowed to pop.
+- Normal editor back navigation waits for the current draft save to finish successfully before the route is allowed to pop.
 - Version-history and Markdown-export actions require the current draft to save successfully before the action starts.
+- The exhaustive repository reference now catalogs **108 tracked files** after the browser/native abstraction and Web regression additions.
 
 ### Fixed
 
-- Root application teardown now disposes the settings controller and closes the Drift database through `AppDependencies.dispose()` when the `NoteNestApp` state is permanently removed.
-- Markdown-lite heading/list/checklist formatting at caret offset zero now targets the actual empty first line even when the note begins with a newline.
-- Serialized editor saves so overlapping autosave, lifecycle, export/history, and final navigation submissions cannot overtake one another and write an older submitted draft after a newer one.
+- Browser compilation is no longer blocked by a direct `dart:io` import in the shared bounded-file reader.
+- Web import no longer requires a native filesystem path from `file_picker`; browser bytes/streams are accepted with the same configured size ceilings.
+- A persisted app-lock preference can no longer strand Web or another unsupported target on an unlock screen that can never succeed.
+- Root application teardown disposes the settings controller and closes the Drift database through `AppDependencies.dispose()` when the `NoteNestApp` state is permanently removed.
+- Markdown-lite heading/list/checklist formatting at caret offset zero targets the actual empty first line even when the note begins with a newline.
+- Serialized editor saves prevent overlapping autosave, lifecycle, export/history, and final navigation submissions from overtaking one another.
 - Prevented stale save completions from reporting a newer unsaved draft as saved.
 - Replaced an endless editor loading spinner after note-load failure with a retryable local-storage error state.
 - Prevented normal editor back navigation from silently leaving before the current draft save finishes; a failed save keeps the editor open with feedback.
@@ -99,25 +113,27 @@ No post-2.0.12 changes are intentionally queued yet. New work after the 2.0.12 c
 - Restore validation accepts `colorValue` only when null or within the 32-bit ARGB integer range.
 - Restore operations preserve newer local note revisions.
 - Imported text is decoded as UTF-8 and never executed.
-- Markdown/text imports are rejected above 16 MiB before NoteNest constructs a complete import buffer.
-- NoteNest JSON backups are rejected above 64 MiB before NoteNest constructs a complete import buffer or performs UTF-8/JSON processing.
-- Native import reads are disk-backed/incremental after the picker returns a cached local path instead of requesting `withData: true` eager memory loading.
+- Markdown/text imports are rejected above 16 MiB before decoding; NoteNest JSON backups are rejected above 64 MiB before UTF-8/JSON processing.
+- Native import reads are disk-backed/incremental after the picker returns a cached local path; Web import validates picker-reported size and actual byte/stream length before processing.
 - SQL search inputs are transformed into parameterized FTS variables instead of interpolated into SQL.
 - Common secret, signing, database, and local-environment files are excluded from source control.
-- App lock delegates authentication to maintained platform APIs rather than custom authentication/cryptography.
+- App lock delegates authentication to maintained platform APIs where supported and degrades to unavailable on unsupported targets rather than introducing custom browser credentials.
 - Generated Markdown export names are normalized before reaching platform save dialogs.
 - External launcher exceptions are contained at a service boundary instead of becoming uncaught UI failures.
 - Preference-persistence failures are propagated to controller/UI boundaries instead of being treated as successful writes.
 
 ### Known release-preparation constraints
 
-- Native runner templates and Drift-generated Dart files are intentionally generated during setup/CI instead of committed as stale generated output.
-- A Flutter-enabled environment is required to produce runtime screenshots and final native artifacts.
+- Platform runner templates, Web database runtime assets, and Drift-generated Dart files are intentionally generated during setup/CI instead of committed as stale generated output.
+- The Web bundle requires `sqlite3.wasm` to be served with the correct WebAssembly MIME type. Cross-origin isolation headers improve the optimal Drift/OPFS path where a chosen host supports them; Drift retains fallback storage paths when those headers are unavailable.
+- Web app lock is intentionally unavailable because `local_auth 3.0.2` has no Web implementation. Linux likewise treats device authentication as unavailable unless a supported implementation is introduced later.
+- A Flutter-enabled environment is required to produce runtime screenshots and final platform artifacts.
 - Store/distribution signing credentials are intentionally not part of the repository.
-- Completed green GitHub Actions/native verification is still required against the 2.0.12 candidate before a stable tag is created.
-- Real-device/platform checks remain required for editor save-before-pop behavior, local authentication, file pickers/providers, settings persistence, external links, keyboard navigation, screen readers, large text, reduced motion, and runtime screenshots.
+- `pubspec.lock` is not yet committed; issue #8 requires a real lock generated by pinned Flutter 3.44.7 before stable release verification.
+- Completed green GitHub Actions verification is still required against the final post-lockfile 2.0.12 candidate before a stable tag is created.
+- Real-device/browser/platform checks remain required for editor save-before-pop, file pickers/providers, settings persistence, external links, keyboard navigation, screen readers, large text, reduced motion, Web persistence/reload/import/export, supported-device authentication, and runtime screenshots.
 
-The `v2.0.12` tag must only be created after all configured CI jobs pass from a clean checkout, primary platform build checks complete, verified runtime screenshots replace the illustrative reference, and final manual accessibility/release checks are recorded in `what_changed.md`.
+The `v2.0.12` tag must only be created after all configured CI jobs pass from a clean checkout, all six platform build targets complete, verified runtime screenshots replace the illustrative reference, Web deployment/runtime checks are recorded, and final manual accessibility/release checks are recorded in `what_changed.md`.
 
 [Unreleased]: https://github.com/sanskarIN/notenest/compare/v2.0.12...HEAD
 [2.0.12]: https://github.com/sanskarIN/notenest/releases/tag/v2.0.12
