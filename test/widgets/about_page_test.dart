@@ -9,7 +9,7 @@ void main() {
     WidgetTester tester,
   ) async {
     final ExternalLinkService externalLinks = ExternalLinkService(
-      launcher: (Uri _, LaunchMode __) async => false,
+      launcher: (Uri _, LaunchMode _) async => false,
     );
 
     await tester.pumpWidget(
