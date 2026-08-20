@@ -20,6 +20,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DRIFT_WEB_VERSION = "2.34.3"
+IOS_MIN_VERSION = "14.0"
+WINDOWS_COROUTINE_COMPAT_DEFINE = (
+    "_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS"
+)
 DRIFT_RELEASE_BASE = (
     "https://github.com/simolus3/drift/releases/download/"
     f"drift-{DRIFT_WEB_VERSION}"
@@ -150,6 +154,73 @@ def patch_ios() -> None:
     with plist_path.open("wb") as target:
         plistlib.dump(data, target, sort_keys=False)
 
+    framework_plist = ROOT / "ios/Flutter/AppFrameworkInfo.plist"
+    if not framework_plist.exists():
+        raise RuntimeError(f"Flutter did not generate expected file: {framework_plist}")
+    with framework_plist.open("rb") as source:
+        framework_data = plistlib.load(source)
+    framework_data["MinimumOSVersion"] = IOS_MIN_VERSION
+    with framework_plist.open("wb") as target:
+        plistlib.dump(framework_data, target, sort_keys=False)
+
+    project = ROOT / "ios/Runner.xcodeproj/project.pbxproj"
+    if not project.exists():
+        raise RuntimeError(f"Flutter did not generate expected file: {project}")
+    project_text = project.read_text(encoding="utf-8")
+    project_text, replacements = re.subn(
+        r"IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;",
+        f"IPHONEOS_DEPLOYMENT_TARGET = {IOS_MIN_VERSION};",
+        project_text,
+    )
+    if replacements == 0 or f"IPHONEOS_DEPLOYMENT_TARGET = {IOS_MIN_VERSION};" not in project_text:
+        raise RuntimeError(
+            "iOS project template changed; could not enforce the iOS 14 deployment target.",
+        )
+    project.write_text(project_text, encoding="utf-8")
+
+    podfile = ROOT / "ios/Podfile"
+    if podfile.exists():
+        pod_text = podfile.read_text(encoding="utf-8")
+        platform_line = f"platform :ios, '{IOS_MIN_VERSION}'"
+        if re.search(r"(?m)^\s*#?\s*platform :ios, '[0-9.]+'\s*$", pod_text):
+            pod_text = re.sub(
+                r"(?m)^\s*#?\s*platform :ios, '[0-9.]+'\s*$",
+                platform_line,
+                pod_text,
+                count=1,
+            )
+        else:
+            pod_text = f"{platform_line}\n\n{pod_text}"
+        podfile.write_text(pod_text, encoding="utf-8")
+
+
+def patch_windows() -> None:
+    cmake = ROOT / "windows/CMakeLists.txt"
+    if not cmake.exists():
+        raise RuntimeError(f"Flutter did not generate expected file: {cmake}")
+    cmake_text = cmake.read_text(encoding="utf-8")
+    compatibility_block = (
+        "if(MSVC)\n"
+        f"  add_compile_definitions({WINDOWS_COROUTINE_COMPAT_DEFINE})\n"
+        "endif()\n"
+    )
+    if WINDOWS_COROUTINE_COMPAT_DEFINE not in cmake_text:
+        project_match = re.search(r"(?m)^project\([^\n]+\)\s*$", cmake_text)
+        if project_match is None:
+            raise RuntimeError(
+                "Windows CMake template changed; could not locate the project declaration.",
+            )
+        insert_at = project_match.end()
+        cmake_text = (
+            f"{cmake_text[:insert_at]}\n\n{compatibility_block}"
+            f"{cmake_text[insert_at:].lstrip(chr(10))}"
+        )
+    if WINDOWS_COROUTINE_COMPAT_DEFINE not in cmake_text:
+        raise RuntimeError(
+            "Could not configure the Visual Studio coroutine compatibility definition.",
+        )
+    cmake.write_text(cmake_text, encoding="utf-8")
+
 
 def _pinned_drift_version() -> str:
     pubspec = (ROOT / "pubspec.yaml").read_text(encoding="utf-8")
@@ -216,6 +287,7 @@ def main() -> None:
     )
     patch_android()
     patch_ios()
+    patch_windows()
     prepare_web()
     print(
         "NoteNest Android, iOS, Linux, macOS, Windows, and Web runners are ready "
