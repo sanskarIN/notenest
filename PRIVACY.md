@@ -61,7 +61,7 @@ Native targets request picker-provided cached paths and use bounded incremental 
 
 ### Web import boundary
 
-Browsers do not expose native filesystem paths in the same way. NoteNest requests picker bytes on Web, validates the picker-reported size, and validates actual byte/stream length before UTF-8/format processing.
+Browsers do not expose native filesystem paths in the same way. NoteNest requests a picker read stream on Web instead of the picker's eager byte-loading default, validates the picker-reported size, and validates cumulative streamed bytes before UTF-8/format processing. The import boundary still accepts an in-memory byte value if a provider/plugin supplies one, and re-validates its actual length before use.
 
 Browser file selection/download behavior is controlled partly by the browser. Exported files leave NoteNest's local storage boundary and their privacy depends on where the user saves, uploads, shares, or backs them up.
 
