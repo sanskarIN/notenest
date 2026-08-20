@@ -30,11 +30,13 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _busy = false;
+  bool? _appLockSupported;
 
   @override
   void initState() {
     super.initState();
     widget.settings.addListener(_changed);
+    unawaited(_loadAppLockSupport());
   }
 
   @override
@@ -47,9 +49,23 @@ class _SettingsPageState extends State<SettingsPage> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _loadAppLockSupport() async {
+    final bool supported = await widget.appLock.canAuthenticate();
+    if (!mounted) return;
+    setState(() => _appLockSupported = supported);
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppSettingsController settings = widget.settings;
+    final String appLockDescription = switch (_appLockSupported) {
+      true => 'Use device authentication to protect access to local notes.',
+      false => 'Device authentication is unavailable on this platform or device.',
+      null => 'Checking device authentication support…',
+    };
+    final bool canChangeAppLock = !_busy &&
+        (settings.appLockEnabled || _appLockSupported == true);
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: <Widget>[
@@ -108,9 +124,9 @@ class _SettingsPageState extends State<SettingsPage> {
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('Local app lock'),
-          subtitle: const Text('Use device authentication when supported.'),
+          subtitle: Text(appLockDescription),
           value: settings.appLockEnabled,
-          onChanged: _busy ? null : _toggleAppLock,
+          onChanged: canChangeAppLock ? _toggleAppLock : null,
         ),
         const Divider(height: 36),
         Text('Data', style: Theme.of(context).textTheme.titleLarge),
@@ -183,6 +199,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (enable) {
         final bool supported = await widget.appLock.canAuthenticate();
         if (!supported) {
+          if (mounted) setState(() => _appLockSupported = false);
           _message('Device authentication is not available on this platform or device.');
           return;
         }
