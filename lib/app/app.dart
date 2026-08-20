@@ -111,6 +111,17 @@ class _LockGateState extends State<_LockGate> with WidgetsBindingObserver {
   Future<void> _authenticate() async {
     if (_authenticating || _unlocked) return;
     setState(() => _authenticating = true);
+
+    final bool supported = await widget.dependencies.appLock.canAuthenticate();
+    if (!mounted) return;
+    if (!supported) {
+      setState(() {
+        _authenticating = false;
+        _unlocked = true;
+      });
+      return;
+    }
+
     final bool success = await widget.dependencies.appLock.authenticate();
     if (!mounted) return;
     setState(() {
