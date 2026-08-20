@@ -1,29 +1,29 @@
 # NoteNest Architecture
 
-## Goals
-
-NoteNest is a local-first notes application whose architecture should remain understandable by one contributor while being strong enough for production-quality maintenance. The project therefore uses a **modular monolith** rather than introducing a backend or microservices that the product does not need.
-
 Current release-candidate target: **2.0.12** (`2.0.12+2012`).
 
-Primary architecture goals:
+## Goals
 
-- Keep Flutter UI separate from storage and platform integration.
-- Keep core note workflows usable offline.
-- Make dependencies explicit and replaceable in tests.
-- Protect data integrity during edits, settings changes, snapshots, trash operations, imports, and restores.
-- Keep schema evolution controlled through migrations.
-- Keep platform-specific behavior behind small services.
-- Preserve accessibility/responsive behavior as first-class UI requirements.
-- Keep import/export formats validated and versioned.
-- Keep release metadata synchronized automatically.
+NoteNest is a local-first cross-platform notes application built as a **modular monolith**. The architecture should stay understandable to a small open-source team while protecting production concerns such as data integrity, browser/native differences, backup compatibility, accessibility, and reproducible releases.
+
+Primary goals:
+
+- Support Android, iOS/iPadOS, Windows, macOS, Linux, and Web from one Flutter codebase.
+- Keep UI separate from persistence and plugin/platform details.
+- Keep core note workflows local-first and account-free.
+- Make storage/platform boundaries injectable/testable where practical.
+- Preserve note/settings integrity under asynchronous failure and lifecycle changes.
+- Keep platform-specific or unsupported capabilities behind explicit services/conditional implementations.
+- Keep imports bounded and backups validated before writes.
+- Keep schema/version/toolchain evolution deliberate.
+- Treat accessibility/responsive behavior as architecture requirements rather than final polish.
 
 ## High-level structure
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
 │ Flutter presentation                                        │
-│ HomeShell / NotesPage / NoteEditor / Settings / About       │
+│ Home / Notes / Editor / Onboarding / Settings / About       │
 └──────────────────────────────┬───────────────────────────────┘
                                │
 ┌──────────────────────────────▼───────────────────────────────┐
@@ -32,378 +32,329 @@ Primary architecture goals:
 └──────────────────────────────┬───────────────────────────────┘
                                │
 ┌──────────────────────────────▼───────────────────────────────┐
-│ Repositories and services                                   │
-│ NoteRepository / BackupRepository / SettingsRepository      │
-│ FileTransferService / AppLockService / ExternalLinkService  │
+│ Repositories + platform services                            │
+│ Notes / Backup / Settings / Files / App lock / Links        │
 └──────────────────────────────┬───────────────────────────────┘
                                │
 ┌──────────────────────────────▼───────────────────────────────┐
-│ Local/platform infrastructure                               │
-│ Drift / SQLite / FTS5 / SharedPreferences / platform APIs   │
+│ Platform/runtime implementations                            │
+│ Drift SQLite / SharedPreferences / picker / launcher        │
+│ native dart:io boundaries OR browser-safe fallbacks         │
 └──────────────────────────────────────────────────────────────┘
 ```
 
+The browser is not modeled as “desktop with a filesystem.” Platform services explicitly distinguish browser and native capabilities.
+
 ## Composition root
 
-`lib/app/app_dependencies.dart` is the explicit composition root. It creates:
+`AppDependencies` owns application-wide construction:
 
 - `AppDatabase`
 - `NoteRepository`
+- `BackupRepository`
 - `SettingsRepository`
 - `AppSettingsController`
-- `BackupRepository`
 - `FileTransferService`
 - `AppLockService`
 - `ExternalLinkService`
-- `AppLogger`
+- logger/service dependencies
 
-Widgets receive dependencies through constructors rather than reaching into a global service locator. This keeps ownership visible and allows deterministic test doubles at plugin/storage boundaries.
+Construction cleans up partial resources if settings initialization fails. `NoteNestApp.dispose()` delegates final owned settings/database cleanup back to `AppDependencies.dispose()`.
 
-`AppDependencies.dispose()` disposes settings state and closes the database it owns.
+Feature widgets should receive dependencies/controllers rather than creating storage/plugin objects ad hoc.
 
-## Application shell
+## Six-platform strategy
 
-`lib/app/app.dart` owns application-wide concerns:
+### Shared Flutter presentation
 
-- Theme and text-scale settings.
-- Flutter localization delegates.
-- Reduced-motion media preference.
-- First-run onboarding selection.
-- Optional app-lock gate and lifecycle relocking.
+Responsive breakpoints/tokens allow the same feature layer to render:
 
-It does not implement note persistence logic.
+- compact phone/browser widths with bottom navigation;
+- tablet/wide browser layouts;
+- desktop windows with navigation rail and keyboard interaction.
 
-`HomeShell` chooses between compact bottom navigation and desktop/tablet `NavigationRail`, routes the major app areas, and passes shared service dependencies down to Settings/About.
+No feature should assume pointer-only, touch-only, or native-window-only interaction without an explicit platform reason.
 
-## Presentation layer
+### Generated runners
 
-### Notes browser
+Platform runners are intentionally generated rather than treated as manually maintained source. `tool/bootstrap_platforms.py` creates:
 
-`NotesPage` renders current `NotesController` state and owns user interaction/visual state:
+- Android
+- iOS
+- Linux
+- macOS
+- Windows
+- Web
 
-- Search bar.
-- Folder/tag filters.
-- Collection-specific empty/loading/error states.
-- Responsive note-card grid.
-- Markdown import action in All Notes.
-- Trash confirmations.
+The generated directories are build inputs, not part of the 108 tracked-source catalog.
 
-The page does not construct SQL statements.
+### Native patch verification
 
-`NotesController` keeps collection, query, folder, tag, loading, error, note-list, and filter-metadata state. Collection switches clear folder/tag filters so a filter chosen in one collection cannot silently hide another collection. Repository folder/tag metadata is scoped to the active collection.
+Bootstrap enforces/validates Android `FlutterFragmentActivity`, biometric permission, minimum SDK, AppCompat dependency/themes, and iOS Face ID usage text. If Flutter templates drift, bootstrap fails instead of silently leaving authentication configuration incomplete.
 
-### Editor
+### Web runtime preparation
 
-`NoteEditorPage` owns ephemeral text-controller state for one open note. It:
+The same bootstrap prepares Drift Web runtime assets from direct dependency Drift **2.34.3**:
 
-- Loads a note through `NoteRepository`.
-- Debounces edits before persistence submission.
-- Captures immutable editor drafts.
-- Serializes saves through `AsyncSerialQueue` so older submissions cannot overtake newer ones.
-- Saves on lifecycle transitions.
-- Offers Markdown-lite text transformations.
-- Displays folder/tag/color controls.
-- Opens snapshot history.
-- Exports Markdown through `FileTransferService`.
+- `sqlite3.wasm`
+- `drift_worker.js`
 
-The repository, not the widget, decides when a changed save creates a version snapshot. A save completion is displayed as current only when the persisted draft still matches visible editor content.
+The script compares its expected Drift Web version to `pubspec.yaml` and refuses to proceed if the direct dependency changes without an explicit asset review. Downloaded assets receive basic sanity validation before being written to the generated Web runner.
 
-### Settings
+This keeps the browser SQLite runtime coupled to the package version that knows how to communicate with it.
 
-`SettingsPage` manipulates `AppSettingsController`, `FileTransferService`, `AppLockService`, and `ExternalLinkService`.
+## Database architecture
 
-`AppSettingsController` serializes preference writes. Appearance/accessibility/app-lock settings may update optimistically, but a failed write restores the last successfully persisted value and rethrows to the UI boundary for safe feedback.
+`AppDatabase` is Drift schema version **1**.
 
-Onboarding is deliberately persistence-first: the app does not leave onboarding until completion state has been saved successfully.
+Logical storage contains:
 
-### About
+- current notes;
+- note-version snapshots;
+- FTS5 external-content search table/triggers.
 
-`AboutPage` contains project identity, version, privacy summary, license, contacts, GitHub, funding link, and required `Made by the Sanskar` credit. External actions use `ExternalLinkService` rather than calling a launcher plugin directly.
+Foreign keys are enabled during open. FTS5 is created/rebuilt on database creation and maintained by triggers after note insert/update/delete.
 
-## State management choice
+### Native database
 
-The architecture uses small `ChangeNotifier` controllers instead of adding another state-management framework.
+On Android/iOS/Windows/macOS/Linux, `drift_flutter` selects the normal local SQLite implementation for that runtime.
 
-Rules:
+### Web database
 
-- Controllers orchestrate UI state and call repositories/services.
-- Repositories own persistence/business invariants related to their storage model.
-- Widgets do not mutate database tables directly.
-- `ChangeNotifier` does not become a global mutable store for unrelated features.
-- Async controller work must be ordered or generation-guarded when stale completion could corrupt visible state.
+The database factory explicitly supplies:
 
-If application complexity later justifies another state-management solution, introduce it through an ADR and migrate incrementally rather than mixing patterns casually.
-
-## Data model
-
-### `notes`
-
-Current note state includes:
-
-- `id` — UUID string, primary key.
-- `title` — text.
-- `body` — text.
-- `folder` — text; empty means no folder.
-- `tags` — JSON-encoded list of strings.
-- `color_value` — optional 32-bit ARGB integer.
-- `is_pinned`
-- `is_favorite`
-- `is_archived`
-- `is_trashed`
-- `created_at`
-- `updated_at`
-
-Times created by NoteNest are UTC and converted to local time only at display boundaries.
-
-### `note_versions`
-
-Snapshots contain the note's pre-change content/metadata plus `captured_at`. The relation references `notes.id` with cascade deletion so permanent deletion removes history.
-
-Snapshots are created only when content/organizational fields passed to `saveContent` differ from current state. Flag-only actions such as favorite/pin currently do not create snapshots.
-
-### FTS5 index
-
-`notes_fts` is an SQLite FTS5 external-content virtual table indexing:
-
-- `title`
-- `body`
-- `folder`
-- serialized `tags`
-
-Insert/update/delete triggers keep the index synchronized with `notes`. Search terms are normalized into quoted prefix tokens and passed as bound SQL variables.
-
-Search results use `bm25(notes_fts)` ranking and then recent-update ordering.
-
-## Note repository invariants
-
-`NoteRepository` maintains rules including:
-
-- IDs are generated by UUID v7.
-- Tags are trimmed, deduplicated, sorted, and JSON encoded.
-- An archived note is not trashed.
-- Trashing a note unarchives and unpins it.
-- Restore removes trash state without guessing an earlier archive state.
-- All Notes excludes archived/trashed rows.
-- Favorites contains active/non-archived favorites only.
-- Archive contains archived/non-trashed rows.
-- Trash contains trashed rows.
-- Folder/tag metadata uses the same collection predicate as note listing.
-- Pinned notes sort before unpinned notes, then by most recent update.
-- A content save does not write/snapshot when values are unchanged.
-
-Permanent deletion is intentionally irreversible inside the live database and therefore requires UI confirmation.
-
-## Backup format
-
-The JSON backup root currently contains:
-
-```json
-{
-  "app": "NoteNest",
-  "schemaVersion": 1,
-  "exportedAt": "<UTC ISO-8601>",
-  "notes": [],
-  "versions": []
-}
+```text
+sqlite3.wasm
+drift_worker.js
 ```
 
-The backup schema version is independent from Drift's database schema version even though both currently begin at `1`.
+through `DriftWebOptions`. Drift then selects an available browser-local storage strategy. Hosting should serve WASM with the correct MIME type; compatible cross-origin isolation can enable the optimal OPFS path. The architecture does not assume every deployment has OPFS—real release verification records the actual storage mode/behavior on the intended origin.
 
-Restore validation includes:
+Browser data belongs to the browser/profile/origin and can be cleared outside NoteNest. The validated JSON backup format, not an internal database file, is the portable interchange/recovery boundary.
 
-1. Decode JSON.
-2. Verify object root.
-3. Verify application identity.
-4. Verify supported backup schema version.
-5. Verify note/version lists.
-6. Parse every entry into typed companions.
-7. Require note/version identifiers without surrounding whitespace.
-8. Validate serialized tag arrays.
-9. Require `colorValue` to be null or a 32-bit ARGB integer.
-10. Require stored timestamps to be explicit UTC values ending in `Z`.
-11. Require each note's `updatedAt` not to precede its `createdAt`.
-12. Reject duplicate incoming note IDs.
-13. Verify every imported version references an incoming or existing note.
-14. Only after validation, begin a database transaction.
-15. Upsert incoming notes except when the local note has a later `updatedAt`.
-16. Add non-duplicate snapshots.
-17. Commit and return a restore report.
+## Data/version domains
 
-A future format change must include backward-compatibility tests or a clear conversion tool.
+Do not conflate:
 
-## File-transfer boundary
+- app semantic version (`2.0.12`);
+- Flutter package build number (`2012`);
+- Flutter SDK pin (`3.44.7`);
+- Drift schema version (`1`);
+- backup schema version;
+- dependency graph (`pubspec.lock`, once generated/committed).
 
-`FileTransferService` is the platform/file-picker boundary.
+A change in one domain does not automatically require incrementing all others, but release tooling/docs must identify coupled surfaces.
 
-For native import it:
+## Notes repository invariants
 
-- Requests a picker result without eager `withData` loading.
-- Uses the cached native file path.
-- Reads through `BoundedFileReader`.
-- Checks reported length before reading and checks accumulated length after each chunk.
-- Enforces 16 MiB for Markdown/text and 64 MiB for NoteNest JSON backups.
-- Requires strict UTF-8.
-- Delegates structured validation to the Markdown/backup codecs/repositories.
+`NoteRepository` is the authoritative live-note persistence boundary. It owns:
 
-For export it:
+- UUID-v7 creation;
+- canonical tags;
+- note listing/filtering;
+- FTS-backed search;
+- transactional content snapshots;
+- version restore;
+- pin/favorite/archive/trash operations;
+- deletion/empty trash;
+- collection-scoped folder/tag metadata.
 
-- Generates Markdown front matter.
-- Uses `SafeFileName` to normalize invalid/reserved names.
-- Truncates on Unicode code-point boundaries rather than splitting UTF-16 surrogate pairs.
-- Delegates final save-location choice to the platform picker.
+Important invariants:
 
-Imported Markdown is treated as text; it is never executed or rendered as trusted HTML.
+- Changed content creates a pre-change snapshot transactionally.
+- A trashed note cannot be pinned.
+- Trash/archive states remain consistent with backup validation.
+- Collection metadata uses the same lifecycle predicate as collection listing.
+- Search values become bound variables rather than executable SQL concatenation.
 
-## Settings boundary
+## Editor persistence model
 
-Small non-sensitive preferences use `shared_preferences`; credentials must not be placed there.
+The editor separates visible draft state from persistence completion.
 
-Current preferences:
+1. User edits are debounced.
+2. Every submitted save captures an immutable draft.
+3. `AsyncSerialQueue` preserves submission order.
+4. A save completion updates visible “saved” state only if that draft is still current.
+5. Normal Back captures/submits the current draft and waits for success before allowing pop.
+6. Export/history also waits for the current draft to save.
+7. Failure leaves content editable and surfaces feedback.
 
-- Theme mode.
-- Text scale.
-- Reduced motion.
-- Onboarding completion.
-- App-lock enabled state.
+Lifecycle saves use the same queue. Platform process termination is still a runtime concern and belongs in manual integration validation.
 
-`SettingsStore` is the injectable interface. `SettingsRepository` adapts the plugin and treats a reported failed setter result as `StorageException`. `AppSettingsController` serializes writes and owns rollback semantics.
+## Settings and onboarding model
+
+`SettingsRepository` stores non-sensitive preferences behind `SettingsStore`.
+
+`AppSettingsController`:
+
+- loads settings atomically;
+- serializes mutations;
+- tracks last persisted values;
+- rolls back a failed optimistic mutation when appropriate;
+- prevents an older failure from overwriting a newer requested value.
+
+Onboarding is persistence-first: the UI leaves onboarding only after completion persistence succeeds.
+
+Settings never store note contents or authentication secrets.
+
+## Cross-platform file-transfer boundary
+
+`FileTransferService` owns picker/import/export orchestration.
+
+### Native acquisition
+
+Native picker operations avoid eager `withData` loading. A cached path is read through the bounded native reader:
+
+- validate reported length;
+- stream chunks;
+- validate cumulative length;
+- build final buffer only within the configured limit;
+- translate filesystem failures to domain errors.
+
+### Web acquisition
+
+Shared code cannot assume a native path. On Web:
+
+- picker data is requested;
+- picker-reported size is validated;
+- actual bytes/stream accumulation is revalidated;
+- only then is UTF-8/format processing performed.
+
+The shared `BoundedFileReader` is a conditional facade. Its `dart:io` implementation is compiled only on IO targets; browser builds select an unsupported-path stub so native filesystem code is not pulled into Web.
+
+Limits:
+
+- Markdown/text: 16 MiB.
+- JSON backup: 64 MiB.
+
+### Exports
+
+Markdown/JSON exports use picker save behavior. Generated Markdown filenames are cross-platform and Unicode safe. On Web, export becomes browser download/save behavior rather than a native file path write.
+
+## Backup boundary
+
+`BackupRepository` is the portable interchange boundary across devices/platforms/browser origins.
+
+Before writes, restore validates:
+
+- app/schema identity;
+- required value types;
+- root/note/version UTC timestamps;
+- note timestamp ordering;
+- serialized/canonical tags;
+- identifiers and relationships;
+- 32-bit ARGB values;
+- lifecycle combinations.
+
+Only validated input enters the restore transaction. Newer local notes win conflicts and duplicate snapshots are not blindly duplicated.
+
+Backups are readable JSON and are not encryption.
+
+## App-lock capability architecture
+
+App lock is intentionally a capability rather than a universal guarantee.
+
+`app_lock_service.dart` conditionally selects:
+
+- native `local_auth` implementation on IO targets;
+- browser-safe unavailable implementation on Web.
+
+The native wrapper converts missing plugin/platform/auth errors to a safe unavailable/failed result. This means Linux—which has no current `local_auth` implementation—also remains usable.
+
+The root lock gate checks `canAuthenticate()` before attempting authentication. If a platform cannot authenticate, it does not leave the user stuck behind an impossible lock screen.
+
+Settings separately checks capability before allowing app-lock enable. A stale already-enabled preference can still be disabled on an unsupported target.
+
+Do not introduce a home-grown browser/Linux password system solely for parity. App lock is not at-rest database encryption.
 
 ## External-link boundary
 
-`ExternalLinkService` is the only intended boundary for user-triggered repository/funding/email/release links.
+`ExternalLinkService` centralizes repository, funding, support/business mail, and Releases launches. Feature code receives a safe boolean rather than raw plugin failure/exception behavior.
 
-It:
-
-- Accepts an injectable launcher delegate for tests.
-- Uses external application launch mode by default.
-- Converts launcher failures/exceptions into a `false` result.
-- Lets the calling UI provide context-appropriate feedback.
-
-This prevents plugin failures from escaping as uncaught user-action errors.
-
-## App-lock boundary
-
-`AppLockService` wraps `local_auth`.
-
-Important security distinction:
-
-- App lock gates UI access.
-- It does not provide independent database encryption.
-- NoteNest does not receive/store biometric templates.
-- Authentication failure is handled as a safe locked state.
-
-See [`../SECURITY.md`](../SECURITY.md) for the threat model.
+External destinations remain outside NoteNest's trusted local data boundary.
 
 ## Error handling
 
-`core/errors/app_exception.dart` centralizes domain-friendly exception categories:
+Expected platform/storage/import failures should cross boundaries as domain-safe results/exceptions and be translated into concise user feedback.
 
-- `StorageException`
-- `ValidationException`
-- `ImportExportException`
-- `AuthenticationException`
+Avoid:
 
-Plugin/platform boundaries catch or translate failures before they reach presentation where practical. User-visible errors do not expose note bodies, credentials, raw stack traces, or sensitive file content.
+- leaking raw plugin exceptions into widget callbacks;
+- swallowing persistence failure while showing success;
+- retry loops without user control;
+- logging private note/import contents.
 
-## Responsive design
+## Logging
 
-Main thresholds:
-
-- `< 760 px`: bottom navigation.
-- `>= 760 px`: navigation rail.
-- `>= 1120 px`: extended navigation rail.
-
-Notes grid:
-
-- `< 560 px`: 1 column.
-- `>= 560 px`: 2 columns.
-- `>= 850 px`: 3 columns.
-- `>= 1200 px`: 4 columns.
-
-These are logical layout thresholds, not physical-device detection.
+The project logger structures events and redacts sensitive key categories. Logs should never contain raw note bodies, backups, credentials, authentication material, or complete selected files. Browser origins/storage details and native personal paths should be redacted in public diagnostics.
 
 ## Accessibility architecture
 
-Accessibility is reinforced through reusable design choices:
+Shared tokens enforce a 48 logical-pixel custom interaction target. Custom selection UI uses semantics and visible non-color cues.
 
-- Standard Material controls with semantics/focus behavior.
-- Tooltips on icon-only actions.
-- Semantic labels on note cards and save indicator.
-- Text-scale preference layered with Flutter's accessibility environment.
-- Reduced-motion preference mapped to `MediaQuery.disableAnimations`.
-- Non-color selected indicators for custom note-color choices.
-- A shared 48 logical-pixel minimum custom interaction target.
-- Destructive confirmation text.
-- Safe failure messages for persistence/external actions.
+Responsive design must consider:
 
-Manual checks remain necessary; see [`accessibility.md`](accessibility.md).
+- touch/pointer/keyboard;
+- mobile system Back vs desktop/browser navigation;
+- browser focus/zoom;
+- text scaling;
+- reduced motion;
+- light/dark themes;
+- screen reader semantics.
 
-## Release metadata boundary
+A compile-successful platform is not accessibility-certified.
 
-Application version information exists in more than one place because Flutter packaging and the visible About UI have different consumers.
+## Security/privacy boundaries
 
-`tool/check_version_sync.py` prevents silent drift by requiring:
+Core design intentionally excludes:
 
-- `pubspec.yaml` semantic version/build number.
-- Matching `AppStrings.version`.
-- Matching `CHANGELOG.md` release section.
-- Matching `docs/releases/<version>.md` with exact package and visible versions.
+- required sign-in;
+- project-operated note sync;
+- analytics/advertising SDKs;
+- custom cryptography;
+- custom biometric/password storage.
 
-CI runs this check before Flutter dependency/build work.
+The Web host serves static app/runtime assets, which is not the same as receiving note contents. A distributor adding telemetry, scripts, remote processing, accounts, or sync changes the trust model and must update architecture/privacy/security documentation.
 
-## Generated native runners
+## Dependency and release reproducibility
 
-Native runner files are generated using `tool/bootstrap_platforms.py` so templates match the pinned Flutter SDK. The script applies documented NoteNest-specific patches.
+Flutter is pinned exactly. Runtime/dev dependencies are pinned in `pubspec.yaml`.
 
-See ADR 0003. If native customization grows significantly, committing selected/all runners may become preferable after an ADR review.
+Because NoteNest is an application, the final stable dependency graph must also be captured by the resolver-generated `pubspec.lock`. Issue #8 tracks that missing release blocker. The lock must be generated with Flutter 3.44.7 and never fabricated manually.
 
-## Schema migrations
+After the lock is committed, final verification should enforce it and all six platform builds must be rerun.
 
-Current Drift schema version is `1`.
+## Quality architecture
 
-For version 2+ of the **database schema** (independent from app version 2.0.12):
+Deterministic gates include:
 
-- Increase `schemaVersion`.
-- Add `onUpgrade` handling by old/new versions.
-- Keep each migration deterministic.
-- Rebuild/adjust FTS infrastructure if indexed columns change.
-- Add migration fixtures/tests.
-- Never rely on uninstall/reinstall as a migration strategy.
+- release/toolchain version synchronization;
+- Drift generation;
+- formatting/analyzer/tests;
+- repository policy;
+- exhaustive 108-file reference validation;
+- Markdown links;
+- secret scan;
+- Chrome Web fallback regression;
+- Android/Linux/Windows/macOS/iOS/Web build matrix.
 
-## Performance boundaries
+Manual validation remains required for real platform/plugin/browser storage, file providers, authentication, accessibility, screenshots, signing, and deployment behavior.
 
-Current pressure points worth measuring before optimization:
+## Schema evolution
 
-- `NoteRepository.list` loads a candidate list before applying collection/folder/tag filtering in Dart.
-- Folder/tag metadata scans notes for the active collection.
-- Note grid is lazily built but database pagination is not yet implemented.
-- Snapshot history can grow indefinitely.
-- Bounded import still creates a final in-memory buffer after the streamed size check.
+Schema 1 is the current initial schema. A future schema change must:
 
-These are documented tradeoffs, not reasons to add complexity without profiling. See [`performance.md`](performance.md).
+1. increment `schemaVersion`;
+2. add deterministic migration logic;
+3. test upgrade from representative previous-schema fictional data;
+4. verify FTS/foreign keys/repository behavior after migration;
+5. review backup compatibility independently;
+6. test both native SQLite and Web SQLite runtime paths before release.
 
-## Security boundaries
+## Related decision records
 
-Relevant controls include:
+- [`adr/0001-flutter-drift-modular-monolith.md`](adr/0001-flutter-drift-modular-monolith.md)
+- [`adr/0002-offline-first-data.md`](adr/0002-offline-first-data.md)
+- [`adr/0003-generated-platform-runners.md`](adr/0003-generated-platform-runners.md)
 
-- Parameterized database values.
-- Strict import/backup validation.
-- Bounded native-file reads.
-- Transactional restore.
-- Preference-write failure detection/rollback.
-- Safe external-link boundary.
-- Least-privilege platform integration.
-- Secret/signing exclusion.
-- OS authentication delegation.
-- No implicit note upload.
-- No custom cryptography.
-
-Backend-only controls such as server cookies/CORS/CSRF are not applicable while NoteNest has no project-operated backend.
-
-## Architecture decisions
-
-- [ADR 0001 — Flutter + Drift modular monolith](adr/0001-flutter-drift-modular-monolith.md)
-- [ADR 0002 — Offline-first local data ownership](adr/0002-offline-first-data.md)
-- [ADR 0003 — Reproducible generated native runners](adr/0003-generated-platform-runners.md)
-
-Architecture changes affecting data ownership, schema compatibility, remote processing, authentication, or major module boundaries should add a new ADR.
+See [`testing.md`](testing.md), [`setup.md`](setup.md), [`release.md`](release.md), [`../PRIVACY.md`](../PRIVACY.md), and [`../SECURITY.md`](../SECURITY.md) for operational verification of these boundaries.
