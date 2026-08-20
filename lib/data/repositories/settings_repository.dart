@@ -61,7 +61,10 @@ final class SettingsRepository implements SettingsStore {
   @override
   Future<void> setFontScale(double value) async {
     final double normalized = value.clamp(0.9, 1.4).toDouble();
-    final bool saved = await (await _prefs).setDouble(_fontScaleKey, normalized);
+    final bool saved = await (await _prefs).setDouble(
+      _fontScaleKey,
+      normalized,
+    );
     _requireSaved(saved, 'text-size');
   }
 

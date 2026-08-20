@@ -30,12 +30,13 @@ abstract final class MarkdownDocumentCodec {
     required Iterable<String> tags,
     required DateTime updatedAt,
   }) {
-    final List<String> normalizedTags = tags
-        .map((String value) => value.trim())
-        .where((String value) => value.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final List<String> normalizedTags =
+        tags
+            .map((String value) => value.trim())
+            .where((String value) => value.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
 
     final List<String> lines = <String>[
       '---',
@@ -51,11 +52,10 @@ abstract final class MarkdownDocumentCodec {
     return lines.join('\n');
   }
 
-  static MarkdownDocument decode(
-    String raw, {
-    required String fallbackTitle,
-  }) {
-    final String normalized = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  static MarkdownDocument decode(String raw, {required String fallbackTitle}) {
+    final String normalized = raw
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n');
     if (!normalized.startsWith('---\n')) {
       return MarkdownDocument(
         title: fallbackTitle,
@@ -97,7 +97,9 @@ abstract final class MarkdownDocumentCodec {
 
     final Object? schema = _decodeJsonField(rawSchema, 'notenest');
     if (schema != schemaVersion) {
-      throw const ValidationException('Unsupported NoteNest Markdown metadata version.');
+      throw const ValidationException(
+        'Unsupported NoteNest Markdown metadata version.',
+      );
     }
 
     final String title = _decodeOptionalString(

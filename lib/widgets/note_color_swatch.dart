@@ -50,8 +50,8 @@ class NoteColorSwatch extends StatelessWidget {
                         color: colors.onSurface,
                       )
                     : color == null
-                        ? const Icon(Icons.format_color_reset_rounded, size: 17)
-                        : null,
+                    ? const Icon(Icons.format_color_reset_rounded, size: 17)
+                    : null,
               ),
             ),
           ),

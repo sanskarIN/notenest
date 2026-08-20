@@ -22,10 +22,7 @@ void main() {
   });
 
   test('switching collections clears stale folder and tag filters', () async {
-    controller.filter = const NoteFilter(
-      folder: 'Projects',
-      tag: 'flutter',
-    );
+    controller.filter = const NoteFilter(folder: 'Projects', tag: 'flutter');
 
     controller.setCollection(NoteCollection.archive);
 

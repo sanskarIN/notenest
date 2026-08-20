@@ -36,8 +36,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     AppStrings.appName,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -49,17 +49,20 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   const _Benefit(
                     icon: Icons.offline_bolt_rounded,
                     title: 'Offline first',
-                    message: 'Notes stay useful without an account or internet connection.',
+                    message:
+                        'Notes stay useful without an account or internet connection.',
                   ),
                   const _Benefit(
                     icon: Icons.search_rounded,
                     title: 'Fast to find',
-                    message: 'Folders, tags, favorites, pinning, and full-text search keep ideas organized.',
+                    message:
+                        'Folders, tags, favorites, pinning, and full-text search keep ideas organized.',
                   ),
                   const _Benefit(
                     icon: Icons.privacy_tip_outlined,
                     title: 'Private by default',
-                    message: 'Your note database lives locally. Backup and app lock remain under your control.',
+                    message:
+                        'Your note database lives locally. Backup and app lock remain under your control.',
                   ),
                   const SizedBox(height: 28),
                   FilledButton.icon(
@@ -76,10 +79,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    AppStrings.credit,
-                    textAlign: TextAlign.center,
-                  ),
+                  const Text(AppStrings.credit, textAlign: TextAlign.center),
                 ],
               ),
             ),

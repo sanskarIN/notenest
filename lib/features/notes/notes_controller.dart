@@ -9,11 +9,9 @@ import 'package:notenest/data/repositories/note_repository.dart';
 import 'package:notenest/domain/models/note_filter.dart';
 
 final class NotesController extends ChangeNotifier {
-  NotesController(
-    this._repository, {
-    AppLogger logger = const AppLogger(),
-  })  : _logger = logger,
-        _searchDebouncer = Debouncer(AppTokens.searchDebounce);
+  NotesController(this._repository, {AppLogger logger = const AppLogger()})
+    : _logger = logger,
+      _searchDebouncer = Debouncer(AppTokens.searchDebounce);
 
   final NoteRepository _repository;
   final AppLogger _logger;
@@ -82,10 +80,7 @@ final class NotesController extends ChangeNotifier {
   }
 
   void setFolder(String? value) {
-    filter = filter.copyWith(
-      folder: value,
-      clearFolder: value == null,
-    );
+    filter = filter.copyWith(folder: value, clearFolder: value == null);
     unawaited(load(showLoading: false));
   }
 

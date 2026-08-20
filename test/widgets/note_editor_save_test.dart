@@ -73,7 +73,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Open editor'), findsOneWidget);
-    expect((await repository.getById(note.id)).body, 'Newest draft before back');
+    expect(
+      (await repository.getById(note.id)).body,
+      'Newest draft before back',
+    );
   });
 
   testWidgets('formatting at offset zero targets the empty first line', (
@@ -130,23 +133,24 @@ void main() {
     expect(find.text('Open formatting editor'), findsOneWidget);
   });
 
-  testWidgets('a missing note shows a retryable load error instead of spinning', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: NoteEditorPage(
-          noteId: 'missing-note',
-          repository: repository,
-          files: files,
+  testWidgets(
+    'a missing note shows a retryable load error instead of spinning',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NoteEditorPage(
+            noteId: 'missing-note',
+            repository: repository,
+            files: files,
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(find.text('Could not open this note'), findsOneWidget);
-    expect(find.text('Retry'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-  });
+      expect(find.text('Could not open this note'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    },
+  );
 }

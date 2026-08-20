@@ -58,9 +58,8 @@ class NoteCard extends StatelessWidget {
                         note.title.trim().isEmpty ? 'Untitled' : note.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
                     IconButton(
@@ -95,43 +94,42 @@ class NoteCard extends StatelessWidget {
                             break;
                         }
                       },
-                      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                        if (!note.isTrashed)
-                          PopupMenuItem<String>(
-                            value: 'pin',
-                            child: Text(note.isPinned ? 'Unpin' : 'Pin'),
-                          ),
-                        if (!note.isTrashed)
-                          PopupMenuItem<String>(
-                            value: 'archive',
-                            child: Text(note.isArchived ? 'Unarchive' : 'Archive'),
-                          ),
-                        if (!note.isTrashed)
-                          const PopupMenuItem<String>(
-                            value: 'trash',
-                            child: Text('Move to trash'),
-                          ),
-                        if (note.isTrashed)
-                          const PopupMenuItem<String>(
-                            value: 'restore',
-                            child: Text('Restore'),
-                          ),
-                        if (note.isTrashed)
-                          const PopupMenuItem<String>(
-                            value: 'delete',
-                            child: Text('Delete permanently'),
-                          ),
-                      ],
+                      itemBuilder: (BuildContext context) =>
+                          <PopupMenuEntry<String>>[
+                            if (!note.isTrashed)
+                              PopupMenuItem<String>(
+                                value: 'pin',
+                                child: Text(note.isPinned ? 'Unpin' : 'Pin'),
+                              ),
+                            if (!note.isTrashed)
+                              PopupMenuItem<String>(
+                                value: 'archive',
+                                child: Text(
+                                  note.isArchived ? 'Unarchive' : 'Archive',
+                                ),
+                              ),
+                            if (!note.isTrashed)
+                              const PopupMenuItem<String>(
+                                value: 'trash',
+                                child: Text('Move to trash'),
+                              ),
+                            if (note.isTrashed)
+                              const PopupMenuItem<String>(
+                                value: 'restore',
+                                child: Text('Restore'),
+                              ),
+                            if (note.isTrashed)
+                              const PopupMenuItem<String>(
+                                value: 'delete',
+                                child: Text('Delete permanently'),
+                              ),
+                          ],
                     ),
                   ],
                 ),
                 if (preview.isNotEmpty) ...<Widget>[
                   const SizedBox(height: 8),
-                  Text(
-                    preview,
-                    maxLines: 6,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  Text(preview, maxLines: 6, overflow: TextOverflow.ellipsis),
                 ],
                 const Spacer(),
                 const SizedBox(height: 12),
@@ -146,7 +144,9 @@ class NoteCard extends StatelessWidget {
                         label: Text(note.folder),
                       ),
                     Text(
-                      DateFormat.yMMMd().add_jm().format(note.updatedAt.toLocal()),
+                      DateFormat.yMMMd().add_jm().format(
+                        note.updatedAt.toLocal(),
+                      ),
                       style: Theme.of(context).textTheme.labelSmall,
                     ),
                   ],

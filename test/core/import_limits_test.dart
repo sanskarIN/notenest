@@ -32,10 +32,7 @@ void main() {
     });
 
     test('rejects impossible negative byte lengths', () {
-      expect(
-        () => ImportLimits.validateMarkdownBytes(-1),
-        throwsArgumentError,
-      );
+      expect(() => ImportLimits.validateMarkdownBytes(-1), throwsArgumentError);
     });
   });
 }

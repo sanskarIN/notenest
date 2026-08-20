@@ -67,13 +67,13 @@ class _NoteEditorPageState extends State<NoteEditorPage>
 
   static const List<({Color? color, String label})> _palette =
       <({Color? color, String label})>[
-    (label: 'Default', color: null),
-    (label: 'Red', color: Color(0xFFFFD7D7)),
-    (label: 'Amber', color: Color(0xFFFFE7B3)),
-    (label: 'Green', color: Color(0xFFD9F2D9)),
-    (label: 'Blue', color: Color(0xFFD8EBFF)),
-    (label: 'Purple', color: Color(0xFFE8DBFF)),
-  ];
+        (label: 'Default', color: null),
+        (label: 'Red', color: Color(0xFFFFD7D7)),
+        (label: 'Amber', color: Color(0xFFFFE7B3)),
+        (label: 'Green', color: Color(0xFFD9F2D9)),
+        (label: 'Blue', color: Color(0xFFD8EBFF)),
+        (label: 'Purple', color: Color(0xFFE8DBFF)),
+      ];
 
   @override
   void initState() {
@@ -203,16 +203,18 @@ class _NoteEditorPageState extends State<NoteEditorPage>
       if (mounted) {
         _note = savedNote;
         setState(
-          () => _saveState =
-              _matchesCurrentDraft(draft) ? _SaveState.saved : _SaveState.idle,
+          () => _saveState = _matchesCurrentDraft(draft)
+              ? _SaveState.saved
+              : _SaveState.idle,
         );
       }
       return true;
     } on Object {
       if (mounted) {
         setState(
-          () => _saveState =
-              _matchesCurrentDraft(draft) ? _SaveState.failed : _SaveState.idle,
+          () => _saveState = _matchesCurrentDraft(draft)
+              ? _SaveState.failed
+              : _SaveState.idle,
         );
       }
       return false;
@@ -226,7 +228,9 @@ class _NoteEditorPageState extends State<NoteEditorPage>
     if (!mounted) return;
     if (!saved) {
       setState(() => _leaving = false);
-      _message('Could not save this note. Resolve the save problem before leaving.');
+      _message(
+        'Could not save this note. Resolve the save problem before leaving.',
+      );
       return;
     }
 
@@ -284,8 +288,7 @@ class _NoteEditorPageState extends State<NoteEditorPage>
                   : 'Distraction-free editor',
               onPressed: _leaving
                   ? null
-                  : () =>
-                      setState(() => _distractionFree = !_distractionFree),
+                  : () => setState(() => _distractionFree = !_distractionFree),
               icon: Icon(
                 _distractionFree
                     ? Icons.fullscreen_exit_rounded
@@ -298,15 +301,15 @@ class _NoteEditorPageState extends State<NoteEditorPage>
               onSelected: _handleMenu,
               itemBuilder: (BuildContext context) =>
                   const <PopupMenuEntry<String>>[
-                PopupMenuItem<String>(
-                  value: 'versions',
-                  child: Text('Version history'),
-                ),
-                PopupMenuItem<String>(
-                  value: 'export',
-                  child: Text('Export Markdown'),
-                ),
-              ],
+                    PopupMenuItem<String>(
+                      value: 'versions',
+                      child: Text('Version history'),
+                    ),
+                    PopupMenuItem<String>(
+                      value: 'export',
+                      child: Text('Export Markdown'),
+                    ),
+                  ],
             ),
           ],
         ),
@@ -315,8 +318,9 @@ class _NoteEditorPageState extends State<NoteEditorPage>
             ignoring: _leaving,
             child: Center(
               child: ConstrainedBox(
-                constraints:
-                    const BoxConstraints(maxWidth: AppTokens.maxEditorWidth),
+                constraints: const BoxConstraints(
+                  maxWidth: AppTokens.maxEditorWidth,
+                ),
                 child: Column(
                   children: <Widget>[
                     if (!_distractionFree) _metadata(),
@@ -332,7 +336,8 @@ class _NoteEditorPageState extends State<NoteEditorPage>
                           keyboardType: TextInputType.multiline,
                           textAlignVertical: TextAlignVertical.top,
                           decoration: const InputDecoration(
-                            hintText: 'Start writing…\n\nMarkdown-lite supported: headings, emphasis, lists, and checklists.',
+                            hintText:
+                                'Start writing…\n\nMarkdown-lite supported: headings, emphasis, lists, and checklists.',
                             filled: false,
                             border: InputBorder.none,
                           ),
@@ -390,9 +395,7 @@ class _NoteEditorPageState extends State<NoteEditorPage>
                     color: swatch.color,
                     selected: _colorValue == swatch.color?.toARGB32(),
                     onPressed: () {
-                      setState(
-                        () => _colorValue = swatch.color?.toARGB32(),
-                      );
+                      setState(() => _colorValue = swatch.color?.toARGB32());
                       _autosave.run(() async {
                         await _save();
                       });
@@ -457,11 +460,13 @@ class _NoteEditorPageState extends State<NoteEditorPage>
     final int caret = _body.selection.isValid
         ? _body.selection.baseOffset.clamp(0, _body.text.length).toInt()
         : _body.text.length;
-    final int lineStart =
-        caret == 0 ? 0 : _body.text.lastIndexOf('\n', caret - 1) + 1;
+    final int lineStart = caret == 0
+        ? 0
+        : _body.text.lastIndexOf('\n', caret - 1) + 1;
     final int lineEndCandidate = _body.text.indexOf('\n', caret);
-    final int lineEnd =
-        lineEndCandidate == -1 ? _body.text.length : lineEndCandidate;
+    final int lineEnd = lineEndCandidate == -1
+        ? _body.text.length
+        : lineEndCandidate;
     final String line = _body.text.substring(lineStart, lineEnd);
     final String replacement = MarkdownLite.togglePrefix(line, prefix);
     final int nextCaret = (lineStart + replacement.length)
@@ -501,8 +506,9 @@ class _NoteEditorPageState extends State<NoteEditorPage>
   }
 
   Future<void> _showVersions() async {
-    final List<NoteVersion> versions =
-        await widget.repository.versions(widget.noteId);
+    final List<NoteVersion> versions = await widget.repository.versions(
+      widget.noteId,
+    );
     if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
@@ -519,13 +525,13 @@ class _NoteEditorPageState extends State<NoteEditorPage>
                   final NoteVersion version = versions[index];
                   return ListTile(
                     leading: const Icon(Icons.history_rounded),
-                    title: Text(version.title.isEmpty ? 'Untitled' : version.title),
+                    title: Text(
+                      version.title.isEmpty ? 'Untitled' : version.title,
+                    ),
                     subtitle: Text(version.capturedAt.toLocal().toString()),
                     trailing: TextButton(
-                      onPressed: () => _restoreVersion(
-                        sheetContext,
-                        version.id,
-                      ),
+                      onPressed: () =>
+                          _restoreVersion(sheetContext, version.id),
                       child: const Text('Restore'),
                     ),
                   );
@@ -565,7 +571,9 @@ class _NoteEditorPageState extends State<NoteEditorPage>
 
   void _message(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   List<String> _parseTags(String value) => value

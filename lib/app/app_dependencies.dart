@@ -34,8 +34,9 @@ final class AppDependencies {
     final AppDatabase database = AppDatabase();
     final NoteRepository notes = NoteRepository(database);
     final SettingsRepository settingsRepository = SettingsRepository();
-    final AppSettingsController settings =
-        AppSettingsController(settingsRepository);
+    final AppSettingsController settings = AppSettingsController(
+      settingsRepository,
+    );
     final BackupRepository backups = BackupRepository(database);
     final FileTransferService files = FileTransferService(
       backups: backups,

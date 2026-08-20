@@ -27,34 +27,38 @@ class _HomeShellState extends State<HomeShell> {
   );
   int _index = 0;
 
-  static const List<NavigationDestination> _destinations = <NavigationDestination>[
-    NavigationDestination(icon: Icon(Icons.notes_rounded), label: AppStrings.allNotes),
-    NavigationDestination(
-      icon: Icon(Icons.star_outline_rounded),
-      selectedIcon: Icon(Icons.star_rounded),
-      label: AppStrings.favorites,
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.archive_outlined),
-      selectedIcon: Icon(Icons.archive_rounded),
-      label: AppStrings.archive,
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.delete_outline_rounded),
-      selectedIcon: Icon(Icons.delete_rounded),
-      label: AppStrings.trash,
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.settings_outlined),
-      selectedIcon: Icon(Icons.settings_rounded),
-      label: AppStrings.settings,
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.info_outline_rounded),
-      selectedIcon: Icon(Icons.info_rounded),
-      label: AppStrings.about,
-    ),
-  ];
+  static const List<NavigationDestination> _destinations =
+      <NavigationDestination>[
+        NavigationDestination(
+          icon: Icon(Icons.notes_rounded),
+          label: AppStrings.allNotes,
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.star_outline_rounded),
+          selectedIcon: Icon(Icons.star_rounded),
+          label: AppStrings.favorites,
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.archive_outlined),
+          selectedIcon: Icon(Icons.archive_rounded),
+          label: AppStrings.archive,
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.delete_outline_rounded),
+          selectedIcon: Icon(Icons.delete_rounded),
+          label: AppStrings.trash,
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.settings_outlined),
+          selectedIcon: Icon(Icons.settings_rounded),
+          label: AppStrings.settings,
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.info_outline_rounded),
+          selectedIcon: Icon(Icons.info_rounded),
+          label: AppStrings.about,
+        ),
+      ];
 
   @override
   void dispose() {
@@ -85,11 +89,12 @@ class _HomeShellState extends State<HomeShell> {
                           : NavigationRailLabelType.selected,
                       destinations: _destinations
                           .map(
-                            (NavigationDestination item) => NavigationRailDestination(
-                              icon: item.icon,
-                              selectedIcon: item.selectedIcon,
-                              label: Text(item.label),
-                            ),
+                            (NavigationDestination item) =>
+                                NavigationRailDestination(
+                                  icon: item.icon,
+                                  selectedIcon: item.selectedIcon,
+                                  label: Text(item.label),
+                                ),
                           )
                           .toList(growable: false),
                     ),

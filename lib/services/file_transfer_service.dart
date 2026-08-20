@@ -16,8 +16,8 @@ final class FileTransferService {
   FileTransferService({
     required BackupRepository backups,
     required NoteRepository notes,
-  })  : _backups = backups,
-        _notes = notes;
+  }) : _backups = backups,
+       _notes = notes;
 
   final BackupRepository _backups;
   final NoteRepository _notes;
@@ -48,9 +48,14 @@ final class FileTransferService {
       failureMessage: 'Could not read the selected backup.',
     );
     try {
-      return await _backups.restoreJson(utf8.decode(bytes, allowMalformed: false));
+      return await _backups.restoreJson(
+        utf8.decode(bytes, allowMalformed: false),
+      );
     } on FormatException catch (error) {
-      throw ImportExportException('The selected backup is not valid UTF-8.', error);
+      throw ImportExportException(
+        'The selected backup is not valid UTF-8.',
+        error,
+      );
     }
   }
 
@@ -90,7 +95,10 @@ final class FileTransferService {
     try {
       text = utf8.decode(bytes, allowMalformed: false);
     } on FormatException catch (error) {
-      throw ImportExportException('The selected note is not valid UTF-8.', error);
+      throw ImportExportException(
+        'The selected note is not valid UTF-8.',
+        error,
+      );
     }
     final MarkdownDocument document = MarkdownDocumentCodec.decode(
       text,
@@ -114,10 +122,7 @@ final class FileTransferService {
 
       final String? path = file.path;
       if (path != null && path.trim().isNotEmpty) {
-        return BoundedFileReader.read(
-          path,
-          validateLength: validateLength,
-        );
+        return BoundedFileReader.read(path, validateLength: validateLength);
       }
 
       final BytesBuilder builder = BytesBuilder(copy: false);

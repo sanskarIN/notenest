@@ -77,7 +77,8 @@ class _NotesPageState extends State<NotesPage> {
                   ],
                 ),
               ),
-              if (controller.filter.collection == NoteCollection.all) ...<Widget>[
+              if (controller.filter.collection ==
+                  NoteCollection.all) ...<Widget>[
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
                   tooltip: AppStrings.importMarkdown,
@@ -85,7 +86,8 @@ class _NotesPageState extends State<NotesPage> {
                   icon: const Icon(Icons.file_open_rounded),
                 ),
               ],
-              if (controller.filter.collection == NoteCollection.trash) ...<Widget>[
+              if (controller.filter.collection ==
+                  NoteCollection.trash) ...<Widget>[
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
                   tooltip: 'Empty trash',
@@ -154,10 +156,8 @@ class _NotesPageState extends State<NotesPage> {
                 onFavorite: () {
                   unawaited(
                     _runNoteAction(
-                      () => controller.setFavorite(
-                        note,
-                        value: !note.isFavorite,
-                      ),
+                      () =>
+                          controller.setFavorite(note, value: !note.isFavorite),
                       failureMessage: 'Could not update the favorite state.',
                     ),
                   );
@@ -165,10 +165,7 @@ class _NotesPageState extends State<NotesPage> {
                 onPin: () {
                   unawaited(
                     _runNoteAction(
-                      () => controller.setPinned(
-                        note,
-                        value: !note.isPinned,
-                      ),
+                      () => controller.setPinned(note, value: !note.isPinned),
                       failureMessage: 'Could not update the pin state.',
                     ),
                   );
@@ -210,25 +207,25 @@ class _NotesPageState extends State<NotesPage> {
   Widget _collectionEmptyState(NoteCollection collection) {
     final (IconData icon, String title, String message) = switch (collection) {
       NoteCollection.all => (
-          Icons.note_add_outlined,
-          AppStrings.emptyTitle,
-          AppStrings.emptyBody,
-        ),
+        Icons.note_add_outlined,
+        AppStrings.emptyTitle,
+        AppStrings.emptyBody,
+      ),
       NoteCollection.favorites => (
-          Icons.star_outline_rounded,
-          AppStrings.favoritesEmptyTitle,
-          AppStrings.favoritesEmptyBody,
-        ),
+        Icons.star_outline_rounded,
+        AppStrings.favoritesEmptyTitle,
+        AppStrings.favoritesEmptyBody,
+      ),
       NoteCollection.archive => (
-          Icons.archive_outlined,
-          AppStrings.archiveEmptyTitle,
-          AppStrings.archiveEmptyBody,
-        ),
+        Icons.archive_outlined,
+        AppStrings.archiveEmptyTitle,
+        AppStrings.archiveEmptyBody,
+      ),
       NoteCollection.trash => (
-          Icons.delete_outline_rounded,
-          AppStrings.trashEmptyTitle,
-          AppStrings.trashEmptyBody,
-        ),
+        Icons.delete_outline_rounded,
+        AppStrings.trashEmptyTitle,
+        AppStrings.trashEmptyBody,
+      ),
     };
     return EmptyState(
       icon: icon,
@@ -250,7 +247,9 @@ class _NotesPageState extends State<NotesPage> {
       if (!mounted) return;
       await _openEditor(note);
     } on Object {
-      _message('Could not create a new note. Your existing notes were not changed.');
+      _message(
+        'Could not create a new note. Your existing notes were not changed.',
+      );
     }
   }
 
@@ -348,7 +347,10 @@ class _NotesPageState extends State<NotesPage> {
     }
   }
 
-  Future<bool> _confirm({required String title, required String message}) async {
+  Future<bool> _confirm({
+    required String title,
+    required String message,
+  }) async {
     return await showDialog<bool>(
           context: context,
           builder: (BuildContext context) => AlertDialog(
@@ -371,7 +373,9 @@ class _NotesPageState extends State<NotesPage> {
 
   void _message(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -402,9 +406,11 @@ class _FilterRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           FilterChip(
-            label: Text(controller.filter.tag == null
-                ? 'All tags'
-                : '#${controller.filter.tag}'),
+            label: Text(
+              controller.filter.tag == null
+                  ? 'All tags'
+                  : '#${controller.filter.tag}',
+            ),
             selected: controller.filter.tag != null,
             onSelected: (_) => _showFilterMenu(
               context,

@@ -21,7 +21,9 @@ final class NoteRepository {
   }) async {
     final DateTime now = DateTime.now().toUtc();
     final String id = _uuid.v7();
-    await _db.into(_db.notes).insert(
+    await _db
+        .into(_db.notes)
+        .insert(
           NotesCompanion(
             id: Value<String>(id),
             title: Value<String>(title.trim()),
@@ -37,8 +39,9 @@ final class NoteRepository {
   }
 
   Future<Note> getById(String id) {
-    return (_db.select(_db.notes)..where(($NotesTable row) => row.id.equals(id)))
-        .getSingle();
+    return (_db.select(
+      _db.notes,
+    )..where(($NotesTable row) => row.id.equals(id))).getSingle();
   }
 
   Future<List<Note>> list(NoteFilter filter) async {
@@ -46,18 +49,21 @@ final class NoteRepository {
         ? await _db.select(_db.notes).get()
         : await _db.searchFts(filter.query);
 
-    final List<Note> filtered = source.where((Note note) {
-      if (!_matchesCollection(note, filter.collection)) {
-        return false;
-      }
-      if (filter.folder != null && note.folder != filter.folder) {
-        return false;
-      }
-      if (filter.tag != null && !decodeTags(note.tags).contains(filter.tag)) {
-        return false;
-      }
-      return true;
-    }).toList(growable: false);
+    final List<Note> filtered = source
+        .where((Note note) {
+          if (!_matchesCollection(note, filter.collection)) {
+            return false;
+          }
+          if (filter.folder != null && note.folder != filter.folder) {
+            return false;
+          }
+          if (filter.tag != null &&
+              !decodeTags(note.tags).contains(filter.tag)) {
+            return false;
+          }
+          return true;
+        })
+        .toList(growable: false);
 
     final List<Note> sorted = List<Note>.of(filtered)
       ..sort((Note a, Note b) {
@@ -82,7 +88,8 @@ final class NoteRepository {
     final String normalizedTitle = title.trim();
     final String normalizedFolder = folder.trim();
 
-    final bool unchanged = existing.title == normalizedTitle &&
+    final bool unchanged =
+        existing.title == normalizedTitle &&
         existing.body == body &&
         existing.folder == normalizedFolder &&
         existing.tags == encodedTags &&
@@ -93,7 +100,9 @@ final class NoteRepository {
 
     final DateTime now = DateTime.now().toUtc();
     await _db.transaction(() async {
-      await _db.into(_db.noteVersions).insert(
+      await _db
+          .into(_db.noteVersions)
+          .insert(
             NoteVersionsCompanion(
               noteId: Value<String>(existing.id),
               title: Value<String>(existing.title),
@@ -108,8 +117,9 @@ final class NoteRepository {
               capturedAt: Value<DateTime>(now),
             ),
           );
-      await (_db.update(_db.notes)..where(($NotesTable row) => row.id.equals(id)))
-          .write(
+      await (_db.update(
+        _db.notes,
+      )..where(($NotesTable row) => row.id.equals(id))).write(
         NotesCompanion(
           title: Value<String>(normalizedTitle),
           body: Value<String>(body),
@@ -133,9 +143,9 @@ final class NoteRepository {
   }
 
   Future<void> restoreVersion(int versionId) async {
-    final NoteVersion version = await (_db.select(_db.noteVersions)
-          ..where(($NoteVersionsTable row) => row.id.equals(versionId)))
-        .getSingle();
+    final NoteVersion version = await (_db.select(
+      _db.noteVersions,
+    )..where(($NoteVersionsTable row) => row.id.equals(versionId))).getSingle();
     await saveContent(
       id: version.noteId,
       title: version.title,
@@ -165,41 +175,38 @@ final class NoteRepository {
       _patch(id, NotesCompanion(isFavorite: Value<bool>(value)));
 
   Future<void> archive(String id) => _patch(
-        id,
-        const NotesCompanion(
-          isArchived: Value<bool>(true),
-          isTrashed: Value<bool>(false),
-        ),
-      );
+    id,
+    const NotesCompanion(
+      isArchived: Value<bool>(true),
+      isTrashed: Value<bool>(false),
+    ),
+  );
 
-  Future<void> unarchive(String id) => _patch(
-        id,
-        const NotesCompanion(isArchived: Value<bool>(false)),
-      );
+  Future<void> unarchive(String id) =>
+      _patch(id, const NotesCompanion(isArchived: Value<bool>(false)));
 
   Future<void> trash(String id) => _patch(
-        id,
-        const NotesCompanion(
-          isTrashed: Value<bool>(true),
-          isArchived: Value<bool>(false),
-          isPinned: Value<bool>(false),
-        ),
-      );
+    id,
+    const NotesCompanion(
+      isTrashed: Value<bool>(true),
+      isArchived: Value<bool>(false),
+      isPinned: Value<bool>(false),
+    ),
+  );
 
-  Future<void> restore(String id) => _patch(
-        id,
-        const NotesCompanion(isTrashed: Value<bool>(false)),
-      );
+  Future<void> restore(String id) =>
+      _patch(id, const NotesCompanion(isTrashed: Value<bool>(false)));
 
   Future<void> permanentlyDelete(String id) async {
-    await (_db.delete(_db.notes)..where(($NotesTable row) => row.id.equals(id)))
-        .go();
+    await (_db.delete(
+      _db.notes,
+    )..where(($NotesTable row) => row.id.equals(id))).go();
   }
 
   Future<int> emptyTrash() {
-    return (_db.delete(_db.notes)
-          ..where(($NotesTable row) => row.isTrashed.equals(true)))
-        .go();
+    return (_db.delete(
+      _db.notes,
+    )..where(($NotesTable row) => row.isTrashed.equals(true))).go();
   }
 
   Future<Set<String>> folders({
@@ -250,19 +257,21 @@ final class NoteRepository {
   }
 
   Future<void> _patch(String id, NotesCompanion patch) async {
-    await (_db.update(_db.notes)..where(($NotesTable row) => row.id.equals(id)))
-        .write(
+    await (_db.update(
+      _db.notes,
+    )..where(($NotesTable row) => row.id.equals(id))).write(
       patch.copyWith(updatedAt: Value<DateTime>(DateTime.now().toUtc())),
     );
   }
 
   String _encodeTags(Iterable<String> tags) {
-    final List<String> values = tags
-        .map((String tag) => tag.trim())
-        .where((String tag) => tag.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final List<String> values =
+        tags
+            .map((String tag) => tag.trim())
+            .where((String tag) => tag.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
     return jsonEncode(values);
   }
 }

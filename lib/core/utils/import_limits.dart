@@ -26,7 +26,11 @@ abstract final class ImportLimits {
     required String label,
   }) {
     if (byteLength < 0) {
-      throw ArgumentError.value(byteLength, 'byteLength', 'must not be negative');
+      throw ArgumentError.value(
+        byteLength,
+        'byteLength',
+        'must not be negative',
+      );
     }
     if (byteLength > maxBytes) {
       final int maxMiB = maxBytes ~/ (1024 * 1024);

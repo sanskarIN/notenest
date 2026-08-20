@@ -1,13 +1,11 @@
 import 'package:url_launcher/url_launcher.dart';
 
-typedef ExternalLaunchDelegate = Future<bool> Function(
-  Uri uri,
-  LaunchMode mode,
-);
+typedef ExternalLaunchDelegate =
+    Future<bool> Function(Uri uri, LaunchMode mode);
 
 final class ExternalLinkService {
   ExternalLinkService({ExternalLaunchDelegate? launcher})
-      : _launcher = launcher ?? _defaultLaunch;
+    : _launcher = launcher ?? _defaultLaunch;
 
   final ExternalLaunchDelegate _launcher;
 

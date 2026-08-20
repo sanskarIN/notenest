@@ -2,10 +2,13 @@ import 'package:drift/drift.dart';
 
 class Notes extends Table {
   TextColumn get id => text().named('id')();
-  TextColumn get title => text().named('title').withDefault(const Constant(''))();
+  TextColumn get title =>
+      text().named('title').withDefault(const Constant(''))();
   TextColumn get body => text().named('body').withDefault(const Constant(''))();
-  TextColumn get folder => text().named('folder').withDefault(const Constant(''))();
-  TextColumn get tags => text().named('tags').withDefault(const Constant('[]'))();
+  TextColumn get folder =>
+      text().named('folder').withDefault(const Constant(''))();
+  TextColumn get tags =>
+      text().named('tags').withDefault(const Constant('[]'))();
   IntColumn get colorValue => integer().named('color_value').nullable()();
   BoolColumn get isPinned =>
       boolean().named('is_pinned').withDefault(const Constant(false))();

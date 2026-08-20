@@ -20,7 +20,8 @@ abstract final class AppStrings {
   static const String newNote = 'New note';
   static const String importMarkdown = 'Import Markdown';
   static const String emptyTitle = 'No notes here yet';
-  static const String emptyBody = 'Create a note or adjust the current filters.';
+  static const String emptyBody =
+      'Create a note or adjust the current filters.';
   static const String favoritesEmptyTitle = 'No favorite notes yet';
   static const String favoritesEmptyBody =
       'Mark an active note as a favorite to find it here.';

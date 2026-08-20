@@ -3,7 +3,7 @@ import 'package:local_auth/local_auth.dart';
 
 final class AppLockService {
   AppLockService({LocalAuthentication? authentication})
-      : _authentication = authentication ?? LocalAuthentication();
+    : _authentication = authentication ?? LocalAuthentication();
 
   final LocalAuthentication _authentication;
 
