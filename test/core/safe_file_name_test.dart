@@ -4,10 +4,7 @@ import 'package:notenest/core/utils/safe_file_name.dart';
 void main() {
   group('SafeFileName', () {
     test('replaces cross-platform invalid filename characters', () {
-      expect(
-        SafeFileName.fromTitle('Plan: Q3 / ideas?'),
-        'Plan- Q3 - ideas-',
-      );
+      expect(SafeFileName.fromTitle('Plan: Q3 / ideas?'), 'Plan- Q3 - ideas-');
     });
 
     test('protects Windows reserved device names', () {
@@ -27,18 +24,18 @@ void main() {
     test('preserves Unicode and enforces the maximum length', () {
       expect(SafeFileName.fromTitle('नोट्स 2026'), 'नोट्स 2026');
       final String longTitle = List<String>.filled(120, 'a').join();
-      expect(
-        SafeFileName.fromTitle(longTitle).length,
-        SafeFileName.maxLength,
-      );
+      expect(SafeFileName.fromTitle(longTitle).length, SafeFileName.maxLength);
     });
 
-    test('does not split a Unicode surrogate pair at the truncation boundary', () {
-      final String prefix = List<String>.filled(79, 'a').join();
-      final String result = SafeFileName.fromTitle('${prefix}😀tail');
+    test(
+      'does not split a Unicode surrogate pair at the truncation boundary',
+      () {
+        final String prefix = List<String>.filled(79, 'a').join();
+        final String result = SafeFileName.fromTitle('${prefix}😀tail');
 
-      expect(result.runes.length, SafeFileName.maxLength);
-      expect(result.endsWith('😀'), isTrue);
-    });
+        expect(result.runes.length, SafeFileName.maxLength);
+        expect(result.endsWith('😀'), isTrue);
+      },
+    );
   });
 }

@@ -29,7 +29,8 @@ void main() {
   });
 
   test('rolls a failed theme write back to the last persisted value', () async {
-    final _FakeSettingsStore store = _FakeSettingsStore()..failThemeWrites = true;
+    final _FakeSettingsStore store = _FakeSettingsStore()
+      ..failThemeWrites = true;
     final AppSettingsController controller = AppSettingsController(store);
     await controller.load();
 
@@ -44,35 +45,35 @@ void main() {
     controller.dispose();
   });
 
-  test('serializes rapid theme writes so the newest value persists last', () async {
-    final _FakeSettingsStore store = _FakeSettingsStore();
-    final AppSettingsController controller = AppSettingsController(store);
-    await controller.load();
+  test(
+    'serializes rapid theme writes so the newest value persists last',
+    () async {
+      final _FakeSettingsStore store = _FakeSettingsStore();
+      final AppSettingsController controller = AppSettingsController(store);
+      await controller.load();
 
-    final Completer<void> firstStarted = Completer<void>();
-    final Completer<void> releaseFirst = Completer<void>();
-    store.firstThemeWriteStarted = firstStarted;
-    store.releaseFirstThemeWrite = releaseFirst;
+      final Completer<void> firstStarted = Completer<void>();
+      final Completer<void> releaseFirst = Completer<void>();
+      store.firstThemeWriteStarted = firstStarted;
+      store.releaseFirstThemeWrite = releaseFirst;
 
-    final Future<void> dark = controller.setThemeMode(ThemeMode.dark);
-    final Future<void> light = controller.setThemeMode(ThemeMode.light);
+      final Future<void> dark = controller.setThemeMode(ThemeMode.dark);
+      final Future<void> light = controller.setThemeMode(ThemeMode.light);
 
-    await firstStarted.future;
-    expect(store.themeWrites, <ThemeMode>[ThemeMode.dark]);
-    expect(controller.themeMode, ThemeMode.light);
+      await firstStarted.future;
+      expect(store.themeWrites, <ThemeMode>[ThemeMode.dark]);
+      expect(controller.themeMode, ThemeMode.light);
 
-    releaseFirst.complete();
-    await Future.wait<void>(<Future<void>>[dark, light]);
+      releaseFirst.complete();
+      await Future.wait<void>(<Future<void>>[dark, light]);
 
-    expect(
-      store.themeWrites,
-      <ThemeMode>[ThemeMode.dark, ThemeMode.light],
-    );
-    expect(store.themeMode, ThemeMode.light);
-    expect(controller.themeMode, ThemeMode.light);
+      expect(store.themeWrites, <ThemeMode>[ThemeMode.dark, ThemeMode.light]);
+      expect(store.themeMode, ThemeMode.light);
+      expect(controller.themeMode, ThemeMode.light);
 
-    controller.dispose();
-  });
+      controller.dispose();
+    },
+  );
 
   test('keeps onboarding visible when persistence fails', () async {
     final _FakeSettingsStore store = _FakeSettingsStore()
@@ -80,10 +81,7 @@ void main() {
     final AppSettingsController controller = AppSettingsController(store);
     await controller.load();
 
-    await expectLater(
-      controller.completeOnboarding(),
-      throwsStateError,
-    );
+    await expectLater(controller.completeOnboarding(), throwsStateError);
 
     expect(controller.onboardingComplete, isFalse);
     expect(store.onboardingComplete, isFalse);

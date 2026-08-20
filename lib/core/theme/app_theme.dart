@@ -4,15 +4,11 @@ import 'package:flutter/material.dart';
 abstract final class AppTheme {
   static const Color seed = Color(0xFF5B5BD6);
 
-  static ThemeData light({double textScale = 1}) => _build(
-        brightness: Brightness.light,
-        textScale: textScale,
-      );
+  static ThemeData light({double textScale = 1}) =>
+      _build(brightness: Brightness.light, textScale: textScale);
 
-  static ThemeData dark({double textScale = 1}) => _build(
-        brightness: Brightness.dark,
-        textScale: textScale,
-      );
+  static ThemeData dark({double textScale = 1}) =>
+      _build(brightness: Brightness.dark, textScale: textScale);
 
   static ThemeData _build({
     required Brightness brightness,

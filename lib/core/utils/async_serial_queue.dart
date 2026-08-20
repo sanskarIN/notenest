@@ -3,10 +3,7 @@ final class AsyncSerialQueue {
 
   Future<T> add<T>(Future<T> Function() action) {
     final Future<T> task = _tail.then<T>((_) => action());
-    _tail = task.then<void>(
-      (_) {},
-      onError: (Object _, StackTrace __) {},
-    );
+    _tail = task.then<void>((_) {}, onError: (Object _, StackTrace __) {});
     return task;
   }
 }

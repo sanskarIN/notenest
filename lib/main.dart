@@ -43,7 +43,10 @@ class _BootstrapFailureApp extends StatelessWidget {
                     Text(
                       'NoteNest could not start',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     SizedBox(height: 12),
                     Text(

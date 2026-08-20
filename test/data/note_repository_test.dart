@@ -31,7 +31,10 @@ void main() {
     expect(notes, hasLength(1));
     expect(notes.single.id, created.id);
     expect(notes.single.folder, 'Projects');
-    expect(repository.decodeTags(notes.single.tags), <String>['flutter', 'offline']);
+    expect(repository.decodeTags(notes.single.tags), <String>[
+      'flutter',
+      'offline',
+    ]);
   });
 
   test('saving changed content creates a version snapshot', () async {
@@ -55,20 +58,26 @@ void main() {
     expect(updated.title, 'Second');
   });
 
-  test('saving unchanged content does not create duplicate snapshots', () async {
-    final Note created = await repository.create(title: 'Same', body: 'Content');
+  test(
+    'saving unchanged content does not create duplicate snapshots',
+    () async {
+      final Note created = await repository.create(
+        title: 'Same',
+        body: 'Content',
+      );
 
-    await repository.saveContent(
-      id: created.id,
-      title: 'Same',
-      body: 'Content',
-      folder: '',
-      tags: const <String>[],
-      colorValue: null,
-    );
+      await repository.saveContent(
+        id: created.id,
+        title: 'Same',
+        body: 'Content',
+        folder: '',
+        tags: const <String>[],
+        colorValue: null,
+      );
 
-    expect(await repository.versions(created.id), isEmpty);
-  });
+      expect(await repository.versions(created.id), isEmpty);
+    },
+  );
 
   test('restoring a version makes earlier content current', () async {
     final Note created = await repository.create(title: 'First', body: 'One');
@@ -151,9 +160,7 @@ void main() {
     expect(trashed.isPinned, isFalse);
     expect(await repository.list(const NoteFilter()), isEmpty);
     expect(
-      await repository.list(
-        const NoteFilter(collection: NoteCollection.trash),
-      ),
+      await repository.list(const NoteFilter(collection: NoteCollection.trash)),
       hasLength(1),
     );
 
@@ -197,10 +204,10 @@ void main() {
     await repository.archive(archived.id);
     await repository.trash(trashed.id);
 
-    expect(
-      await repository.folders(collection: NoteCollection.all),
-      <String>{'Active folder', 'Favorite folder'},
-    );
+    expect(await repository.folders(collection: NoteCollection.all), <String>{
+      'Active folder',
+      'Favorite folder',
+    });
     expect(
       await repository.folders(collection: NoteCollection.favorites),
       <String>{'Favorite folder'},
@@ -209,10 +216,9 @@ void main() {
       await repository.folders(collection: NoteCollection.archive),
       <String>{'Archive folder'},
     );
-    expect(
-      await repository.folders(collection: NoteCollection.trash),
-      <String>{'Trash folder'},
-    );
+    expect(await repository.folders(collection: NoteCollection.trash), <String>{
+      'Trash folder',
+    });
 
     expect((await repository.getById(active.id)).folder, 'Active folder');
   });
@@ -235,22 +241,19 @@ void main() {
     await repository.archive(archived.id);
     await repository.trash(trashed.id);
 
-    expect(
-      await repository.tags(collection: NoteCollection.all),
-      <String>{'fav-tag'},
-    );
+    expect(await repository.tags(collection: NoteCollection.all), <String>{
+      'fav-tag',
+    });
     expect(
       await repository.tags(collection: NoteCollection.favorites),
       <String>{'fav-tag'},
     );
-    expect(
-      await repository.tags(collection: NoteCollection.archive),
-      <String>{'archive-tag'},
-    );
-    expect(
-      await repository.tags(collection: NoteCollection.trash),
-      <String>{'trash-tag'},
-    );
+    expect(await repository.tags(collection: NoteCollection.archive), <String>{
+      'archive-tag',
+    });
+    expect(await repository.tags(collection: NoteCollection.trash), <String>{
+      'trash-tag',
+    });
   });
 
   test('permanent delete cascades version history', () async {

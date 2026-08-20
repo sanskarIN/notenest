@@ -25,7 +25,8 @@ final class AppSettingsController extends ChangeNotifier {
     final ThemeMode nextThemeMode = await _repository.getThemeMode();
     final double nextFontScale = await _repository.getFontScale();
     final bool nextReduceMotion = await _repository.getReduceMotion();
-    final bool nextOnboardingComplete = await _repository.getOnboardingComplete();
+    final bool nextOnboardingComplete = await _repository
+        .getOnboardingComplete();
     final bool nextAppLockEnabled = await _repository.getAppLockEnabled();
     if (_disposed) return;
 

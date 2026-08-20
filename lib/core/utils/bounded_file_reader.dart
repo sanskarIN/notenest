@@ -9,9 +9,6 @@ abstract final class BoundedFileReader {
     String path, {
     required void Function(int byteLength) validateLength,
   }) {
-    return implementation.readBoundedFile(
-      path,
-      validateLength: validateLength,
-    );
+    return implementation.readBoundedFile(path, validateLength: validateLength);
   }
 }

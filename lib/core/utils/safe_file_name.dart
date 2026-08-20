@@ -26,10 +26,7 @@ abstract final class SafeFileName {
     'LPT9',
   };
 
-  static String fromTitle(
-    String value, {
-    String fallback = 'untitled-note',
-  }) {
+  static String fromTitle(String value, {String fallback = 'untitled-note'}) {
     String cleaned = value
         .trim()
         .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F]'), '-')

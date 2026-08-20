@@ -60,11 +60,12 @@ class _SettingsPageState extends State<SettingsPage> {
     final AppSettingsController settings = widget.settings;
     final String appLockDescription = switch (_appLockSupported) {
       true => 'Use device authentication to protect access to local notes.',
-      false => 'Device authentication is unavailable on this platform or device.',
+      false =>
+        'Device authentication is unavailable on this platform or device.',
       null => 'Checking device authentication support…',
     };
-    final bool canChangeAppLock = !_busy &&
-        (settings.appLockEnabled || _appLockSupported == true);
+    final bool canChangeAppLock =
+        !_busy && (settings.appLockEnabled || _appLockSupported == true);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -113,7 +114,9 @@ class _SettingsPageState extends State<SettingsPage> {
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('Reduce motion'),
-          subtitle: const Text('Prefer fewer non-essential interface animations.'),
+          subtitle: const Text(
+            'Prefer fewer non-essential interface animations.',
+          ),
           value: settings.reduceMotion,
           onChanged: (bool value) {
             _queuePreference(() => settings.setReduceMotion(value: value));
@@ -134,7 +137,9 @@ class _SettingsPageState extends State<SettingsPage> {
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.backup_rounded),
           title: const Text('Export backup'),
-          subtitle: const Text('Save notes and version history as validated JSON.'),
+          subtitle: const Text(
+            'Save notes and version history as validated JSON.',
+          ),
           enabled: !_busy,
           onTap: _exportBackup,
         ),
@@ -189,7 +194,9 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       await action();
     } on Object {
-      _message('Could not save this setting. The previous saved value was restored.');
+      _message(
+        'Could not save this setting. The previous saved value was restored.',
+      );
     }
   }
 
@@ -200,12 +207,16 @@ class _SettingsPageState extends State<SettingsPage> {
         final bool supported = await widget.appLock.canAuthenticate();
         if (!supported) {
           if (mounted) setState(() => _appLockSupported = false);
-          _message('Device authentication is not available on this platform or device.');
+          _message(
+            'Device authentication is not available on this platform or device.',
+          );
           return;
         }
         final bool verified = await widget.appLock.authenticate();
         if (!verified) {
-          _message('App lock was not enabled because authentication did not complete.');
+          _message(
+            'App lock was not enabled because authentication did not complete.',
+          );
           return;
         }
       }
@@ -283,6 +294,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _message(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }

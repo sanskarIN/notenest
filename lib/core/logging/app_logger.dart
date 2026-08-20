@@ -61,11 +61,7 @@ final class AppLogger {
     };
   }
 
-  void _write(
-    AppLogLevel level,
-    String event,
-    Map<String, Object?> fields,
-  ) {
+  void _write(AppLogLevel level, String event, Map<String, Object?> fields) {
     final Map<String, Object?> record = <String, Object?>{
       'event': _safeEventName(event),
       'severity': level.name,

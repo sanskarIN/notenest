@@ -48,7 +48,10 @@ void main() {
   });
 
   test('preserves a newer local note during restore', () async {
-    final Note created = await notes.create(title: 'Old title', body: 'Old body');
+    final Note created = await notes.create(
+      title: 'Old title',
+      body: 'Old body',
+    );
     final String olderBackup = await backups.exportJson();
 
     await notes.saveContent(
@@ -160,25 +163,33 @@ void main() {
     expect((await notes.getById(created.id)).title, 'Keep me');
   });
 
-  test('normalizes imported serialized tags to repository invariants', () async {
-    final Note created = await notes.create(title: 'Normalize tags');
-    final Map<String, Object?> payload = await exportedPayload();
-    firstNote(payload)['tags'] = jsonEncode(
-      <String>[' beta ', 'alpha', 'beta', ''],
-    );
+  test(
+    'normalizes imported serialized tags to repository invariants',
+    () async {
+      final Note created = await notes.create(title: 'Normalize tags');
+      final Map<String, Object?> payload = await exportedPayload();
+      firstNote(payload)['tags'] = jsonEncode(<String>[
+        ' beta ',
+        'alpha',
+        'beta',
+        '',
+      ]);
 
-    await backups.restoreJson(jsonEncode(payload));
+      await backups.restoreJson(jsonEncode(payload));
 
-    final Note restored = await notes.getById(created.id);
-    expect(notes.decodeTags(restored.tags), <String>['alpha', 'beta']);
-    expect(restored.tags, jsonEncode(<String>['alpha', 'beta']));
-  });
+      final Note restored = await notes.getById(created.id);
+      expect(notes.decodeTags(restored.tags), <String>['alpha', 'beta']);
+      expect(restored.tags, jsonEncode(<String>['alpha', 'beta']));
+    },
+  );
 
   test('rejects duplicate note ids', () async {
     await notes.create(title: 'Source');
     final Map<String, Object?> payload = await exportedPayload();
     final List<Object?> rawNotes = payload['notes']! as List<Object?>;
-    rawNotes.add(Map<String, Object?>.from(rawNotes.single! as Map<String, Object?>));
+    rawNotes.add(
+      Map<String, Object?>.from(rawNotes.single! as Map<String, Object?>),
+    );
 
     expect(
       () => backups.restoreJson(jsonEncode(payload)),

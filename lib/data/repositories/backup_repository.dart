@@ -47,7 +47,9 @@ final class BackupRepository {
       throw const ValidationException('Backup root must be a JSON object.');
     }
     if (decoded['app'] != 'NoteNest') {
-      throw const ValidationException('Backup does not identify as NoteNest data.');
+      throw const ValidationException(
+        'Backup does not identify as NoteNest data.',
+      );
     }
     if (decoded['schemaVersion'] != backupSchemaVersion) {
       throw const ValidationException('Unsupported backup schema version.');
@@ -57,7 +59,9 @@ final class BackupRepository {
     final Object? rawNotes = decoded['notes'];
     final Object? rawVersions = decoded['versions'];
     if (rawNotes is! List<Object?> || rawVersions is! List<Object?>) {
-      throw const ValidationException('Backup notes or versions are malformed.');
+      throw const ValidationException(
+        'Backup notes or versions are malformed.',
+      );
     }
 
     final List<NotesCompanion> notes = rawNotes
@@ -75,9 +79,9 @@ final class BackupRepository {
     await _db.transaction(() async {
       for (final NotesCompanion incoming in notes) {
         final String id = incoming.id.value;
-        final List<Note> existing = await (_db.select(_db.notes)
-              ..where(($NotesTable row) => row.id.equals(id)))
-            .get();
+        final List<Note> existing = await (_db.select(
+          _db.notes,
+        )..where(($NotesTable row) => row.id.equals(id))).get();
         if (existing.isNotEmpty &&
             existing.single.updatedAt.isAfter(incoming.updatedAt.value)) {
           skippedNewerNotes += 1;
@@ -88,13 +92,13 @@ final class BackupRepository {
       }
 
       for (final NoteVersionsCompanion incoming in versions) {
-        final List<NoteVersion> duplicate = await (_db.select(_db.noteVersions)
-              ..where(
-                ($NoteVersionsTable row) =>
-                    row.noteId.equals(incoming.noteId.value) &
-                    row.capturedAt.equals(incoming.capturedAt.value),
-              ))
-            .get();
+        final List<NoteVersion> duplicate =
+            await (_db.select(_db.noteVersions)..where(
+                  ($NoteVersionsTable row) =>
+                      row.noteId.equals(incoming.noteId.value) &
+                      row.capturedAt.equals(incoming.capturedAt.value),
+                ))
+                .get();
         if (duplicate.isEmpty) {
           await _db.into(_db.noteVersions).insert(incoming);
           importedVersions += 1;
@@ -151,33 +155,33 @@ final class BackupRepository {
   }
 
   Map<String, Object?> _noteToJson(Note note) => <String, Object?>{
-        'id': note.id,
-        'title': note.title,
-        'body': note.body,
-        'folder': note.folder,
-        'tags': note.tags,
-        'colorValue': note.colorValue,
-        'isPinned': note.isPinned,
-        'isFavorite': note.isFavorite,
-        'isArchived': note.isArchived,
-        'isTrashed': note.isTrashed,
-        'createdAt': note.createdAt.toUtc().toIso8601String(),
-        'updatedAt': note.updatedAt.toUtc().toIso8601String(),
-      };
+    'id': note.id,
+    'title': note.title,
+    'body': note.body,
+    'folder': note.folder,
+    'tags': note.tags,
+    'colorValue': note.colorValue,
+    'isPinned': note.isPinned,
+    'isFavorite': note.isFavorite,
+    'isArchived': note.isArchived,
+    'isTrashed': note.isTrashed,
+    'createdAt': note.createdAt.toUtc().toIso8601String(),
+    'updatedAt': note.updatedAt.toUtc().toIso8601String(),
+  };
 
   Map<String, Object?> _versionToJson(NoteVersion version) => <String, Object?>{
-        'noteId': version.noteId,
-        'title': version.title,
-        'body': version.body,
-        'folder': version.folder,
-        'tags': version.tags,
-        'colorValue': version.colorValue,
-        'isPinned': version.isPinned,
-        'isFavorite': version.isFavorite,
-        'isArchived': version.isArchived,
-        'isTrashed': version.isTrashed,
-        'capturedAt': version.capturedAt.toUtc().toIso8601String(),
-      };
+    'noteId': version.noteId,
+    'title': version.title,
+    'body': version.body,
+    'folder': version.folder,
+    'tags': version.tags,
+    'colorValue': version.colorValue,
+    'isPinned': version.isPinned,
+    'isFavorite': version.isFavorite,
+    'isArchived': version.isArchived,
+    'isTrashed': version.isTrashed,
+    'capturedAt': version.capturedAt.toUtc().toIso8601String(),
+  };
 
   NotesCompanion _parseNote(Object? raw) {
     final Map<String, Object?> map = _map(raw, 'note');
@@ -261,21 +265,26 @@ final class BackupRepository {
     try {
       decoded = jsonDecode(encoded);
     } on FormatException catch (error) {
-      throw ValidationException('Backup field "$key" is not valid tag JSON.', error);
+      throw ValidationException(
+        'Backup field "$key" is not valid tag JSON.',
+        error,
+      );
     }
-    if (decoded is! List<Object?> || decoded.any((Object? item) => item is! String)) {
+    if (decoded is! List<Object?> ||
+        decoded.any((Object? item) => item is! String)) {
       throw ValidationException(
         'Backup field "$key" must encode a list of text tags.',
       );
     }
 
-    final List<String> normalized = decoded
-        .cast<String>()
-        .map((String tag) => tag.trim())
-        .where((String tag) => tag.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final List<String> normalized =
+        decoded
+            .cast<String>()
+            .map((String tag) => tag.trim())
+            .where((String tag) => tag.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
     return jsonEncode(normalized);
   }
 

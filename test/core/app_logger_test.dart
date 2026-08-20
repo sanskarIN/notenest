@@ -5,15 +5,14 @@ void main() {
   const AppLogger logger = AppLogger();
 
   test('redacts fields whose keys can contain private note data', () {
-    final Map<String, Object?> sanitized = logger.sanitizeFields(
-      <String, Object?>{
-        'noteTitle': 'Private title',
-        'body': 'Private body',
-        'token': 'secret-token-value',
-        'count': 3,
-        'operation': 'restore',
-      },
-    );
+    final Map<String, Object?> sanitized = logger
+        .sanitizeFields(<String, Object?>{
+          'noteTitle': 'Private title',
+          'body': 'Private body',
+          'token': 'secret-token-value',
+          'count': 3,
+          'operation': 'restore',
+        });
 
     expect(sanitized['noteTitle'], '[redacted]');
     expect(sanitized['body'], '[redacted]');
