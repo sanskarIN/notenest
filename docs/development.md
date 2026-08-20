@@ -1,24 +1,27 @@
 # NoteNest Development Guide
 
-Current release-candidate target: **2.0.12** (`2.0.12+2012`).
+Current release candidate: **2.0.12** (`2.0.12+2012`).
 
-NoteNest is developed as one Flutter application targeting Android, iOS/iPadOS, Windows, macOS, Linux, and Web. Platform differences belong behind explicit boundaries rather than scattered `Platform.*`, `dart:io`, or plugin assumptions throughout features.
+NoteNest is developed as one Flutter application targeting **Android, iOS/iPadOS, Windows, macOS, Linux, and Web**. Platform-sensitive behavior belongs behind explicit services, conditional imports, or the reproducible platform bootstrap rather than being scattered through feature widgets.
 
 ## Daily workflow
 
+Use the committed dependency graph for ordinary work:
+
 ```bash
 python tool/check_version_sync.py
-flutter pub get
-dart run build_runner build --delete-conflicting-outputs
+flutter pub get --enforce-lockfile
+dart run build_runner build
 dart format lib test
 flutter analyze
 flutter test
 ```
 
-For browser-boundary work also run:
+For browser/platform-sensitive work also run:
 
 ```bash
 python tool/bootstrap_platforms.py
+flutter pub get --enforce-lockfile
 flutter test --platform chrome test/web/web_platform_smoke_test.dart
 flutter build web --release
 ```
@@ -54,7 +57,7 @@ tool/                          Bootstrap/repository quality tooling
 .github/                       Workflows/templates/automation
 ```
 
-Every tracked path is documented exactly once in [`repository-reference.md`](repository-reference.md). The current catalog contains **108 tracked files**. Update it in the same commit/workstream as tracked path changes.
+Every tracked path is documented exactly once in [`repository-reference.md`](repository-reference.md). The current contract contains **109 tracked files**, including the application `pubspec.lock`.
 
 ## Dependency direction
 
@@ -68,72 +71,145 @@ repositories/services
 database/plugins/platform implementations
 ```
 
-Do not leak plugin/database implementation details throughout feature widgets.
+Do not leak database or plugin implementation details across feature widgets.
+
+## Reproducible dependency rule
+
+`pubspec.lock` is application source-of-truth for the resolved graph. Normal development, CI, platform builds, and release packaging use:
+
+```bash
+flutter pub get --enforce-lockfile
+```
+
+Only deliberate dependency maintenance should run an unlocked resolver:
+
+```bash
+flutter pub get
+```
+
+When doing so:
+
+1. Use Flutter **3.44.7**.
+2. Review the direct manifest change.
+3. Review every relevant lockfile version/hash change.
+4. Never hand-author hosted-package hashes.
+5. Re-run analyzer/tests/security/dependency review.
+6. Rebuild every affected target.
+7. Update platform minimum-version/tooling documentation when a plugin changes those requirements.
+
+The current graph includes `file_picker 12.0.0`, which introduced the explicit iOS 14 floor and federated platform packages.
 
 ## Cross-platform design rule
 
-Before adding any platform-sensitive behavior ask:
+Before adding platform-sensitive behavior ask:
 
-1. Does this API compile on Web?
+1. Does the shared API compile on Web?
 2. Does the plugin actually implement all six targets?
-3. What should an unsupported platform do?
-4. Does the feature require `dart:io` or another native-only library?
+3. What should unsupported targets do?
+4. Does the implementation import `dart:io` or another native-only library?
 5. Can platform selection be isolated behind conditional imports/exports?
-6. How is the behavior tested on native plus browser targets?
-7. Does it affect permissions, privacy, security, hosting, or release artifacts?
+6. Can the unsupported path remain useful rather than failing startup?
+7. What native permissions, minimum versions, or build-tool requirements change?
+8. What browser-hosting/storage behavior changes?
+9. How will it be tested on representative native and browser targets?
+10. Does it change privacy/security/release documentation?
 
-Unsupported capability must be explicit and safe. Do not fake parity with a weaker custom security mechanism.
+Unsupported capability must be explicit and safe. Do not fake parity with a weaker home-grown security mechanism.
+
+## Platform bootstrap as source of truth
+
+Run:
+
+```bash
+python tool/bootstrap_platforms.py
+```
+
+The generated runner directories are deliberately untracked. The source of truth is the pinned Flutter SDK plus bootstrap policy.
+
+The bootstrap currently enforces:
+
+### Android
+
+- `FlutterFragmentActivity`.
+- Biometric permission.
+- Minimum SDK 24.
+- AppCompat dependency/theme requirements.
+
+### iOS / iPadOS
+
+- Face ID usage text.
+- Deployment target **iOS 14.0+**.
+
+### Windows
+
+- Batch-file execution compatible with Python on Windows.
+- MSVC compatibility definition required by the current `local_auth_windows` implementation on modern Visual Studio toolchains.
+
+### Web
+
+- Drift 2.34.3 `sqlite3.wasm`.
+- Matching `drift_worker.js`.
+- Basic asset payload checks.
+- Failure when the direct Drift pin and bootstrap runtime pair disagree.
+
+Do not manually patch a generated runner and treat it as durable source. Update `tool/bootstrap_platforms.py` and its verification instead.
 
 ## Adding a note feature
 
-Decide:
+Decide before coding:
 
-- persisted note data vs setting vs transient UI state;
-- schema/migration impact;
+- persisted note data vs preference vs transient UI state;
+- database schema/migration impact;
 - backup compatibility;
-- FTS/filter impact;
-- browser/native behavior;
+- FTS/filter behavior;
+- native/browser differences;
 - privacy/permission/security impact;
-- compact/wide/keyboard/screen-reader behavior;
+- keyboard/touch/screen-reader behavior;
+- compact/wide layout behavior;
 - smallest deterministic regression layer;
-- documentation/release impact.
+- release/documentation impact.
 
 ## Database development
 
-Application 2.0.12 and Drift schema 1 are independent version domains.
+Application version **2.0.12** and Drift schema **1** are independent version domains.
 
-A future schema migration must increment `schemaVersion`, add deterministic migration logic, and test representative previous-schema fictional data. FTS table/trigger changes need explicit migration/rebuild planning.
+A future schema migration must:
 
-Every schema/query change must be reviewed on both:
+- increment `schemaVersion` deliberately;
+- implement deterministic migration logic;
+- test representative fictional previous-schema data;
+- review backup compatibility;
+- review FTS table/trigger migration or rebuild behavior;
+- verify native SQLite and Drift Web SQLite behavior.
 
-- native Drift/SQLite;
-- Drift Web SQLite WASM/worker.
-
-Do not assume a successful `NativeDatabase.memory()` test proves browser runtime behavior.
+Do not assume a passing `NativeDatabase.memory()` test proves browser runtime behavior.
 
 ## Web database runtime
 
-`AppDatabase` supplies Web URIs for `sqlite3.wasm` and `drift_worker.js`.
+`AppDatabase` supplies Web locations for `sqlite3.wasm` and `drift_worker.js`. `tool/bootstrap_platforms.py` ties those assets to direct dependency Drift **2.34.3**.
 
-`tool/bootstrap_platforms.py` currently ties those assets to direct dependency Drift **2.34.3**. When changing `drift`:
+When changing Drift:
 
 1. Review Drift release/migration notes.
 2. Update `pubspec.yaml` deliberately.
-3. Update/review the bootstrap Web version pairing.
-4. Regenerate Web assets.
-5. Run Chrome platform smoke + Web release build.
-6. Deploy/test the real bundle on a representative origin.
-7. Update lockfile, architecture/testing/release docs.
+3. Update/review the bootstrap Web version pair.
+4. Resolve and review `pubspec.lock`.
+5. Regenerate Web assets.
+6. Run database/unit regressions.
+7. Run Chrome platform smoke.
+8. Run Web release build.
+9. Deploy/test a representative origin.
+10. Update architecture/testing/release documentation.
 
-Do not quietly mix a worker/WASM pair from another Drift release.
+Never quietly mix a worker/WASM pair from another Drift release.
 
 ## Repository boundaries
 
-Repositories own persistence invariants. Prefer intention-specific operations (`archive`, `trash`, `restore`, `setPinned`) over arbitrary column mutation from UI code. Use a transaction when multiple storage changes form one logical operation.
+Repositories own persistence invariants. Prefer intention-specific methods (`archive`, `trash`, `restore`, `setPinned`) over arbitrary column mutation from UI code. Use a transaction when several writes form one logical operation.
 
-`NoteRepository` owns note lifecycle, snapshots, search/filter metadata, and the no-pinned-trash invariant.
-
-`BackupRepository` owns portable interchange validation/merge rules.
+- `NoteRepository` owns note lifecycle, snapshots, search/filter metadata, and the no-pinned-trash invariant.
+- `BackupRepository` owns portable interchange validation and conflict-safe restore.
+- `SettingsRepository` owns durable preference access.
 
 ## Controllers
 
@@ -141,81 +217,89 @@ Controllers own feature/application state, not platform APIs.
 
 Rules:
 
-- Dispose listeners/timers.
+- Dispose listeners and timers.
 - Guard async completions after disposal.
-- Protect newer state from stale async requests.
-- Debounce high-frequency work where appropriate.
+- Protect newer state from stale asynchronous requests.
+- Serialize order-sensitive writes.
+- Debounce high-frequency submissions where useful.
 - Keep unrelated settings/features out of a controller.
+- Propagate actionable failure state instead of pretending persistence succeeded.
 
 ## Editor and autosave
 
 The editor stores raw text plus note metadata rather than a rich-document graph.
 
-`Debouncer` reduces high-frequency submissions; `AsyncSerialQueue` guarantees submitted writes execute in order. Every save captures an immutable draft. A completion may mark the UI saved only if the draft is still current.
+`Debouncer` reduces high-frequency submissions; `AsyncSerialQueue` guarantees submitted writes execute in order. Each save captures an immutable draft. A completion may mark the UI saved only if that draft is still current.
 
-Normal Back waits for the current-draft save. Export/history also requires a successful current-draft save. Do not remove the serial queue without replacing its ordering guarantee.
+Normal Back waits for the current-draft save. Export/history also requires a successful current-draft save. Preserve those ordering guarantees when changing navigation or autosave logic.
 
-Current-line prefix actions must preserve the offset-zero empty-first-line regression.
+Current-line prefix actions must retain the offset-zero empty-first-line regression coverage.
 
-## Settings/onboarding
+## Settings and onboarding
 
-Preferences stay behind `SettingsStore`/`SettingsRepository`/`AppSettingsController`.
+Preferences remain behind `SettingsStore` → `SettingsRepository` → `AppSettingsController`.
 
-- Never store credentials, biometric data, or note bodies there.
-- Treat setter failure as persistence failure.
+- Never store credentials, biometric material, or note bodies there.
+- Treat setter failure as real persistence failure.
 - Serialize order-sensitive writes.
-- Roll back failed optimistic state when appropriate.
-- Keep stale failures from overwriting newer visible state.
-- Persist onboarding before leaving it.
+- Roll back failed optimistic state where appropriate.
+- Keep stale failures from overwriting newer state.
+- Persist onboarding before leaving onboarding.
 
 ## Lifecycle ownership
 
-`AppDependencies` owns long-lived resources it creates. Startup failure and permanent app teardown must both release those resources exactly once.
+`AppDependencies` owns long-lived resources it creates. Startup failure and permanent root teardown must release those resources exactly once.
 
 Any new long-lived dependency needs:
 
-- explicit owner;
+- an explicit owner;
 - partial-bootstrap cleanup;
-- final disposal/close path;
+- final dispose/close path;
 - regression/manual lifecycle verification.
 
 ## Cross-platform file transfer
 
-All selected content is untrusted.
+All selected content is untrusted. Current implementation uses `file_picker 12.0.0`.
 
-### Native
+### Selection/read path
 
-- Prefer picker cached paths over eager full picker bytes.
-- Stream with `BoundedFileReader`.
-- Validate reported and cumulative bytes.
-- Translate filesystem failures to domain exceptions.
+- Select one file with `FilePicker.pickFile()`.
+- Validate `PlatformFile.length()` before processing.
+- If a native cached path exists, use `BoundedFileReader` for bounded filesystem streaming.
+- Otherwise consume `PlatformFile.readAsByteStream()` and validate cumulative bytes.
+- Decode UTF-8 only after byte bounds pass.
+- Translate platform/filesystem failures to domain-level import/export errors.
 
-### Web
+Current limits:
 
-- Do not assume a native path exists.
-- Request picker bytes/stream.
-- Validate picker-reported size and actual received length.
-- Decode only after bounds checks.
-- Keep `dart:io` behind conditional implementation code so browser compilation remains valid.
+- Markdown/text: **16 MiB**.
+- JSON backup: **64 MiB**.
 
-Current ceilings:
+### Export path
 
-- Markdown/text: 16 MiB.
-- JSON backup: 64 MiB.
+Use file-picker save behavior through `FileTransferService` with explicit filenames/MIME types. Native platforms typically expose save dialogs while Web produces browser download behavior.
 
-Export paths differ too: native uses platform save dialogs/paths while Web typically produces browser downloads through the picker implementation.
+Do not assume selected files always have native filesystem paths.
 
 ## Backup development
 
-Backup schema is independent from app/DB version.
+Backup schema is independent from application and database versions.
 
-Preserve fail-before-write validation for app/schema/types/tags/IDs/relationships/UTC timestamps/timestamp order/ARGB/lifecycle state, then use transactional conflict-safe restore.
+Preserve fail-before-write validation for:
 
-Use backup JSON—not raw internal native/browser database files—as the supported cross-platform interchange format.
+- app/schema identity;
+- JSON/value types;
+- tags;
+- IDs/relationships;
+- UTC timestamps/order;
+- ARGB values;
+- lifecycle invariants.
+
+Then use transactional conflict-safe restore. JSON backup—not raw native/browser database files—is the supported portable interchange format.
 
 ## External links
 
-Do not call launcher plugins directly from feature widgets. Use `ExternalLinkService`, handle `false`, and add platform smoke coverage for new URI schemes.
+Do not call launcher plugins directly from feature widgets. Use `ExternalLinkService`, handle the safe `false` result, and add regression/platform checks for new URI schemes.
 
 ## App-lock development
 
@@ -223,38 +307,23 @@ Do not call launcher plugins directly from feature widgets. Use `ExternalLinkSer
 
 Current behavior:
 
-- supported `local_auth` native targets authenticate through OS APIs;
-- Linux resolves unavailable with the current dependency;
-- Web uses a conditional unavailable implementation and never imports native authentication code.
+- supported native `local_auth` implementations authenticate through OS APIs;
+- Linux reports unavailable with the current dependency;
+- Web uses a conditional unavailable implementation and never imports native auth code;
+- the root lock gate remains usable even if a stale `appLockEnabled=true` preference exists on an unsupported target.
 
-The root lock gate must remain usable when capability is unavailable, including when a stale `appLockEnabled=true` preference exists.
-
-Never add plaintext/home-grown credentials solely to claim full feature parity. App lock is not database encryption.
-
-## Adding dependencies
-
-Before adding/updating a package:
-
-- Verify active maintenance and Flutter/Dart compatibility.
-- Check **all six target implementations**, not only package-level Dart compatibility.
-- Review permissions/networking/privacy/license.
-- Review Web compile/runtime implications.
-- Prefer existing dependencies/standard APIs where sufficient.
-- Rebuild every affected target.
-- Update `pubspec.lock` using the pinned toolchain once the lockfile baseline exists.
-
-Stable 2.0.12 currently has an explicit lockfile blocker in issue #8; the lock must be generated by Flutter 3.44.7, not handwritten.
+Never add plaintext/home-grown credentials merely to advertise parity. App lock is not database encryption.
 
 ## Version/toolchain metadata
 
 Keep synchronized:
 
-- `pubspec.yaml` semantic/build version.
-- visible `AppStrings.version`.
-- changelog section.
-- matching version-specific release notes.
-- `.flutter-version`.
-- Flutter pins in CI/platform/release workflows.
+- `pubspec.yaml` semantic/build version;
+- visible `AppStrings.version`;
+- changelog section;
+- matching version release notes;
+- `.flutter-version`;
+- exact Flutter pins in CI/platform/release workflows.
 
 Verify:
 
@@ -262,17 +331,9 @@ Verify:
 python tool/check_version_sync.py
 ```
 
-## Generated platform runners
-
-```bash
-python tool/bootstrap_platforms.py
-```
-
-The script generates all six targets and is deliberately fail-fast for Android/iOS template drift and Drift Web asset/version drift.
-
-Generated runner directories are not the source of truth; the pinned Flutter SDK + bootstrap script are.
-
 ## Tests
+
+Core test commands:
 
 ```bash
 flutter test
@@ -289,51 +350,52 @@ dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 ```
 
-Fix diagnostics rather than weakening global analysis merely to silence one difficult line.
+The repository uses the canonical Dart **3.12.2** formatter output. Fix diagnostics instead of weakening analysis merely to silence difficult code.
 
 ## Debugging database behavior
 
-Use fictional data. Never ask users to post real SQLite databases, browser storage dumps, or backups.
+Use fictional data. Never require users to publish real SQLite databases, browser storage dumps, or backups.
 
-For FTS, inspect expected rows/triggers and keep user input bound as variables. For Web, also inspect worker/WASM fetches, WASM MIME, browser console/storage backend, and persistence across reload.
+For FTS, inspect expected rows/triggers and keep user input bound as variables. For Web, inspect worker/WASM requests, MIME type, browser console/storage backend, and persistence after reload/restart.
 
-## Error messages
+## Error messages and diagnostics
 
-User-facing failures should be actionable, concise, truthful about preserved data, and free of note/credential/path details. Raw platform exceptions belong only in safe redacted diagnostics when useful.
+User-facing failures should be actionable, concise, truthful about preserved data, and free of note content, credentials, or unnecessary path details. Raw platform exceptions belong only in safe redacted diagnostics when useful.
 
 ## Accessibility during development
 
-For UI changes check:
+For UI changes review:
 
-- keyboard on desktop + Web;
-- browser focus/zoom;
-- touch targets;
+- keyboard operation on desktop/Web;
+- browser focus visibility;
+- touch target size;
 - semantics/tooltips;
-- increased text size;
+- increased text size and browser zoom;
 - narrow/wide layouts;
-- non-color status cues;
+- non-color status/selection cues;
 - reduced motion;
-- readable failure/status messages.
+- readable failure/status feedback.
 
 See [`accessibility.md`](accessibility.md).
 
 ## Documentation discipline
 
-Update coupled truth in the same workstream:
+Update coupled truth together:
 
 - setup/bootstrap → README + setup docs;
-- architecture/platform boundary → architecture + ADR if material;
-- data behavior → privacy;
-- security capability → security;
+- architecture/platform boundary → architecture + ADR when material;
+- data behavior → privacy/security where relevant;
 - release/toolchain/platform matrix → changelog + release docs + workflows;
+- dependency graph → `pubspec.yaml` + `pubspec.lock` + affected platform docs;
 - tracked file set → repository reference;
 - current checkpoint → `what_changed.md`.
 
 ## Commit discipline
 
-Prefer small cohesive Conventional Commits. Project identity:
+Prefer small cohesive Conventional Commits.
 
 ```bash
+git config user.name "Sanskar"
 git config user.email "sanskarin@outlook.in"
 ```
 
@@ -341,7 +403,8 @@ git config user.email "sanskarin@outlook.in"
 
 ```bash
 python tool/check_version_sync.py
-dart run build_runner build --delete-conflicting-outputs
+flutter pub get --enforce-lockfile
+dart run build_runner build
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test --coverage
@@ -352,4 +415,4 @@ python tool/check_markdown_links.py
 python tool/security_scan.py
 ```
 
-Then run every platform build/runtime check affected by the change. Document blocked/unrun verification accurately; never convert “implemented” into “verified” without evidence.
+Then run every affected platform build and appropriate runtime/manual checks. Document blocked or unrun verification accurately; never turn “implemented” into “verified” without evidence.
