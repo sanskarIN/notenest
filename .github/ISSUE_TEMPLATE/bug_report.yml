@@ -14,7 +14,7 @@ body:
     attributes:
       label: NoteNest version or commit
       description: Release version or commit SHA where the problem occurs.
-      placeholder: v1.0.0 or abc1234
+      placeholder: v2.0.12 or abc1234
     validations:
       required: true
 
@@ -24,11 +24,21 @@ body:
       label: Platform
       options:
         - Android
+        - iOS / iPadOS
         - Windows
-        - Linux
         - macOS
-        - iOS
+        - Linux
+        - Web
         - Other / setup only
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Platform / browser details
+      description: For Web include browser name/version and hosting origin if relevant; for native include OS/device version.
+      placeholder: Chrome 140 on Windows 11, or Android 16 on Pixel
     validations:
       required: true
 
@@ -36,8 +46,8 @@ body:
     id: flutter
     attributes:
       label: Flutter version
-      description: Paste the version line from `flutter --version`.
-      placeholder: Flutter x.y.z • channel stable
+      description: Paste the version line from `flutter --version` when reporting a development/build issue; use N/A for a published Web/runtime report without a local Flutter SDK.
+      placeholder: Flutter 3.44.7 • channel stable
     validations:
       required: true
 
@@ -72,7 +82,7 @@ body:
     id: logs
     attributes:
       label: Relevant logs
-      description: Include only the smallest useful error section. Redact private paths, note text, tokens, and account data.
+      description: Include only the smallest useful error section. Redact private paths, note text, tokens, account data, browser storage contents, and private origins.
       render: shell
 
   - type: textarea
