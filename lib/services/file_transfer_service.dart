@@ -40,7 +40,8 @@ final class FileTransferService {
       dialogTitle: 'Restore NoteNest backup',
       type: FileType.custom,
       allowedExtensions: <String>['json'],
-      withData: kIsWeb,
+      withData: false,
+      withReadStream: kIsWeb,
     );
     if (result == null) return null;
     final PlatformFile file = result.files.single;
@@ -80,7 +81,8 @@ final class FileTransferService {
       dialogTitle: 'Import Markdown note',
       type: FileType.custom,
       allowedExtensions: <String>['md', 'markdown', 'txt'],
-      withData: kIsWeb,
+      withData: false,
+      withReadStream: kIsWeb,
     );
     if (result == null) return null;
     final PlatformFile file = result.files.single;
