@@ -93,6 +93,7 @@ REQUIRED_IGNORE_RULES = (
     "*.jks",
     "*.keystore",
     "lib/**/*.g.dart",
+    ".metadata",
     "android/",
     "ios/",
     "linux/",
