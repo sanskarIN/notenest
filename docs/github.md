@@ -1,140 +1,144 @@
 # GitHub Repository Operations
 
-This guide covers repository settings that live in GitHub rather than in source files.
+This guide covers repository settings and maintenance practices that live primarily in GitHub rather than application source.
 
 ## Default branch
 
 Use `main` as the default branch.
 
-Recommended branch protection/ruleset:
+Recommended ruleset/protection where the repository/account plan permits:
 
-- Require a pull request before merge for normal feature/fix work when practical.
-- Require the `CI / Format, analyze, test` check.
-- Require relevant platform build checks for changes affecting Flutter/native code.
+- Require pull requests for normal feature/fix work when practical.
+- Require the primary CI quality check.
+- Require relevant six-platform build checks for application/platform changes.
 - Require conversation resolution.
-- Block force pushes to `main`.
-- Block branch deletion.
-- Keep administrator/bypass access limited to real recovery needs.
-- Prefer linear history only if the team intentionally uses squash/rebase; otherwise merge commits are acceptable.
+- Block force pushes and branch deletion on `main`.
+- Limit administrator/bypass permissions to real recovery needs.
+- Use linear history only if the maintainers intentionally choose squash/rebase.
 
-A solo maintainer may choose a lighter pull-request requirement, but force-push protection and green quality checks remain valuable.
+A solo maintainer may use a lighter PR requirement, but accidental history rewrite and unverified release changes should still be prevented.
 
 ## Suggested labels
-
-Keep labels small and purposeful:
 
 | Label | Purpose |
 |---|---|
 | `bug` | Reproducible defect |
 | `enhancement` | Product improvement |
 | `documentation` | Documentation-only work |
-| `dependencies` | Dependency updates |
+| `dependencies` | Package/toolchain updates |
 | `ci` | Automation/build infrastructure |
-| `security` | Security hardening/report coordination (do not expose vulnerability detail) |
+| `security` | Security hardening/report coordination without vulnerability detail |
 | `accessibility` | Accessibility improvements/defects |
 | `performance` | Measured performance work |
 | `database` | Schema/migration/persistence |
 | `android` | Android-specific |
+| `ios` | iOS/iPadOS-specific |
 | `windows` | Windows-specific |
-| `linux` | Linux-specific |
 | `macos` | macOS-specific |
-| `ios` | iOS-specific |
+| `linux` | Linux-specific |
+| `web` | Browser/Web-specific |
+| `cross-platform` | Affects several/all supported targets |
 | `good first issue` | Small, well-defined newcomer task |
 | `help wanted` | Maintainer welcomes implementation help |
 | `blocked` | Waiting on an external prerequisite/decision |
 
-Do not create dozens of overlapping labels that make triage harder.
+Keep labels purposeful rather than creating overlapping variants.
 
 ## Milestones
 
-Suggested milestones:
+Use release-oriented milestones matching the current project line, for example:
 
-- `1.0.0 — First stable release`
-- `1.1 — Organization & productivity`
-- `1.2 — Resilience & scale`
-- `1.3 — Platform integration`
+- `2.0.12 — Stable verification`
+- `2.1 — Organization & productivity`
+- `2.2 — Resilience & scale`
+- `2.3 — Platform integration`
 
-Only assign an issue when the milestone has a credible scope. `ROADMAP.md` remains the broader direction document.
+Only schedule issues into a milestone when scope is credible. [`../ROADMAP.md`](../ROADMAP.md) remains the broader direction source.
 
 ## Issues
 
-The repository includes forms for bug reports and feature requests. Keep security vulnerabilities private according to `SECURITY.md`.
+The bug form supports Android, iOS/iPadOS, Windows, macOS, Linux, and Web. Web reports should include browser/version and deployment-origin context when relevant.
 
-Triage flow:
+Triage:
 
-1. Confirm issue contains enough reproduction/problem detail.
-2. Redact/remove exposed secrets/private user data immediately if present.
-3. Check duplication.
-4. Label by type and affected subsystem/platform.
-5. Add milestone only when scheduled.
-6. Request a minimal fictional reproduction if personal notes/backups were used.
-7. Close as not planned when out of product scope, with a clear explanation.
-
-## Discussions
-
-If GitHub Discussions is enabled, suggested categories are:
-
-- Announcements — maintainer-only project/release updates.
-- Q&A — development/setup questions that benefit from reusable public answers.
-- Ideas — early product proposals before an implementation issue exists.
-- Show and tell — screenshots/forks/integrations that respect user privacy.
-
-Do not use Discussions for private vulnerability reports or anything requiring private note content.
+1. Confirm enough reproduction/problem detail exists.
+2. Remove/redact exposed secrets or private user data immediately.
+3. Check duplicates.
+4. Label by type/subsystem/platform.
+5. Request a minimal fictional reproduction if personal data was used.
+6. Add a milestone only when scheduled.
+7. Route vulnerabilities privately according to `SECURITY.md`.
 
 ## Pull requests
 
-Use the repository PR template. Prefer atomic changes and Conventional Commits. Merge only when required checks are green or an explicitly documented emergency justifies a controlled exception.
+Use the repository PR template. Prefer focused Conventional Commits and merge only when required checks are green, unless a documented emergency explicitly justifies an exception.
 
-For database changes, reviewers should inspect migration + backup compatibility + FTS impact, not only UI behavior.
+Reviewers should inspect:
 
-For UI changes, reviewers should inspect responsive and accessibility impact.
+- database changes: migration, FTS, native/Web database behavior, backup compatibility;
+- dependency/plugin changes: actual implementation/capability on all six targets;
+- Web changes: native-only imports, browser storage, worker/WASM serving, file picker/download semantics;
+- UI changes: compact/wide/browser layouts, keyboard/focus, screen readers, text/zoom, motion;
+- release changes: exact version/toolchain/lockfile/artifact/check status.
 
-## Dependabot
+## Dependabot and dependencies
 
-`.github/dependabot.yml` checks Dart/Flutter package and GitHub Actions updates weekly. Dependency PRs still require normal tests/review; an automated version bump is not proof of compatibility.
+`.github/dependabot.yml` proposes supported dependency/workflow updates. Automated version bumps are not compatibility evidence.
 
-When a native plugin changes:
+When a package/plugin changes:
 
-- Review permissions/native setup.
-- Regenerate runners.
-- Run affected platform builds.
-- Re-test app-lock/file-picker behavior as relevant.
+- review maintenance/license/security notes;
+- review all six Flutter target implementations;
+- review permissions/network/privacy behavior;
+- regenerate platform runners;
+- update/review the resolver lockfile once the application lockfile baseline is committed;
+- if `drift` changes, review/update the pinned Web worker/WASM pairing;
+- run all affected native/Web tests/builds.
 
 ## Actions
 
 Current workflows:
 
-- `CI` — dependency resolution, Drift generation, format, analyze, tests, policy/secret checks.
-- `Security checks` — tracked-file secret scan and PR dependency review.
-- `Platform builds` — native compile validation for Android, Linux, Windows, macOS, and iOS no-codesign.
-- `Release artifacts` — tagged/manual artifact packaging without embedding signing secrets.
+- **CI** — release/toolchain synchronization, dependency resolution, Drift generation, formatting, analyzer, tests, repository/reference/link/secret checks.
+- **Security checks** — repository security baseline and pull-request dependency review.
+- **Platform builds** — Android, Linux, Windows, macOS, unsigned iOS, plus Chrome Web fallback smoke and Web release compilation.
+- **Release artifacts** — tag/manual packaging for Android, Linux, Windows, macOS, unsigned iOS validation, and Web bundle output without embedding signing secrets.
 
-If Actions are disabled at repository level, enable them before treating badges/checks as meaningful.
+All Flutter jobs use the exact project SDK pin. If GitHub Actions are disabled, badges/queued workflows are not proof of verification.
 
 ## Security features
 
-For a public repository, enable available GitHub security features where supported by the account/repository:
+Where available for this public repository/account, enable:
 
-- Secret scanning and push protection.
-- Dependabot alerts.
-- Dependency graph.
-- Private vulnerability reporting/security advisories if desired.
+- secret scanning/push protection;
+- Dependabot alerts;
+- dependency graph;
+- private vulnerability reporting/security advisories.
 
-CodeQL does not provide a Dart-specific analysis database in the current project workflow, so Flutter's strict analyzer plus dependency/secret checks are used instead of adding a non-functional CodeQL language job. Revisit this if GitHub adds appropriate Dart support.
+The current workflow uses Flutter's strict analyzer plus dependency/repository/secret checks rather than pretending unsupported CodeQL language analysis covers Dart.
 
 ## Funding
 
-`.github/FUNDING.yml` points to the optional Buy Me a Coffee page. Funding should remain non-intrusive and must not gate core app functionality.
+`.github/FUNDING.yml` points to the optional Buy Me a Coffee page. Funding must not gate core functionality.
 
 ## Releases
 
-Use annotated semantic version tags such as `v1.0.0`. Do not move an existing public tag. Follow `docs/release.md` and attach only artifacts whose build/signing status is accurately described.
+Use annotated semantic tags such as `v2.0.12`. Never move a published tag.
+
+For the current candidate:
+
+- issue #8 blocks stable release until a genuine Flutter-3.44.7-generated `pubspec.lock` is committed/reviewed/cataloged/enforced;
+- the exact final candidate must pass CI/security plus Android/iOS/Windows/macOS/Linux/Web build verification;
+- real runtime/accessibility/browser deployment checks must be recorded;
+- signing/checksum status must be explicit.
+
+Follow [`release.md`](release.md).
 
 ## Repository description/topics
 
 Suggested description:
 
-> Private, offline-first cross-platform notes app built with Flutter, Dart, Drift and SQLite.
+> Private, local-first cross-platform notes app for Android, iOS, Windows, macOS, Linux and Web, built with Flutter, Drift and SQLite.
 
 Suggested topics:
 
@@ -144,15 +148,31 @@ Suggested topics:
 - `sqlite`
 - `drift`
 - `offline-first`
+- `local-first`
 - `android`
+- `ios`
 - `windows`
 - `linux`
 - `macos`
+- `web`
 - `open-source`
 - `productivity`
 
-Keep topics relevant; do not add unrelated trending terms.
+Keep topics accurate rather than adding unrelated trending terms.
+
+## Verification PR discipline
+
+A verification-only PR may be used to trigger path-filtered build matrices without merging a functional change. Such a PR must:
+
+- identify the exact `main` candidate SHA;
+- contain only a clearly non-functional trigger marker beyond that candidate;
+- never be merged into `main`;
+- be realigned whenever `main` changes;
+- treat only completed checks on its **current head** as evidence;
+- explicitly mark older queued/green runs as superseded after realignment.
+
+For 2.0.12, PR #7 is the verification path and must be rebuilt after the final six-platform handoff commit.
 
 ## Handoff discipline
 
-After a meaningful development phase, update `what_changed.md` with exact verification and recent commits so the next working session does not need to reconstruct state from chat history.
+After a meaningful phase, update `what_changed.md` with implementation changes, exact verification limitations, release blockers, and current GitHub checkpoints so another session can continue without reconstructing project history from chat.
