@@ -4,6 +4,7 @@ import 'package:notenest/app/app_dependencies.dart';
 import 'package:notenest/core/constants/app_strings.dart';
 import 'package:notenest/core/logging/app_logger.dart';
 
+// Verification marker for main 2762e0b: exercises lib/** platform build filters.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   const AppLogger logger = AppLogger();
