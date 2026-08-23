@@ -512,3 +512,74 @@ NoteNest 2.0.12 is a reproducibly locked, six-platform Flutter release candidate
 The remaining core release work is **verification**, not unimplemented core architecture. Until the exact final automated run and the manual/runtime/distribution checklist are complete, the truthful status remains:
 
 **2.0.12 release candidate — not stable.**
+
+## Isolated post-2.0.12 productivity development
+
+Branch: `feature/2.1-productivity`  
+Branch base: frozen `main` candidate `0c390135cfe5af2f65341a978c8380956e026687`  
+Integration status: **not merged into `main`**  
+Schema/dependency/permission changes: **none**
+
+This branch deliberately starts 2.1 work without invalidating PR #7's exact 2.0.12 verification evidence.
+
+### Live editor text metrics
+
+Implemented through focused code/test commits:
+
+- `7d98d64267897c9db6469ede45ca4625c49d9634` — `feat: show live editor text metrics`
+- `d8b2d0ab9b6d58e885619c7e3637c70bdfd97172` — `test: cover live editor text metrics`
+
+Behavior:
+
+- displays live word count for the note body;
+- displays live character count using Dart runes so surrogate pairs are not counted as two UTF-16 code units;
+- handles zero/one/many labels;
+- stays fully local and does not alter persistence format.
+
+### Duplicate-note command
+
+Implemented through focused repository/UI/test commits:
+
+- `03c5d753f06038d0911fad1022f5067f2f674aa2` — `feat: add duplicate note repository command`
+- `40226eb0cedaf3ec8614fdb3a36c134b41854181` — `test: cover duplicate note semantics`
+- `6daa6da319b0691b1704695e5e2ae00a9bc83172` — `feat: expose duplicate note action in editor`
+- `ee6b87b71c9d98873307044b21cffdb012527a8a` — `test: cover editor duplicate note action`
+
+Behavior:
+
+- saves the current draft before duplication;
+- creates a distinct note ID;
+- copies title/body/folder/tags/color;
+- uses `Untitled copy` for an untitled source and `<title> (copy)` otherwise;
+- deliberately starts the copy as active, unpinned, non-favorite, non-archived, and non-trashed;
+- opens the new copy in the editor after creation.
+
+### Configurable sorting
+
+Implemented through focused model/repository/controller/UI/test commits:
+
+- `ee7891c75925739737be863d0ca654fd23f2cb1d` — `feat: add configurable note sort model`
+- `d3a160c8534dd6f638211cf75084ab14bc3600b7` — `feat: apply selected note sorting in repository`
+- `9be889ce6d675535036e72a6e5e042cebe79eec3` — `test: cover configurable note sorting`
+- `2fff69f7e49a6800d77e803fd4ff33a5a34fff59` — `feat: let notes controller change sort order`
+- `5ff9abf490130349f0fdd6cc7b6ec40e5845ef88` — `test: cover controller sort changes`
+- `a558d157c6d6f87b48f0a2ab860da2fce0dce4c4` — `feat: expose note sort control`
+- `31114985faccedeb29e88870b948411362466a5c` — `test: cover note sort control`
+
+Behavior:
+
+- newest first;
+- oldest first;
+- title A–Z;
+- title Z–A;
+- pinned notes remain ahead of unpinned notes for every selected ordering;
+- title comparisons are case-insensitive with update-time tie-breaking;
+- sort changes reload the current filtered collection without changing schema or stored note data.
+
+### 2.1 documentation checkpoint
+
+- `166ef574298c93b7054157320e4e0b0adeedc58d` — `docs: record active 2.1 productivity work`
+- `6d30cd71ec5b08bd86345d665eed6af78a8eb09b` — `docs: record 2.1 productivity additions`
+- this handoff commit records the branch boundary and detailed implementation status.
+
+The branch must pass its own CI/security/platform verification before integration. Its changes must not be used as evidence for the frozen 2.0.12 release candidate, and the frozen candidate must not be changed merely to include these post-release features.
