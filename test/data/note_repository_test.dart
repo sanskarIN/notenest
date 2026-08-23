@@ -37,6 +37,41 @@ void main() {
     ]);
   });
 
+  test('duplicate copies content but starts with active lifecycle state', () async {
+    final Note source = await repository.create(
+      title: 'Source',
+      body: 'Reusable body',
+      folder: 'Projects',
+      tags: const <String>['offline', 'flutter'],
+      colorValue: 0xFFD8EBFF,
+    );
+    await repository.setPinned(source.id, value: true);
+    await repository.setFavorite(source.id, value: true);
+    await repository.archive(source.id);
+
+    final Note duplicate = await repository.duplicate(source.id);
+
+    expect(duplicate.id, isNot(source.id));
+    expect(duplicate.title, 'Source (copy)');
+    expect(duplicate.body, 'Reusable body');
+    expect(duplicate.folder, 'Projects');
+    expect(repository.decodeTags(duplicate.tags), <String>['flutter', 'offline']);
+    expect(duplicate.colorValue, 0xFFD8EBFF);
+    expect(duplicate.isPinned, isFalse);
+    expect(duplicate.isFavorite, isFalse);
+    expect(duplicate.isArchived, isFalse);
+    expect(duplicate.isTrashed, isFalse);
+  });
+
+  test('duplicate gives an untitled source a clear copy title', () async {
+    final Note source = await repository.create(body: 'No source title');
+
+    final Note duplicate = await repository.duplicate(source.id);
+
+    expect(duplicate.title, 'Untitled copy');
+    expect(duplicate.body, 'No source title');
+  });
+
   test('saving changed content creates a version snapshot', () async {
     final Note created = await repository.create(title: 'First', body: 'One');
 
