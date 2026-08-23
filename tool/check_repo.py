@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Fast repository-level policy checks used by CI.
 
-These checks catch missing handoff/documentation/platform-baseline files and
-accidental placeholder/generated content before a release. Flutter/Dart
-correctness is checked separately.
+These checks catch missing handoff/documentation/platform-baseline files,
+workflow-runtime regressions, and accidental placeholder/generated content
+before a release. Flutter/Dart correctness is checked separately.
 """
 
 from __future__ import annotations
@@ -83,6 +83,29 @@ REQUIRED_README_TEXT = (
     "Android, iOS, Windows, macOS, Linux, and Web",
 )
 
+REQUIRED_WORKFLOW_ACTIONS = {
+    ".github/workflows/ci.yml": (
+        "actions/checkout@v7",
+        "actions/upload-artifact@v7",
+        "subosito/flutter-action@v2",
+    ),
+    ".github/workflows/platform-builds.yml": (
+        "actions/checkout@v7",
+        "actions/setup-java@v6",
+        "subosito/flutter-action@v2",
+    ),
+    ".github/workflows/release.yml": (
+        "actions/checkout@v7",
+        "actions/setup-java@v6",
+        "actions/upload-artifact@v7",
+        "subosito/flutter-action@v2",
+    ),
+    ".github/workflows/security.yml": (
+        "actions/checkout@v7",
+        "actions/dependency-review-action@v5",
+    ),
+}
+
 FORBIDDEN_SOURCE_MARKERS = (
     "TODO:",
     "FIXME:",
@@ -141,6 +164,17 @@ def main() -> int:
         for value in REQUIRED_README_TEXT:
             if value not in readme:
                 errors.append(f"README is missing required text: {value}")
+
+    for relative, required_actions in REQUIRED_WORKFLOW_ACTIONS.items():
+        workflow_path = ROOT / relative
+        if not workflow_path.is_file():
+            continue
+        workflow = workflow_path.read_text(encoding="utf-8")
+        for action in required_actions:
+            if action not in workflow:
+                errors.append(
+                    f"workflow {relative} is missing maintained action baseline: {action}",
+                )
 
     for relative in tracked:
         path = ROOT / relative
