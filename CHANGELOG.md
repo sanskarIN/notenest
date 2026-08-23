@@ -6,13 +6,21 @@ Current release-candidate target: **2.0.12** (`2.0.12+2012` in `pubspec.yaml`).
 
 ## [Unreleased]
 
+### Added
+
+- Live local editor text metrics showing word and Unicode-code-point character counts without network processing or schema changes.
+- Duplicate-note command that creates a new active note with copied body, folder, tags, and color while deliberately not inheriting pinned/favorite/archive/trash lifecycle state.
+- Configurable note sorting for newest, oldest, title A–Z, and title Z–A, while keeping pinned notes first.
+- Regression coverage for editor metrics, duplicate repository/UI behavior, configurable sorting, controller sort changes, and the visible sort control.
+
 ### Changed
 
 - GitHub-hosted workflow first-party actions were modernized to maintained 2026 runtime lines: `actions/checkout@v7`, `actions/setup-java@v6`, `actions/upload-artifact@v7`, and `actions/dependency-review-action@v5`.
 - `tool/check_repo.py` now enforces those maintained action-major baselines so future workflow edits cannot silently regress to obsolete runtime generations.
 - `subosito/flutter-action@v2` remains on its current supported major while the project continues to pin Flutter **3.44.7** exactly.
+- Post-2.0.12 productivity work is developed on `feature/2.1-productivity` rather than changing the frozen 2.0.12 verification candidate.
 
-No post-2.0.12 product feature change is included in this maintenance checkpoint; exact candidate automation must be rerun after these workflow changes.
+The Unreleased productivity additions remain branch work until their own CI/review completes and they are intentionally integrated after the 2.0.12 release-candidate decision.
 
 ## [2.0.12] - Release candidate
 
@@ -67,7 +75,7 @@ No post-2.0.12 product feature change is included in this maintenance checkpoint
 - Windows bootstrap applies the MSVC compatibility definition required by the current VS2026 hosted runner for `local_auth_windows`' experimental-coroutine dependency instead of pinning an obsolete runner image.
 - Platform runner generation uses `flutter create --no-pub`; generated runners and dependency resolution are now separate reproducibility stages.
 - Windows bootstrap invokes Flutter `.bat`/`.cmd` launchers through `COMSPEC` so Python works correctly on Windows hosts.
-- Android CI/release Java setup uses `actions/setup-java@v5`.
+- Android CI/release Java setup uses `actions/setup-java@v6`.
 - Active build-runner invocations use the current `dart run build_runner build` command; the removed `--delete-conflicting-outputs` option is no longer passed by maintained workflows.
 - App-lock implementation is selected conditionally so Web does not import an unsupported `local_auth` implementation.
 - Unsupported app-lock targets remain usable even if an app-lock preference exists; Settings reports capability instead of allowing an impossible enable flow.
