@@ -72,6 +72,38 @@ void main() {
     expect(duplicate.body, 'No source title');
   });
 
+  test('configurable title sorting keeps pinned notes first', () async {
+    final Note zebra = await repository.create(title: 'Zebra');
+    final Note alpha = await repository.create(title: 'alpha');
+    await repository.create(title: 'Middle');
+
+    final List<Note> ascending = await repository.list(
+      const NoteFilter(sort: NoteSort.titleAscending),
+    );
+    expect(ascending.map((Note note) => note.title), <String>[
+      'alpha',
+      'Middle',
+      'Zebra',
+    ]);
+
+    final List<Note> descending = await repository.list(
+      const NoteFilter(sort: NoteSort.titleDescending),
+    );
+    expect(descending.map((Note note) => note.title), <String>[
+      'Zebra',
+      'Middle',
+      'alpha',
+    ]);
+
+    await repository.setPinned(alpha.id, value: true);
+    final List<Note> pinnedFirst = await repository.list(
+      const NoteFilter(sort: NoteSort.titleDescending),
+    );
+    expect(pinnedFirst.first.id, alpha.id);
+    expect(pinnedFirst.skip(1).map((Note note) => note.id), isNot(contains(alpha.id)));
+    expect(pinnedFirst.map((Note note) => note.id), contains(zebra.id));
+  });
+
   test('saving changed content creates a version snapshot', () async {
     final Note created = await repository.create(title: 'First', body: 'One');
 
