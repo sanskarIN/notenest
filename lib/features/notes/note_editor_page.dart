@@ -302,6 +302,10 @@ class _NoteEditorPageState extends State<NoteEditorPage>
               itemBuilder: (BuildContext context) =>
                   const <PopupMenuEntry<String>>[
                     PopupMenuItem<String>(
+                      value: 'duplicate',
+                      child: Text('Duplicate note'),
+                    ),
+                    PopupMenuItem<String>(
                       value: 'versions',
                       child: Text('Version history'),
                     ),
@@ -509,6 +513,22 @@ class _NoteEditorPageState extends State<NoteEditorPage>
 
     try {
       switch (action) {
+        case 'duplicate':
+          final Note duplicate = await widget.repository.duplicate(widget.noteId);
+          if (!mounted) return;
+          _allowPop = true;
+          unawaited(
+            Navigator.of(context).pushReplacement<void, void>(
+              MaterialPageRoute<void>(
+                builder: (BuildContext context) => NoteEditorPage(
+                  noteId: duplicate.id,
+                  repository: widget.repository,
+                  files: widget.files,
+                ),
+              ),
+            ),
+          );
+          break;
         case 'versions':
           await _showVersions();
           break;
