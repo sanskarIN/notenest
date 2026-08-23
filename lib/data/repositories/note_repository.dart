@@ -38,6 +38,18 @@ final class NoteRepository {
     return getById(id);
   }
 
+  Future<Note> duplicate(String id) async {
+    final Note source = await getById(id);
+    final String sourceTitle = source.title.trim();
+    return create(
+      title: sourceTitle.isEmpty ? 'Untitled copy' : '$sourceTitle (copy)',
+      body: source.body,
+      folder: source.folder,
+      tags: decodeTags(source.tags),
+      colorValue: source.colorValue,
+    );
+  }
+
   Future<Note> getById(String id) {
     return (_db.select(
       _db.notes,
