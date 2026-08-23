@@ -6,7 +6,13 @@ Current release-candidate target: **2.0.12** (`2.0.12+2012` in `pubspec.yaml`).
 
 ## [Unreleased]
 
-No post-2.0.12 product changes are intentionally queued yet. GitHub Actions runtime-major modernization is tracked separately as repository maintenance and should remain reviewable from the 2.0.12 product candidate.
+### Changed
+
+- GitHub-hosted workflow first-party actions were modernized to maintained 2026 runtime lines: `actions/checkout@v7`, `actions/setup-java@v6`, `actions/upload-artifact@v7`, and `actions/dependency-review-action@v5`.
+- `tool/check_repo.py` now enforces those maintained action-major baselines so future workflow edits cannot silently regress to obsolete runtime generations.
+- `subosito/flutter-action@v2` remains on its current supported major while the project continues to pin Flutter **3.44.7** exactly.
+
+No post-2.0.12 product feature change is included in this maintenance checkpoint; exact candidate automation must be rerun after these workflow changes.
 
 ## [2.0.12] - Release candidate
 
