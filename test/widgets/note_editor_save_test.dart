@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/data/repositories/backup_repository.dart';
 import 'package:notenest/data/repositories/note_repository.dart';
+import 'package:notenest/domain/models/note_filter.dart';
 import 'package:notenest/features/notes/note_editor_page.dart';
 import 'package:notenest/services/file_transfer_service.dart';
 
@@ -164,6 +165,45 @@ void main() {
     await tester.pump();
 
     expect(find.text('1 word · 4 characters'), findsOneWidget);
+  });
+
+  testWidgets('duplicate note action opens a new active copy', (
+    WidgetTester tester,
+  ) async {
+    final Note source = await repository.create(
+      title: 'Duplicate source',
+      body: 'Copy this body',
+      folder: 'Projects',
+      tags: const <String>['copy'],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NoteEditorPage(
+          noteId: source.id,
+          repository: repository,
+          files: files,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Note actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Duplicate note'));
+    await tester.pumpAndSettle();
+
+    final Finder textFields = find.byType(TextField);
+    expect(textFields, findsNWidgets(4));
+    final TextField titleField = tester.widget<TextField>(textFields.first);
+    expect(titleField.controller!.text, 'Duplicate source (copy)');
+
+    final List<Note> activeNotes = await repository.list(const NoteFilter());
+    expect(activeNotes, hasLength(2));
+    final Note copy = activeNotes.firstWhere((Note note) => note.id != source.id);
+    expect(copy.body, 'Copy this body');
+    expect(copy.folder, 'Projects');
+    expect(repository.decodeTags(copy.tags), <String>['copy']);
   });
 
   testWidgets(
