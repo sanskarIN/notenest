@@ -155,21 +155,24 @@ Those results validate the implemented platform fixes. Because lock-enforcement,
 
 ## Milestone: 2.1 — organization and productivity polish
 
-Candidate work after stable 2.0.12:
+The following work is implemented on the isolated `feature/2.1-productivity` branch and remains pending branch CI/review and eventual integration after the 2.0.12 release-candidate decision:
 
-- Configurable sorting.
-- Multi-select note actions.
-- Dedicated folder/tag rename/merge management.
-- Saved searches/local smart filters.
-- Optional automatic trash retention.
-- Additional Markdown-lite shortcuts, including desktop/browser keyboard shortcuts.
-- Better checklist interaction without converting storage into rich text.
-- Duplicate-note command.
-- Local word/character count.
-- Import preview.
-- Batch Markdown export.
+- [x] Configurable sorting: newest, oldest, title A–Z, and title Z–A while retaining pinned-first behavior.
+- [x] Duplicate-note command that copies note content/metadata into a new active note without inheriting lifecycle flags.
+- [x] Live local word/character count in the editor, including Unicode-safe character counting by runes.
 
-Every item should be reviewed on compact mobile, desktop, and Web viewports.
+Remaining candidate work:
+
+- [ ] Multi-select note actions.
+- [ ] Dedicated folder/tag rename/merge management.
+- [ ] Saved searches/local smart filters.
+- [ ] Optional automatic trash retention.
+- [ ] Additional Markdown-lite shortcuts, including desktop/browser keyboard shortcuts.
+- [ ] Better checklist interaction without converting storage into rich text.
+- [ ] Import preview.
+- [ ] Batch Markdown export.
+
+Every item should be reviewed on compact mobile, desktop, and Web viewports. 2.1 feature work must not be merged into the frozen 2.0.12 verification candidate merely to accelerate delivery.
 
 ## Milestone: 2.2 — resilience and scale
 
