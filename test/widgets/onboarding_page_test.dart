@@ -53,4 +53,30 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
     expect(find.text('Start using NoteNest'), findsOneWidget);
   });
+
+  testWidgets('onboarding scrolls safely on a compact viewport', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 480);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(home: OnboardingPage(onComplete: () async {})),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Start using NoteNest'),
+      120,
+      scrollable: find.byType(Scrollable),
+    );
+    expect(find.text('Start using NoteNest'), findsOneWidget);
+  });
 }
