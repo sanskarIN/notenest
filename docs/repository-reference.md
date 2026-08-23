@@ -61,7 +61,7 @@ Version domains remain independent:
 - `CONTRIBUTING.md` — Contributor setup, branch/commit, testing, documentation, and pull-request expectations.
 - `CODE_OF_CONDUCT.md` — Community behavior and enforcement expectations.
 - `LICENSE` — MIT license governing reuse and distribution.
-- `what_changed.md` — Deep engineering handoff with exact changes, verification limitations, checkpoints, and release blockers.
+- `what_changed.md` — Deep engineering handoff with exact changes, verification limitations, checkpoints, release blockers, and isolated post-release branch status.
 
 ### GitHub community and automation
 
@@ -124,17 +124,17 @@ Version domains remain independent:
 - `lib/data/database/app_database.dart` — Drift schema root, FTS5 triggers/search, foreign keys, and cross-platform database factory; Web uses explicit Drift WASM/worker assets.
 - `lib/data/database/tables.dart` — Drift Notes and NoteVersions table definitions and relationships.
 - `lib/data/repositories/backup_repository.dart` — Validated JSON export/restore, lifecycle/type/timestamp/ID checks, conflict resolution, and transactional writes.
-- `lib/data/repositories/note_repository.dart` — Authoritative note CRUD/search/filter/snapshot/lifecycle boundary, including no-pinned-trash enforcement.
+- `lib/data/repositories/note_repository.dart` — Authoritative note CRUD/search/filter/sort/snapshot/lifecycle boundary, including duplicate-note creation and no-pinned-trash enforcement.
 - `lib/data/repositories/settings_repository.dart` — `SettingsStore` abstraction and SharedPreferences adapter with truthful setter failure handling.
-- `lib/domain/models/note_filter.dart` — UI-independent collection/query/folder/tag filter contract.
+- `lib/domain/models/note_filter.dart` — UI-independent collection/query/folder/tag filter plus configurable note-sort contract.
 
 ### Features, services, and reusable widgets
 
 - `lib/features/about/about_page.dart` — About/project information and safe external project/support actions.
 - `lib/features/home/home_shell.dart` — Responsive compact/wide navigation shell and guarded new-note route.
-- `lib/features/notes/note_editor_page.dart` — Editor loading, immutable drafts, ordered autosave, save-before-pop, lifecycle saves, Markdown actions, metadata/colors, history/export, and error recovery.
-- `lib/features/notes/notes_controller.dart` — Notes-browser state, collection/search/filter metadata, async error state, and stale-completion protection.
-- `lib/features/notes/notes_page.dart` — Search/filter/grid presentation, collection-specific empty states, import, and guarded lifecycle mutations.
+- `lib/features/notes/note_editor_page.dart` — Editor loading, immutable drafts, ordered autosave, save-before-pop, lifecycle saves, Markdown actions, metadata/colors, live text metrics, duplicate-note action, history/export, and error recovery.
+- `lib/features/notes/notes_controller.dart` — Notes-browser state, collection/search/filter/sort metadata, async error state, and stale-completion protection.
+- `lib/features/notes/notes_page.dart` — Search/filter/sort/grid presentation, collection-specific empty states, import, and guarded lifecycle mutations.
 - `lib/features/onboarding/onboarding_page.dart` — Privacy-first onboarding that only exits after persistence succeeds.
 - `lib/features/settings/settings_page.dart` — Appearance/accessibility/data/privacy settings, backup actions, release links, persistence feedback, and visible app-lock capability state.
 - `lib/services/app_lock_service.dart` — Conditional app-lock facade selecting native device authentication or an unavailable-platform fallback without importing unsupported Web plugin code.
@@ -157,15 +157,15 @@ Version domains remain independent:
 - `test/core/markdown_lite_test.dart` — Pure Markdown-lite transformation tests.
 - `test/core/safe_file_name_test.dart` — Invalid/reserved/trailing-name, fallback, length, and Unicode safety tests.
 - `test/data/backup_repository_test.dart` — Backup round-trip, conflict, schema/type/ID/tag/timestamp/color/lifecycle, relationship, and transactional safety tests.
-- `test/data/note_repository_test.dart` — Create/list/search, snapshot/restore/cascade, filters, FTS escaping, and lifecycle-invariant tests.
+- `test/data/note_repository_test.dart` — Create/list/search, duplicate-note semantics, configurable sorting, snapshot/restore/cascade, filters, FTS escaping, and lifecycle-invariant tests.
 - `test/data/settings_repository_test.dart` — Settings defaults and persistence behavior tests.
-- `test/features/notes/notes_controller_test.dart` — Collection-switch and collection-scoped metadata regressions.
+- `test/features/notes/notes_controller_test.dart` — Collection-switch, collection-scoped metadata, and configurable-sort regressions.
 - `test/services/external_link_service_test.dart` — Successful, refused, and throwing external-launch behavior tests.
 - `test/web/web_platform_smoke_test.dart` — Chrome-targeted regression proving Web app-lock and native-path facilities degrade safely instead of importing/using unsupported platform facilities.
 - `test/widgets/about_page_test.dart` — About-page external-action failure feedback test.
 - `test/widgets/note_editor_accessibility_test.dart` — Note-color semantics, target size, labels, and selected-cue tests.
-- `test/widgets/note_editor_save_test.dart` — Latest-draft back-save, load recovery, and offset-zero first-line formatting regressions.
-- `test/widgets/notes_page_empty_state_test.dart` — Collection-specific empty-state action tests.
+- `test/widgets/note_editor_save_test.dart` — Latest-draft back-save, load recovery, offset-zero first-line formatting, live text metrics, and duplicate-note UI regressions.
+- `test/widgets/notes_page_empty_state_test.dart` — Collection-specific empty-state action and visible sort-control tests.
 - `test/widgets/onboarding_page_test.dart` — Onboarding messaging, persistence, busy state, and retryable failure tests.
 
 ### Repository tooling
@@ -198,6 +198,7 @@ Because these paths are not returned by `git ls-files`, they are not catalog ent
 | Database fields/schema | Drift tables/database | generated output, migrations, backup compatibility, architecture/tests |
 | Web database/runtime assets | database factory + platform bootstrap | Drift dependency pin, Web build/release verification, deployment docs |
 | Note lifecycle rules | note repository | backup validation, controllers/widgets, repository tests |
+| Note ordering/duplication rules | note filter + note repository | controller/UI behavior, repository/widget tests, roadmap/changelog |
 | Backup interchange rules | backup repository | backup tests, architecture/security/privacy/release notes |
 | Preference behavior | settings repository/controller | settings UI, tests, privacy/security when semantics change |
 | Platform/plugin integration | services + platform bootstrap | setup/troubleshooting, build matrix, manual target checks |
@@ -213,6 +214,8 @@ Because these paths are not returned by `git ls-files`, they are not catalog ent
 - Changed note content is snapshotted transactionally before the current row is updated.
 - Submitted editor writes are ordered and normal navigation waits for the current draft to save.
 - Offset-zero Markdown prefix formatting targets the real first line, including an empty leading line.
+- Duplicate notes receive a fresh ID and active lifecycle state rather than inheriting archive/trash/pin/favorite flags.
+- Pinned notes remain first within every configurable sort order.
 - Trashing clears incompatible state and a trashed note cannot be pinned.
 - Collection filter metadata uses the same lifecycle predicate as listing.
 - Settings mutations are serialized and failed optimistic writes roll back when appropriate.
