@@ -133,6 +133,39 @@ void main() {
     expect(find.text('Open formatting editor'), findsOneWidget);
   });
 
+  testWidgets('editor shows live local word and character counts', (
+    WidgetTester tester,
+  ) async {
+    final Note note = await repository.create(
+      title: 'Text metrics',
+      body: 'One two',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NoteEditorPage(
+          noteId: note.id,
+          repository: repository,
+          files: files,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('2 words · 7 characters'), findsOneWidget);
+
+    final Finder bodyField = find.byType(TextField).last;
+    await tester.enterText(bodyField, 'One\n two   three');
+    await tester.pump();
+
+    expect(find.text('3 words · 16 characters'), findsOneWidget);
+
+    await tester.enterText(bodyField, 'Solo');
+    await tester.pump();
+
+    expect(find.text('1 word · 4 characters'), findsOneWidget);
+  });
+
   testWidgets(
     'a missing note shows a retryable load error instead of spinning',
     (WidgetTester tester) async {
