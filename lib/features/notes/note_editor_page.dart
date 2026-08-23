@@ -269,6 +269,7 @@ class _NoteEditorPageState extends State<NoteEditorPage>
       child: Scaffold(
         appBar: AppBar(
           title: TextField(
+            key: const Key('note-title-field'),
             controller: _title,
             maxLines: 1,
             readOnly: _leaving,
@@ -329,6 +330,7 @@ class _NoteEditorPageState extends State<NoteEditorPage>
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
                         child: TextField(
+                          key: const Key('note-body-field'),
                           controller: _body,
                           expands: true,
                           maxLines: null,
@@ -363,6 +365,7 @@ class _NoteEditorPageState extends State<NoteEditorPage>
             children: <Widget>[
               Expanded(
                 child: TextField(
+                  key: const Key('note-folder-field'),
                   controller: _folder,
                   decoration: const InputDecoration(
                     labelText: 'Folder',
@@ -373,6 +376,7 @@ class _NoteEditorPageState extends State<NoteEditorPage>
               const SizedBox(width: 12),
               Expanded(
                 child: TextField(
+                  key: const Key('note-tags-field'),
                   controller: _tags,
                   decoration: const InputDecoration(
                     labelText: 'Tags',
