@@ -98,7 +98,7 @@ final class NoteRepository {
       return;
     }
 
-    final DateTime now = DateTime.now().toUtc();
+    final DateTime now = _nextUpdateTime(existing.updatedAt);
     await _db.transaction(() async {
       await _db
           .into(_db.noteVersions)
@@ -257,11 +257,22 @@ final class NoteRepository {
   }
 
   Future<void> _patch(String id, NotesCompanion patch) async {
+    final Note existing = await getById(id);
     await (_db.update(
       _db.notes,
     )..where(($NotesTable row) => row.id.equals(id))).write(
-      patch.copyWith(updatedAt: Value<DateTime>(DateTime.now().toUtc())),
+      patch.copyWith(
+        updatedAt: Value<DateTime>(_nextUpdateTime(existing.updatedAt)),
+      ),
     );
+  }
+
+  DateTime _nextUpdateTime(DateTime previous) {
+    final DateTime now = DateTime.now().toUtc();
+    final DateTime nextStoredSecond = previous.toUtc().add(
+      const Duration(seconds: 1),
+    );
+    return now.isAfter(nextStoredSecond) ? now : nextStoredSecond;
   }
 
   String _encodeTags(Iterable<String> tags) {
