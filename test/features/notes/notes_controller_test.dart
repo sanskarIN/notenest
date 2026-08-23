@@ -54,4 +54,20 @@ void main() {
     expect(controller.tags, <String>{'trash-tag'});
     expect(controller.notes.map((Note note) => note.id), <String>[trashed.id]);
   });
+
+  test('changing sort order reloads notes with the selected order', () async {
+    await repository.create(title: 'Zebra');
+    await repository.create(title: 'alpha');
+    await repository.create(title: 'Middle');
+
+    controller.setSort(NoteSort.titleAscending);
+    await controller.load(showLoading: false);
+
+    expect(controller.filter.sort, NoteSort.titleAscending);
+    expect(controller.notes.map((Note note) => note.title), <String>[
+      'alpha',
+      'Middle',
+      'Zebra',
+    ]);
+  });
 }
