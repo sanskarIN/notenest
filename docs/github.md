@@ -99,10 +99,22 @@ When a package/plugin changes:
 
 Current workflows:
 
-- **CI** — release/toolchain synchronization, dependency resolution, Drift generation, formatting, analyzer, tests, repository/reference/link/secret checks.
+- **CI** — release/toolchain synchronization, locked dependency restore, Drift generation, formatting, analyzer, tests, repository/reference/link/secret checks, and coverage artifact upload.
 - **Security checks** — repository security baseline and pull-request dependency review.
 - **Platform builds** — Android, Linux, Windows, macOS, unsigned iOS, plus Chrome Web fallback smoke and Web release compilation.
 - **Release artifacts** — tag/manual packaging for Android, Linux, Windows, macOS, unsigned iOS validation, and Web bundle output without embedding signing secrets.
+
+Maintained action-major baseline for GitHub-hosted runners:
+
+- `actions/checkout@v7`;
+- `actions/setup-java@v6` where Java setup is required;
+- `actions/upload-artifact@v7` for coverage/release artifacts;
+- `actions/dependency-review-action@v5` for pull-request dependency review;
+- `subosito/flutter-action@v2`, the current supported major for the Flutter setup action used by this project.
+
+The maintained first-party action majors above use the current Node.js runtime generation and therefore assume up-to-date GitHub-hosted runners. If self-hosted runners are introduced later, their runner version must be reviewed before adopting or retaining those majors.
+
+`tool/check_repo.py` enforces this maintained action-major baseline so a later workflow edit cannot silently regress to an obsolete runtime line.
 
 All Flutter jobs use the exact project SDK pin. If GitHub Actions are disabled, badges/queued workflows are not proof of verification.
 
@@ -127,7 +139,8 @@ Use annotated semantic tags such as `v2.0.12`. Never move a published tag.
 
 For the current candidate:
 
-- issue #8 blocks stable release until a genuine Flutter-3.44.7-generated `pubspec.lock` is committed/reviewed/cataloged/enforced;
+- the resolver-generated `pubspec.lock` is committed, cataloged, and enforced across quality/platform/release workflows;
+- issue #8 now remains open only until the exact final post-maintenance automated verification is complete;
 - the exact final candidate must pass CI/security plus Android/iOS/Windows/macOS/Linux/Web build verification;
 - real runtime/accessibility/browser deployment checks must be recorded;
 - signing/checksum status must be explicit.
@@ -171,7 +184,7 @@ A verification-only PR may be used to trigger path-filtered build matrices witho
 - treat only completed checks on its **current head** as evidence;
 - explicitly mark older queued/green runs as superseded after realignment.
 
-For 2.0.12, PR #7 is the verification path and must be rebuilt after the final six-platform handoff commit.
+For 2.0.12, PR #7 is the verification path and must be rebuilt after the final maintenance/documentation commit before its checks are treated as exact release evidence.
 
 ## Handoff discipline
 
