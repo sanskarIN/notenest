@@ -75,7 +75,8 @@ Implementation is listed separately from pending stable verification because sou
 - Six-platform build matrix including Chrome Web smoke + release compile.
 - Six-platform release packaging including Web output.
 - Complete setup/development/release/security/privacy documentation for native/browser behavior.
-- Android GitHub Actions Java setup migrated to `actions/setup-java@v5`.
+- GitHub Actions runtime majors modernized to maintained 2026 lines: checkout v7, setup-java v6, upload-artifact v7, dependency-review v5, while Flutter setup remains on its maintained v2 line.
+- Repository policy now enforces the maintained workflow-action baseline to prevent runtime-major regressions.
 
 ## Milestone: 2.0.12 — stable verification
 
@@ -94,6 +95,7 @@ Implementation is listed separately from pending stable verification because sou
 - [x] Android file-picker 11 registration blocker replaced with file_picker 12 federated implementation.
 - [x] Windows VS2026 coroutine compatibility blocker fixed without pinning an obsolete runner.
 - [x] Explicit iOS 14 deployment floor applied for file_picker 12.
+- [x] GitHub Actions first-party runtime majors modernized and enforced by repository policy.
 
 ### Diagnostic automated evidence already reached
 
@@ -109,7 +111,7 @@ The immediate file-picker-12 hardening candidate completed:
 - [x] Repository secret scan.
 - [x] Dependency review.
 
-Those results validate the implemented platform fixes. Because documentation/lint/lock-enforcement commits followed, one exact final-candidate rerun is still required before release tagging.
+Those results validate the implemented platform fixes. Because lock-enforcement, documentation, lint, and workflow-runtime commits followed, one exact final-candidate rerun is still required before release tagging.
 
 ### Required exact final automated verification
 
@@ -266,6 +268,6 @@ Every release cycle includes:
 - Settings/lifecycle/import/export/link failure-path review.
 - Exhaustive tracked-file documentation review.
 - Security/privacy documentation review.
-- GitHub Actions runtime-major review; remaining Node-runtime modernization is tracked separately from 2.0.12 product changes.
+- GitHub Actions runtime-major review, with maintained majors enforced by repository policy.
 
 See [`what_changed.md`](what_changed.md) for the exact current engineering checkpoint.
