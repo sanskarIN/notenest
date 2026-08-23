@@ -67,7 +67,7 @@ This complements, but does not replace, `flutter build web --release` and real d
 ### Application/controller tests
 
 - `test/app/app_settings_controller_test.dart` — atomic load, serialized writes, rollback, persistence-first onboarding, app-lock preference behavior.
-- `test/features/notes/notes_controller_test.dart` — collection-switch filter reset and collection-scoped metadata.
+- `test/features/notes/notes_controller_test.dart` — collection-switch filter reset, collection-scoped metadata, and configurable note-sort behavior.
 
 ### Repository/database tests
 
@@ -75,15 +75,47 @@ This complements, but does not replace, `flutter build web --release` and real d
 - `test/data/backup_repository_test.dart`
 - `test/data/settings_repository_test.dart`
 
-Coverage includes create/update/search, safe FTS input, lifecycle collections, pin/favorite/archive/trash invariants, snapshots, restore/cascade behavior, folder/tag metadata, no-pinned-trash, backup schema/type/UTC/tag/ID/relationship/color/lifecycle validation, conflict-safe restore, and settings persistence.
+Coverage includes create/update/search, safe FTS input, lifecycle collections, pin/favorite/archive/trash invariants, duplicate-note content/lifecycle semantics, configurable sort ordering with pinned-first behavior, snapshots, restore/cascade behavior, folder/tag metadata, no-pinned-trash, backup schema/type/UTC/tag/ID/relationship/color/lifecycle validation, conflict-safe restore, and settings persistence.
 
 ### Widget tests
 
 - `test/widgets/onboarding_page_test.dart` — privacy/offline messaging and persistence success/failure.
-- `test/widgets/notes_page_empty_state_test.dart` — collection-specific empty states/actions.
+- `test/widgets/notes_page_empty_state_test.dart` — collection-specific empty states/actions plus visible sort-control interaction.
 - `test/widgets/note_editor_accessibility_test.dart` — selected/reset semantics and touch target.
-- `test/widgets/note_editor_save_test.dart` — save-before-pop, load recovery, and first-line formatting boundary.
+- `test/widgets/note_editor_save_test.dart` — save-before-pop, load recovery, first-line formatting boundary, live word/character metrics, and duplicate-note editor flow.
 - `test/widgets/about_page_test.dart` — external-link failure feedback.
+
+## 2.1 productivity regression boundaries
+
+The isolated `feature/2.1-productivity` branch adds no schema, dependency, permission, account, or network requirement. Its deterministic tests should preserve the following contracts before integration:
+
+### Text metrics
+
+- empty body reports zero words and zero characters;
+- whitespace-separated words are counted independently of repeated spaces/newlines;
+- singular/plural labels remain correct;
+- character count uses Unicode code points (`runes`) rather than UTF-16 code units;
+- metrics update from the in-memory editor draft and do not trigger extra persistence or network work.
+
+### Duplicate note
+
+- duplication always receives a fresh note ID;
+- current editor draft is saved before duplicate creation starts;
+- body, folder, tags, and color copy exactly through repository normalization rules;
+- titled sources receive a clear `(copy)` suffix;
+- untitled sources receive `Untitled copy`;
+- duplicate lifecycle starts active/unpinned/non-favorite/non-archived/non-trashed even when the source has lifecycle flags;
+- editor navigation opens the new copy rather than mutating the source note.
+
+### Configurable sorting
+
+- newest-first remains the default;
+- oldest-first reverses update ordering;
+- title A–Z and Z–A are case-insensitive;
+- deterministic update-time tie-breaking is retained for equal titles;
+- pinned notes remain ahead of unpinned notes under every sort mode;
+- sort changes preserve collection/query/folder/tag filters;
+- sorting changes no stored note content and requires no migration.
 
 ## Cross-platform file-transfer tests
 
@@ -172,6 +204,9 @@ Important release journeys:
 20. Controlled root teardown → settings/database disposed.
 21. Web create/edit/search → reload → browser restart persistence.
 22. Web backup/Markdown download then re-import.
+23. Change note sort in an active filtered collection → order changes without losing filters.
+24. Duplicate a recently edited note → newest draft is saved and the new active copy opens with independent identity/lifecycle.
+25. Edit ASCII and non-BMP Unicode body text → live metrics update without changing stored-format semantics.
 
 Use fictional data only.
 
@@ -249,11 +284,11 @@ Every backup change should retain coverage for:
 
 Malformed input must be rejected before restore writes begin.
 
-## Search/lifecycle tests
+## Search/lifecycle/sort tests
 
 FTS tests should cover title/body/folder/tag matches, multiple terms, quote/punctuation safety, appropriate Unicode, collection exclusion rules, and deterministic ordering where promised.
 
-Collection metadata must match the active lifecycle predicate. Search terms must never be concatenated as executable SQL.
+Collection metadata must match the active lifecycle predicate. Search terms must never be concatenated as executable SQL. Pinned-first behavior must remain explicit when configurable sort modes change secondary ordering.
 
 ## Editor/autosave tests
 
@@ -269,6 +304,8 @@ Protect:
 - Failed final save blocks Back/export/history.
 - Retryable missing-note load state.
 - Offset-zero first-line formatting.
+- Live local word/character metrics.
+- Save-before-duplicate semantics and duplicate editor replacement.
 
 Real platform testing still needs lifecycle/background/system-back/process-termination behavior.
 
@@ -276,11 +313,13 @@ Real platform testing still needs lifecycle/background/system-back/process-termi
 
 Drift schema remains **1** for application 2.0.12. Starting with schema 2, every migration needs fixture-driven previous-schema → new-schema validation including data, constraints, FTS/index behavior, foreign keys, and repository operations.
 
+The current 2.1 sorting, duplication, and text-metric work intentionally does not require a schema migration.
+
 ## Accessibility testing
 
 Automation should check semantics, non-color selected state, minimum target size, discoverable controls, visible failure messages, and representative large-text layouts where practical.
 
-Manual verification must cover screen readers, keyboard traversal, browser focus, zoom/text scaling, dark/light themes, reduced motion, compact/wide viewports, and destructive-action clarity. See [`accessibility.md`](accessibility.md).
+Manual verification must cover screen readers, keyboard traversal, browser focus, zoom/text scaling, dark/light themes, reduced motion, compact/wide viewports, destructive-action clarity, and discoverability/readability of the 2.1 sort/text-metric controls. See [`accessibility.md`](accessibility.md).
 
 ## Platform build matrix
 
@@ -294,6 +333,8 @@ GitHub Actions verifies:
 - Chrome Web smoke + Web release compile.
 
 The current file-picker-12 hardening generation has already completed all seven build/smoke steps successfully. The exact final post-documentation candidate must repeat them before release tagging.
+
+The 2.1 branch must run its own matrix independently; a green 2.1 branch does not retroactively certify 2.0.12, and a green 2.0.12 verification run does not certify later 2.1 product changes.
 
 Compilation is integration evidence, not proof of real-device/browser runtime behavior.
 
