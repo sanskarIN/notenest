@@ -38,6 +38,18 @@ final class NoteRepository {
     return getById(id);
   }
 
+  Future<Note> duplicate(String id) async {
+    final Note source = await getById(id);
+    final String sourceTitle = source.title.trim();
+    return create(
+      title: sourceTitle.isEmpty ? 'Untitled copy' : '$sourceTitle (copy)',
+      body: source.body,
+      folder: source.folder,
+      tags: decodeTags(source.tags),
+      colorValue: source.colorValue,
+    );
+  }
+
   Future<Note> getById(String id) {
     return (_db.select(
       _db.notes,
@@ -70,7 +82,7 @@ final class NoteRepository {
         if (a.isPinned != b.isPinned) {
           return a.isPinned ? -1 : 1;
         }
-        return b.updatedAt.compareTo(a.updatedAt);
+        return _compareNotes(a, b, filter.sort);
       });
     return sorted;
   }
@@ -244,6 +256,21 @@ final class NoteRepository {
     } on FormatException {
       return <String>[];
     }
+  }
+
+  int _compareNotes(Note a, Note b, NoteSort sort) {
+    return switch (sort) {
+      NoteSort.updatedNewest => b.updatedAt.compareTo(a.updatedAt),
+      NoteSort.updatedOldest => a.updatedAt.compareTo(b.updatedAt),
+      NoteSort.titleAscending => _compareTitles(a, b),
+      NoteSort.titleDescending => _compareTitles(b, a),
+    };
+  }
+
+  int _compareTitles(Note a, Note b) {
+    final int titleOrder = a.title.toLowerCase().compareTo(b.title.toLowerCase());
+    if (titleOrder != 0) return titleOrder;
+    return b.updatedAt.compareTo(a.updatedAt);
   }
 
   bool _matchesCollection(Note note, NoteCollection collection) {
