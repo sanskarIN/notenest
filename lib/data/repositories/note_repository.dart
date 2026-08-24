@@ -194,8 +194,19 @@ final class NoteRepository {
     ),
   );
 
+  Future<void> archiveMany(Iterable<String> ids) => _patchMany(
+    ids,
+    const NotesCompanion(
+      isArchived: Value<bool>(true),
+      isTrashed: Value<bool>(false),
+    ),
+  );
+
   Future<void> unarchive(String id) =>
       _patch(id, const NotesCompanion(isArchived: Value<bool>(false)));
+
+  Future<void> unarchiveMany(Iterable<String> ids) =>
+      _patchMany(ids, const NotesCompanion(isArchived: Value<bool>(false)));
 
   Future<void> trash(String id) => _patch(
     id,
@@ -206,13 +217,37 @@ final class NoteRepository {
     ),
   );
 
+  Future<void> trashMany(Iterable<String> ids) => _patchMany(
+    ids,
+    const NotesCompanion(
+      isTrashed: Value<bool>(true),
+      isArchived: Value<bool>(false),
+      isPinned: Value<bool>(false),
+    ),
+  );
+
   Future<void> restore(String id) =>
       _patch(id, const NotesCompanion(isTrashed: Value<bool>(false)));
+
+  Future<void> restoreMany(Iterable<String> ids) =>
+      _patchMany(ids, const NotesCompanion(isTrashed: Value<bool>(false)));
 
   Future<void> permanentlyDelete(String id) async {
     await (_db.delete(
       _db.notes,
     )..where(($NotesTable row) => row.id.equals(id))).go();
+  }
+
+  Future<void> permanentlyDeleteMany(Iterable<String> ids) async {
+    final List<String> values = _normalizedIds(ids);
+    if (values.isEmpty) return;
+    await _db.transaction(() async {
+      for (final String id in values) {
+        await (_db.delete(
+          _db.notes,
+        )..where(($NotesTable row) => row.id.equals(id))).go();
+      }
+    });
   }
 
   Future<int> emptyTrash() {
@@ -293,6 +328,29 @@ final class NoteRepository {
       ),
     );
   }
+
+  Future<void> _patchMany(Iterable<String> ids, NotesCompanion patch) async {
+    final List<String> values = _normalizedIds(ids);
+    if (values.isEmpty) return;
+    await _db.transaction(() async {
+      for (final String id in values) {
+        final Note existing = await getById(id);
+        await (_db.update(
+          _db.notes,
+        )..where(($NotesTable row) => row.id.equals(id))).write(
+          patch.copyWith(
+            updatedAt: Value<DateTime>(_nextUpdateTime(existing.updatedAt)),
+          ),
+        );
+      }
+    });
+  }
+
+  List<String> _normalizedIds(Iterable<String> ids) => ids
+      .map((String id) => id.trim())
+      .where((String id) => id.isNotEmpty)
+      .toSet()
+      .toList(growable: false);
 
   DateTime _nextUpdateTime(DateTime previous) {
     final DateTime now = DateTime.now().toUtc();
