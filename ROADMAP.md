@@ -33,6 +33,7 @@ Implementation is listed separately from pending stable verification because sou
 - Root composition owns settings/database cleanup.
 - Collection metadata/filter lifecycle rules are consistent.
 - A trashed note cannot be pinned.
+- Note update timestamps advance monotonically even when several changes occur inside the same stored second.
 
 ### Import/export and recovery
 
@@ -44,6 +45,7 @@ Implementation is listed separately from pending stable verification because sou
 - Backup app/schema/type/tag/ID/relationship/UTC/timestamp/color/lifecycle validation.
 - Conflict-safe transactional restore.
 - Cross-platform/Unicode-safe Markdown export names.
+- NoteNest Markdown metadata round trips remove only the format separator newline and preserve a real leading newline in note content.
 
 ### Six-platform baseline
 
@@ -62,6 +64,7 @@ Implementation is listed separately from pending stable verification because sou
 - Non-color color-selection cues and 48-pixel custom target baseline.
 - Centralized external-link boundary and failure feedback.
 - Browser/native platform capability differences are explicit instead of hidden behind false parity.
+- Onboarding scrolls vertically when compact-height or large-text layouts exceed the available viewport.
 
 ### Release/repository engineering
 
@@ -70,13 +73,14 @@ Implementation is listed separately from pending stable verification because sou
 - Lock-enforced dependency restoration across quality, all platform-build lanes, and release packaging.
 - `tool/check_repo.py` requires the application lockfile to be tracked.
 - Six-platform runner bootstrap uses `flutter create --no-pub`, keeping runner generation separate from dependency resolution.
+- Runner bootstrap restores the committed `pubspec.yaml` and `pubspec.lock` byte-for-byte after Flutter template generation, preventing generated template dependency changes from invalidating the application lock.
 - Drift **2.34.3** Web runtime assets are tied to the direct dependency.
 - Version, repository, **109-file** exhaustive-reference, Markdown-link, and secret policy gates.
 - Six-platform build matrix including Chrome Web smoke + release compile.
 - Six-platform release packaging including Web output.
 - Complete setup/development/release/security/privacy documentation for native/browser behavior.
-- GitHub Actions runtime majors modernized to maintained 2026 lines: checkout v7, setup-java v6, upload-artifact v7, dependency-review v5, while Flutter setup remains on its maintained v2 line.
-- Repository policy now enforces the maintained workflow-action baseline to prevent runtime-major regressions.
+- GitHub Actions runtime majors use published maintained lines: checkout v7, setup-java v5, upload-artifact v7, dependency-review v5, while Flutter setup remains on its maintained v2 line.
+- Repository policy now enforces the maintained workflow-action baseline to prevent runtime-major regressions or use of an unpublished action tag.
 
 ## Milestone: 2.0.12 — stable verification
 
@@ -95,7 +99,12 @@ Implementation is listed separately from pending stable verification because sou
 - [x] Android file-picker 11 registration blocker replaced with file_picker 12 federated implementation.
 - [x] Windows VS2026 coroutine compatibility blocker fixed without pinning an obsolete runner.
 - [x] Explicit iOS 14 deployment floor applied for file_picker 12.
-- [x] GitHub Actions first-party runtime majors modernized and enforced by repository policy.
+- [x] GitHub Actions first-party runtime majors use published stable tags and are enforced by repository policy.
+- [x] Generated platform runners preserve the application manifest and resolver lock before enforced restore.
+- [x] Compact-height onboarding overflow has a scrollable regression fix.
+- [x] Note timestamp ordering is monotonic and covered by repository tests.
+- [x] Editor save/formatting widget tests target stable field keys rather than positional `TextField` ordering.
+- [x] NoteNest Markdown metadata round-trip separator handling is fixed and covered for leading-newline content.
 
 ### Diagnostic automated evidence already reached
 
@@ -111,7 +120,7 @@ The immediate file-picker-12 hardening candidate completed:
 - [x] Repository secret scan.
 - [x] Dependency review.
 
-Those results validate the implemented platform fixes. Because lock-enforcement, documentation, lint, and workflow-runtime commits followed, one exact final-candidate rerun is still required before release tagging.
+PR #7 later exposed six test failures plus two automation problems: an unpublished `actions/setup-java@v6` tag and `flutter create --no-pub` rewriting the root manifest before `--enforce-lockfile`. Those results are diagnostic only. The source/test/action/bootstrap fixes are now being verified on a new post-PR-#7 blocker-fix branch before a fresh exact 2.0.12 candidate is frozen.
 
 ### Required exact final automated verification
 
@@ -268,6 +277,6 @@ Every release cycle includes:
 - Settings/lifecycle/import/export/link failure-path review.
 - Exhaustive tracked-file documentation review.
 - Security/privacy documentation review.
-- GitHub Actions runtime-major review, with maintained majors enforced by repository policy.
+- GitHub Actions runtime-major review, with maintained published majors enforced by repository policy.
 
 See [`what_changed.md`](what_changed.md) for the exact current engineering checkpoint.
