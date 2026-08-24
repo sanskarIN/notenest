@@ -80,7 +80,7 @@ REQUIRED_README_TEXT = (
     "sanskarin@outlook.in",
     "supportramsandesh@gmail.com",
     "MIT License",
-    "Android, iOS, Windows, macOS, Linux, and Web",
+    "Android, iOS/iPadOS, Windows, macOS, Linux, and Web",
 )
 
 REQUIRED_WORKFLOW_ACTIONS = {
