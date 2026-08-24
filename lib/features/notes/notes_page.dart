@@ -99,8 +99,9 @@ class _NotesPageState extends State<NotesPage> {
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
                   tooltip: 'Empty trash',
-                  onPressed:
-                      controller.notes.isEmpty || _selectionBusy ? null : _emptyTrash,
+                  onPressed: controller.notes.isEmpty || _selectionBusy
+                      ? null
+                      : _emptyTrash,
                   icon: const Icon(Icons.delete_sweep_rounded),
                 ),
               ],
@@ -132,7 +133,8 @@ class _NotesPageState extends State<NotesPage> {
             Text(countLabel, key: const Key('note-selection-count')),
             const SizedBox(width: 8),
             if (controller.filter.collection == NoteCollection.all ||
-                controller.filter.collection == NoteCollection.favorites) ...<Widget>[
+                controller.filter.collection ==
+                    NoteCollection.favorites) ...<Widget>[
               TextButton.icon(
                 onPressed: _selectionBusy ? null : _archiveSelected,
                 icon: const Icon(Icons.archive_outlined),
@@ -144,7 +146,8 @@ class _NotesPageState extends State<NotesPage> {
                 label: const Text('Trash'),
               ),
             ],
-            if (controller.filter.collection == NoteCollection.archive) ...<Widget>[
+            if (controller.filter.collection ==
+                NoteCollection.archive) ...<Widget>[
               TextButton.icon(
                 onPressed: _selectionBusy ? null : _unarchiveSelected,
                 icon: const Icon(Icons.unarchive_outlined),
@@ -156,7 +159,8 @@ class _NotesPageState extends State<NotesPage> {
                 label: const Text('Trash'),
               ),
             ],
-            if (controller.filter.collection == NoteCollection.trash) ...<Widget>[
+            if (controller.filter.collection ==
+                NoteCollection.trash) ...<Widget>[
               TextButton.icon(
                 onPressed: _selectionBusy ? null : _restoreSelected,
                 icon: const Icon(Icons.restore_rounded),
@@ -343,7 +347,9 @@ class _NotesPageState extends State<NotesPage> {
       () => widget.controller.unarchiveMany(ids),
       failureMessage: 'Could not unarchive the selected notes.',
     )) {
-      _message('Unarchived ${ids.length} ${ids.length == 1 ? 'note' : 'notes'}.');
+      _message(
+        'Unarchived ${ids.length} ${ids.length == 1 ? 'note' : 'notes'}.',
+      );
     }
   }
 
@@ -588,6 +594,18 @@ class _FilterRow extends StatelessWidget {
               onSelected: controller.setFolder,
             ),
           ),
+          if (controller.filter.folder case final String folder) ...<Widget>[
+            IconButton(
+              tooltip: 'Rename or merge folder',
+              onPressed: () => _renameOrMerge(
+                context,
+                kind: 'folder',
+                current: folder,
+                rename: controller.renameFolder,
+              ),
+              icon: const Icon(Icons.drive_file_rename_outline_rounded),
+            ),
+          ],
           const SizedBox(width: 8),
           FilterChip(
             label: Text(
@@ -604,6 +622,18 @@ class _FilterRow extends StatelessWidget {
               onSelected: controller.setTag,
             ),
           ),
+          if (controller.filter.tag case final String tag) ...<Widget>[
+            IconButton(
+              tooltip: 'Rename or merge tag',
+              onPressed: () => _renameOrMerge(
+                context,
+                kind: 'tag',
+                current: tag,
+                rename: controller.renameTag,
+              ),
+              icon: const Icon(Icons.edit_rounded),
+            ),
+          ],
           const SizedBox(width: 8),
           ActionChip(
             avatar: const Icon(Icons.sort_rounded),
@@ -659,6 +689,80 @@ class _FilterRow extends StatelessWidget {
     if (!context.mounted || value == null) return;
     controller.setSort(value);
   }
+
+  Future<void> _renameOrMerge(
+    BuildContext context, {
+    required String kind,
+    required String current,
+    required Future<int> Function(String from, String to) rename,
+  }) async {
+    final TextEditingController input = TextEditingController(text: current);
+    final String? target = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: Text('Rename or merge $kind'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'Enter a new $kind name. If that name already exists, matching notes will merge into it.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              key: Key('rename-$kind-field'),
+              controller: input,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(labelText: 'New $kind name'),
+              onSubmitted: (String value) =>
+                  Navigator.pop(dialogContext, value),
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, input.text),
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+    input.dispose();
+    if (!context.mounted || target == null) return;
+    final String normalized = target.trim();
+    if (normalized.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${_capitalize(kind)} name cannot be empty.')),
+      );
+      return;
+    }
+    if (normalized == current) return;
+
+    try {
+      final int changed = await rename(current, normalized);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Updated $changed ${changed == 1 ? 'note' : 'notes'} to ${kind == 'tag' ? '#$normalized' : normalized}.',
+          ),
+        ),
+      );
+    } on Object {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not rename or merge this $kind.')),
+      );
+    }
+  }
+
+  String _capitalize(String value) =>
+      value.isEmpty ? value : '${value[0].toUpperCase()}${value.substring(1)}';
 
   Future<void> _showFilterMenu(
     BuildContext context, {
