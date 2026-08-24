@@ -115,4 +115,35 @@ void main() {
 
     await unmount(tester, controller);
   });
+
+  testWidgets('sort control changes the controller and visible note order', (
+    WidgetTester tester,
+  ) async {
+    await repository.create(title: 'Zebra');
+    await repository.create(title: 'alpha');
+    await repository.create(title: 'Middle');
+    final NotesController controller = await pumpCollection(
+      tester,
+      NoteCollection.all,
+    );
+
+    expect(find.text('Newest first'), findsOneWidget);
+
+    await tester.tap(find.text('Newest first'));
+    await tester.pumpAndSettle();
+    expect(find.text('Title A–Z'), findsOneWidget);
+
+    await tester.tap(find.text('Title A–Z'));
+    await tester.pumpAndSettle();
+
+    expect(controller.filter.sort, NoteSort.titleAscending);
+    expect(controller.notes.map((Note note) => note.title), <String>[
+      'alpha',
+      'Middle',
+      'Zebra',
+    ]);
+    expect(find.text('Title A–Z'), findsOneWidget);
+
+    await unmount(tester, controller);
+  });
 }
