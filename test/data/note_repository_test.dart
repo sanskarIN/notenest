@@ -62,6 +62,88 @@ void main() {
     },
   );
 
+  test('duplicate copies content but starts with active lifecycle state', () async {
+    final Note source = await repository.create(
+      title: 'Source',
+      body: 'Reusable body',
+      folder: 'Projects',
+      tags: const <String>['offline', 'flutter'],
+      colorValue: 0xFFD8EBFF,
+    );
+    await repository.setPinned(source.id, value: true);
+    await repository.setFavorite(source.id, value: true);
+    await repository.archive(source.id);
+
+    final Note duplicate = await repository.duplicate(source.id);
+
+    expect(duplicate.id, isNot(source.id));
+    expect(duplicate.title, 'Source (copy)');
+    expect(duplicate.body, 'Reusable body');
+    expect(duplicate.folder, 'Projects');
+    expect(repository.decodeTags(duplicate.tags), <String>['flutter', 'offline']);
+    expect(duplicate.colorValue, 0xFFD8EBFF);
+    expect(duplicate.isPinned, isFalse);
+    expect(duplicate.isFavorite, isFalse);
+    expect(duplicate.isArchived, isFalse);
+    expect(duplicate.isTrashed, isFalse);
+  });
+
+  test('duplicate gives an untitled source a clear copy title', () async {
+    final Note source = await repository.create(body: 'No source title');
+
+    final Note duplicate = await repository.duplicate(source.id);
+
+    expect(duplicate.title, 'Untitled copy');
+    expect(duplicate.body, 'No source title');
+  });
+
+  test('configurable title sorting keeps pinned notes first', () async {
+    final Note zebra = await repository.create(title: 'Zebra');
+    final Note alpha = await repository.create(title: 'alpha');
+    await repository.create(title: 'Middle');
+
+    final List<Note> ascending = await repository.list(
+      const NoteFilter(sort: NoteSort.titleAscending),
+    );
+    expect(ascending.map((Note note) => note.title), <String>[
+      'alpha',
+      'Middle',
+      'Zebra',
+    ]);
+
+    final List<Note> descending = await repository.list(
+      const NoteFilter(sort: NoteSort.titleDescending),
+    );
+    expect(descending.map((Note note) => note.title), <String>[
+      'Zebra',
+      'Middle',
+      'alpha',
+    ]);
+
+    await repository.setPinned(alpha.id, value: true);
+    final List<Note> pinnedFirst = await repository.list(
+      const NoteFilter(sort: NoteSort.titleDescending),
+    );
+    expect(pinnedFirst.first.id, alpha.id);
+    expect(
+      pinnedFirst.skip(1).map((Note note) => note.id),
+      isNot(contains(alpha.id)),
+    );
+    expect(pinnedFirst.map((Note note) => note.id), contains(zebra.id));
+  });
+
+  test('oldest sorting reverses update chronology after pinned notes', () async {
+    final Note first = await repository.create(title: 'First');
+    final Note second = await repository.create(title: 'Second');
+    await repository.setFavorite(first.id, value: true);
+
+    final List<Note> oldest = await repository.list(
+      const NoteFilter(sort: NoteSort.updatedOldest),
+    );
+
+    expect(oldest.map((Note note) => note.id), <String>[second.id, first.id]);
+  });
+
   test('saving changed content creates a version snapshot', () async {
     final Note created = await repository.create(title: 'First', body: 'One');
 
