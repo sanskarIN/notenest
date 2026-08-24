@@ -54,4 +54,39 @@ void main() {
     expect(controller.tags, <String>{'trash-tag'});
     expect(controller.notes.map((Note note) => note.id), <String>[trashed.id]);
   });
+
+  test('changing sort order reloads notes with the selected order', () async {
+    await repository.create(title: 'Zebra');
+    await repository.create(title: 'alpha');
+    await repository.create(title: 'Middle');
+
+    controller.setSort(NoteSort.titleAscending);
+    await controller.load(showLoading: false);
+
+    expect(controller.filter.sort, NoteSort.titleAscending);
+    expect(controller.notes.map((Note note) => note.title), <String>[
+      'alpha',
+      'Middle',
+      'Zebra',
+    ]);
+  });
+
+  test('changing sort preserves active collection and filters', () async {
+    controller.filter = const NoteFilter(
+      collection: NoteCollection.favorites,
+      query: 'idea',
+      folder: 'Projects',
+      tag: 'flutter',
+    );
+
+    controller.setSort(NoteSort.titleDescending);
+
+    expect(controller.filter.collection, NoteCollection.favorites);
+    expect(controller.filter.query, 'idea');
+    expect(controller.filter.folder, 'Projects');
+    expect(controller.filter.tag, 'flutter');
+    expect(controller.filter.sort, NoteSort.titleDescending);
+
+    await controller.load(showLoading: false);
+  });
 }
