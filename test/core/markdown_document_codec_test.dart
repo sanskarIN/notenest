@@ -26,6 +26,23 @@ void main() {
       expect(decoded.body, '# Body\n\n- [ ] नमस्ते\n\n--- inside body');
     });
 
+    test('round trip preserves a leading body newline', () {
+      final String encoded = MarkdownDocumentCodec.encode(
+        title: 'Leading newline',
+        body: '\nSecond line',
+        folder: '',
+        tags: const <String>[],
+        updatedAt: DateTime.utc(2026, 8, 24),
+      );
+
+      final MarkdownDocument decoded = MarkdownDocumentCodec.decode(
+        encoded,
+        fallbackTitle: 'fallback',
+      );
+
+      expect(decoded.body, '\nSecond line');
+    });
+
     test('keeps ordinary Markdown unchanged with filename title fallback', () {
       const String markdown = '# Heading\n\nPlain body.';
 
