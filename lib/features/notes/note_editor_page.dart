@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:notenest/core/theme/app_tokens.dart';
 import 'package:notenest/core/utils/async_serial_queue.dart';
 import 'package:notenest/core/utils/debouncer.dart';
@@ -333,21 +334,7 @@ class _NoteEditorPageState extends State<NoteEditorPage>
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-                        child: TextField(
-                          key: const Key('note-body-field'),
-                          controller: _body,
-                          expands: true,
-                          maxLines: null,
-                          minLines: null,
-                          keyboardType: TextInputType.multiline,
-                          textAlignVertical: TextAlignVertical.top,
-                          decoration: const InputDecoration(
-                            hintText:
-                                'Start writing…\n\nMarkdown-lite supported: headings, emphasis, lists, and checklists.',
-                            filled: false,
-                            border: InputBorder.none,
-                          ),
-                        ),
+                        child: _bodyEditor(),
                       ),
                     ),
                     Padding(
@@ -366,6 +353,36 @@ class _NoteEditorPageState extends State<NoteEditorPage>
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _bodyEditor() {
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyB, control: true): () =>
+            _wrapSelection('**'),
+        const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () =>
+            _wrapSelection('**'),
+        const SingleActivator(LogicalKeyboardKey.keyI, control: true): () =>
+            _wrapSelection('_'),
+        const SingleActivator(LogicalKeyboardKey.keyI, meta: true): () =>
+            _wrapSelection('_'),
+      },
+      child: TextField(
+        key: const Key('note-body-field'),
+        controller: _body,
+        expands: true,
+        maxLines: null,
+        minLines: null,
+        keyboardType: TextInputType.multiline,
+        textAlignVertical: TextAlignVertical.top,
+        decoration: const InputDecoration(
+          hintText:
+              'Start writing…\n\nMarkdown-lite supported: headings, emphasis, lists, and checklists.',
+          filled: false,
+          border: InputBorder.none,
         ),
       ),
     );
