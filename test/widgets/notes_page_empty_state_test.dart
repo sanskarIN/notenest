@@ -146,4 +146,39 @@ void main() {
 
     await unmount(tester, controller);
   });
+
+  testWidgets('long press enters multi-select and bulk trash moves both notes', (
+    WidgetTester tester,
+  ) async {
+    final Note first = await repository.create(title: 'First selected note');
+    final Note second = await repository.create(title: 'Second selected note');
+    final NotesController controller = await pumpCollection(
+      tester,
+      NoteCollection.all,
+    );
+
+    await tester.longPress(find.text('First selected note'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 note selected'), findsOneWidget);
+
+    await tester.tap(find.text('Second selected note'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 notes selected'), findsOneWidget);
+
+    await tester.tap(find.text('Trash'));
+    await tester.pumpAndSettle();
+
+    expect(controller.notes, isEmpty);
+    final List<Note> trashed = await repository.list(
+      const NoteFilter(collection: NoteCollection.trash),
+    );
+    expect(trashed.map((Note note) => note.id).toSet(), <String>{
+      first.id,
+      second.id,
+    });
+    expect(find.text('2 notes selected'), findsNothing);
+    expect(find.text('Moved 2 notes to trash.'), findsOneWidget);
+
+    await unmount(tester, controller);
+  });
 }
