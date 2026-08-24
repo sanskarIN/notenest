@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/data/repositories/backup_repository.dart';
@@ -212,6 +213,50 @@ void main() {
     expect(copy.isFavorite, isFalse);
     expect(copy.isArchived, isFalse);
     expect(copy.isTrashed, isFalse);
+  });
+
+  testWidgets('editor keyboard shortcuts format the body selection', (
+    WidgetTester tester,
+  ) async {
+    final Note note = await repository.create(
+      title: 'Shortcuts',
+      body: 'word',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NoteEditorPage(
+          noteId: note.id,
+          repository: repository,
+          files: files,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder bodyFieldFinder = find.byKey(const Key('note-body-field'));
+    await tester.tap(bodyFieldFinder);
+    final TextField bodyField = tester.widget<TextField>(bodyFieldFinder);
+    final TextEditingController controller = bodyField.controller!;
+    controller.selection = const TextSelection(baseOffset: 0, extentOffset: 4);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(controller.text, '**word**');
+
+    controller.value = const TextEditingValue(
+      text: 'word',
+      selection: TextSelection(baseOffset: 0, extentOffset: 4),
+    );
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyI);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+
+    expect(controller.text, '_word_');
   });
 
   testWidgets(
