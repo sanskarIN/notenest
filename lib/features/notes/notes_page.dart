@@ -420,6 +420,12 @@ class _FilterRow extends StatelessWidget {
               onSelected: controller.setTag,
             ),
           ),
+          const SizedBox(width: 8),
+          ActionChip(
+            avatar: const Icon(Icons.sort_rounded),
+            label: Text(_sortLabel(controller.filter.sort)),
+            onPressed: () => _showSortMenu(context),
+          ),
           if (controller.filter.folder != null || controller.filter.tag != null)
             Padding(
               padding: const EdgeInsets.only(left: 8),
@@ -435,6 +441,39 @@ class _FilterRow extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _sortLabel(NoteSort sort) {
+    return switch (sort) {
+      NoteSort.updatedNewest => 'Newest first',
+      NoteSort.updatedOldest => 'Oldest first',
+      NoteSort.titleAscending => 'Title A–Z',
+      NoteSort.titleDescending => 'Title Z–A',
+    };
+  }
+
+  Future<void> _showSortMenu(BuildContext context) async {
+    final NoteSort? value = await showModalBottomSheet<NoteSort>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: <Widget>[
+            for (final NoteSort sort in NoteSort.values)
+              ListTile(
+                leading: controller.filter.sort == sort
+                    ? const Icon(Icons.check_rounded)
+                    : const SizedBox(width: 24),
+                title: Text(_sortLabel(sort)),
+                onTap: () => Navigator.pop(context, sort),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!context.mounted || value == null) return;
+    controller.setSort(value);
   }
 
   Future<void> _showFilterMenu(
