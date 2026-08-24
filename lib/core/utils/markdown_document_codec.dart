@@ -114,7 +114,11 @@ abstract final class MarkdownDocumentCodec {
     );
     final List<String> tags = _decodeTags(metadata['tags']);
     final DateTime? updatedAt = _decodeOptionalDate(metadata['updatedAt']);
-    final String body = normalized.substring(closingMarker + '\n---\n'.length);
+    int bodyStart = closingMarker + '\n---\n'.length;
+    if (normalized.startsWith('\n', bodyStart)) {
+      bodyStart += 1;
+    }
+    final String body = normalized.substring(bodyStart);
 
     return MarkdownDocument(
       title: title,

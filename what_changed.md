@@ -1,6 +1,6 @@
 # NoteNest — 2.0.12 Final Engineering Handoff
 
-Last updated: **2026-08-23**
+Last updated: **2026-08-24**
 
 Application version: **2.0.12**  
 Flutter package version: **2.0.12+2012**  
@@ -12,26 +12,49 @@ Drift database schema: **1**
 Implemented Flutter targets: **Android, iOS/iPadOS, Windows, macOS, Linux, Web**  
 Tracked-file contract: **109 files**  
 Stable tag: **not created**  
-Verification path: **PR #7 — verification-only branch, exact `main` plus one non-functional `lib/main.dart` marker**
+Current blocker-fix PR: **#18 — `fix/2.0.12-verification-blockers`**  
+Previous verification PR: **#7 — diagnostic only; no longer final evidence**
 
 ## Current release status
 
-NoteNest 2.0.12 is a six-platform Flutter **release candidate**, not a stable release yet.
+NoteNest 2.0.12 remains a six-platform Flutter **release candidate**, not a stable release.
 
-The largest source/reproducibility/toolchain blockers found during real GitHub Actions verification have been resolved:
+PR #7 produced valuable exact-run evidence but also exposed additional blockers that invalidated its use as final release certification:
+
+- six Flutter tests failed;
+- Android could not resolve unpublished `actions/setup-java@v6`;
+- Linux, Windows, macOS/iOS, and Web runner jobs reached `flutter pub get --enforce-lockfile` after `flutter create --no-pub` had rewritten the root application manifest, so the committed lock no longer matched;
+- later `main` commits fixed monotonic note timestamps, compact-height onboarding overflow, and added stable editor field keys, so the frozen PR #7 candidate was no longer the current source tree.
+
+The blocker-fix branch now addresses those failures in focused commits and PR #18 is the current merge/verification path before a new exact verification-only 2.0.12 candidate is frozen.
+
+Implemented on PR #18 so far:
+
+- `e6097bb1c2a8cc24150e4da26ad25bae31e45c8a` — `test: target editor body by stable key`
+- `9d62d7a3f60a8b06c0b8aa09e55f8d138b44249e` — `fix: preserve Markdown body across metadata round trips`
+- `d35189fd78092d630c7b2f635c9a93ed3f77efb8` — `test: preserve leading Markdown body newline`
+- `b71ffe81200d82890d142b5aff67f586d9653462` — `ci: use stable setup-java v5 for platform builds`
+- `fca4d5a85431073f73a6a1df5e0a939d7b0a1d91` — `ci: use stable setup-java v5 for release packaging`
+- `55ef641c99756ec06022de30a6ac622557bc886e` — `ci: enforce stable setup-java v5 baseline`
+- `782bd4f5605fce0cdc38e4a923dcd3b7ffd47da8` — `fix: preserve locked manifests during runner bootstrap`
+- `a78d895caba7b0721fb331572ea4c78575f47f66` — `docs: correct stable GitHub Actions baseline`
+- `6a276fd1d69d401db523b46632f2b23eaee4c227` — `docs: refresh 2.0.12 blocker-fix roadmap`
+- `c804d5a4de44f6f83ffebce7ee6319e94dcfcd4c` — `docs: record 2.0.12 verification blocker fixes`
+
+The source/reproducibility/toolchain baseline before those final blocker fixes remains:
 
 - Flutter 3.44.7 dependency resolution is compatible.
 - A genuine resolver-generated application `pubspec.lock` is committed.
 - CI/platform/release workflows enforce that lock.
 - Canonical Dart 3.12.2 formatting is committed.
 - The file-picker Android blocker is fixed through `file_picker 12.0.0` rather than suppressed.
-- Windows builds succeed on the current GitHub-hosted Visual Studio 2026 toolchain.
+- Windows builds succeeded on the current GitHub-hosted Visual Studio 2026 toolchain during diagnostic verification.
 - iOS has an explicit 14.0 deployment floor matching the current file-picker dependency.
 - Web browser boundaries, Drift worker/WASM generation, and Chrome platform smoke are implemented.
 - The repository reference catalogs every one of the **109 tracked files**.
-- GitHub-hosted workflow first-party actions are on maintained 2026 runtime majors and repository policy enforces that baseline.
+- GitHub-hosted first-party workflow actions now use published stable majors and repository policy enforces that baseline.
 
-A diagnostic file-picker-12 candidate already completed every platform compile/build lane successfully. Lock-enforcement, analyzer cleanup, documentation, and workflow-runtime modernization followed that diagnostic generation, so the project still requires **one exact final automated verification run on the frozen post-maintenance candidate** before automated 2.0.12 verification can be called complete.
+After PR #18 is fully green and merged, a fresh exact verification-only branch must be created from the resulting final `main` commit. Only checks from that frozen post-merge candidate may be treated as final automated 2.0.12 evidence.
 
 Even after that exact automated run is green, stable `v2.0.12` remains blocked on representative runtime, accessibility, deployed-Web, signing/artifact, screenshot, and checksum work described below.
 
@@ -51,7 +74,7 @@ Later Android verification exposed a separate real blocker inside `file_picker 1
 file_picker: 12.0.0
 ```
 
-The final dependency graph was resolved by the pinned Flutter 3.44.7 / Dart 3.12.2 GitHub Actions environment.
+The dependency graph was resolved by the pinned Flutter 3.44.7 / Dart 3.12.2 GitHub Actions environment.
 
 Current lockfile facts:
 
@@ -74,7 +97,7 @@ That generated tree was promoted marker-free onto `main` as:
 
 No dependency versions or hosted-package hashes were manually reconstructed.
 
-## Lock enforcement
+## Lock enforcement and runner bootstrap
 
 The repository treats the lock as an application release invariant.
 
@@ -101,6 +124,17 @@ permissions:
 
 `docs/repository-reference.md` includes the lockfile and the repository contract remains **109 tracked files**.
 
+PR #7 revealed an additional reproducibility issue in generated runner creation. `flutter create --no-pub` can update the root `pubspec.yaml` to match the current Flutter template even though NoteNest intentionally keeps its own reviewed application dependency graph. The subsequent `flutter pub get --enforce-lockfile` then rejected that rewritten manifest against the committed lock.
+
+PR #18 changes `tool/bootstrap_platforms.py` so runner generation snapshots both `pubspec.yaml` and `pubspec.lock`, runs `flutter create --no-pub`, and restores the application files byte-for-byte in a `finally` path. This means:
+
+- generated platform runner files can still move with the pinned Flutter template;
+- the reviewed NoteNest dependency manifest remains authoritative;
+- the resolver-generated lock remains authoritative;
+- a failed `flutter create` cannot leave the application manifest or lock silently modified;
+- `prepare_web()` reads the restored NoteNest Drift dependency instead of a generated template manifest;
+- `--enforce-lockfile` now verifies the actual committed application pair.
+
 ## Canonical Dart formatting and analyzer cleanup
 
 The first pinned formatter run found that 40 of 59 checked Dart files were not in canonical Dart 3.12.2 format. CI generated the exact formatter output and that tree is committed.
@@ -119,21 +153,48 @@ Those five findings were fixed without weakening analysis policy:
 - `28498b8b2b441bd21547b87134f1d27e78443597` — `style: simplify ignored launcher parameters`
 - `e8978fef17a42c54cde17a4c7ea22fc9fdc397a1` — `style: simplify ignored About launcher parameters`
 
-The exact final analyzer/test run is still required because later documentation/workflow commits changed the candidate SHA.
+The exact final analyzer/test run is still required because the blocker-fix branch changes source, tests, workflows, bootstrap tooling, and documentation.
 
-## GitHub Actions runtime modernization
+## PR #7 test failures and source fixes
 
-The post-hardening maintenance item tracked by issue #15 is now implemented in repository source.
+PR #7 CI run `32627339322` reached Flutter tests after version synchronization, enforced lock restore, Drift generation, formatting, and analyzer all passed. It reported **77 tests passed and 6 failed**.
 
-Current first-party action-major baseline:
+The failures were:
 
-- `actions/checkout@v7` in all maintained workflows;
-- `actions/setup-java@v6` in Android platform/release jobs;
+1. backup restore preserving a newer local note;
+2. onboarding completion layout overflow;
+3. onboarding persistence-failure layout overflow;
+4. editor Back-save widget regression;
+5. editor offset-zero formatting widget regression;
+6. Markdown metadata round-trip body mismatch.
+
+Current source now addresses those failure classes:
+
+- `6a91dfd6fea33c18ad36dc80009fa578715ad538` guarantees monotonically advancing note update timestamps;
+- `c0db1c4fdd945271c228d523fd53f2fdd6044be9` covers monotonic note update timestamps;
+- `e93476b25b73df5730bb9fd0101ed560c313eadd` makes onboarding vertically scrollable;
+- `7567737cfd0850f80e72fdcd01d94c9d4bb691f3` covers compact onboarding layout;
+- `20bc47d9fd072914b83ed02f0e7428e5c09c1a00` adds stable editor field keys;
+- PR #18 changes the two editor tests to locate `note-body-field` directly instead of assuming the body is the last `TextField`;
+- PR #18 fixes NoteNest Markdown metadata body extraction and adds a leading-newline regression.
+
+Those fixes still require the new PR #18 CI run and later exact post-merge verification before they are accepted as release evidence.
+
+## GitHub Actions runtime baseline
+
+The earlier maintenance pass intentionally modernized first-party action pins, but PR #7 exposed that `actions/setup-java@v6` was not a published tag and therefore failed during Android job setup.
+
+The current production baseline is now:
+
+- `actions/checkout@v7` in maintained workflows;
+- `actions/setup-java@v5` in Android platform/release jobs;
 - `actions/upload-artifact@v7` for CI coverage and release artifacts;
 - `actions/dependency-review-action@v5` for pull-request dependency review;
-- `subosito/flutter-action@v2` retained because v2 remains the maintained major used by the upstream project.
+- `subosito/flutter-action@v2` retained on its maintained major.
 
-The modernization was split into focused commits:
+PR #18 updates both workflows and `tool/check_repo.py` so the repository rejects accidental return to the unpublished `setup-java@v6` pin.
+
+The earlier modernization commits remain historical context:
 
 - `6b56010ab29ee739d6207564ee850e30763cac80` — `ci: modernize quality workflow actions`
 - `bfdf60b5d22564c18bd9c63c091fe614f7eaac01` — `ci: modernize platform build actions`
@@ -141,11 +202,7 @@ The modernization was split into focused commits:
 - `0c06fc2c1e834d75765a47cdd9b344f2f92b7f8f` — `ci: modernize security workflow actions`
 - `631302f3663ee49a7e52ad483a3cccff7e5ce715` — `ci: enforce maintained workflow action majors`
 
-`tool/check_repo.py` now rejects a workflow that drops below the reviewed maintained action-major baseline. This prevents future edits from silently restoring deprecated Node-runtime generations.
-
-Documentation was synchronized through separate commits in `docs/github.md`, `ROADMAP.md`, `CHANGELOG.md`, and this handoff.
-
-The action migration still requires the exact PR #7 verification run before issue #15 can be closed as completed.
+The stable-Java correction is tracked separately in PR #18 rather than rewriting that history.
 
 ## File picker 12 migration
 
@@ -178,7 +235,7 @@ file_picker 12 requires a newer Apple mobile baseline than the old dependency gr
 - `IPHONEOS_DEPLOYMENT_TARGET = 14.0` in the generated Xcode project.
 - `platform :ios, '14.0'` in the Podfile where applicable.
 
-The unsigned iOS release compile has passed on the file-picker-12 diagnostic generation.
+The unsigned iOS release compile passed on the file-picker-12 diagnostic generation.
 
 ## Windows current-toolchain compatibility
 
@@ -194,7 +251,7 @@ The earlier Windows bootstrap problem was two-part:
 
 This preserves compatibility with the current hosted Windows toolchain instead of pinning an obsolete runner image.
 
-The subsequent Windows release build on current GitHub-hosted VS2026 completed successfully.
+The subsequent Windows release build on current GitHub-hosted VS2026 completed successfully during diagnostic verification.
 
 ## Android generated-runner requirements
 
@@ -206,9 +263,9 @@ The generated Android runner remains reproducible and fail-fast for NoteNest req
 - AppCompat dependency.
 - AppCompat launch/normal themes.
 
-The Android workflow/release jobs now use `actions/setup-java@v6` with Temurin Java 17.
+The Android workflow/release jobs now use published stable `actions/setup-java@v5` with Temurin Java 17.
 
-The file-picker-12 Android release APK build completed successfully on the diagnostic candidate.
+The file-picker-12 Android release APK build completed successfully on the earlier diagnostic candidate. PR #18 must re-prove this lane with the corrected action pin and manifest-preserving bootstrap.
 
 ## Web database/runtime engineering
 
@@ -219,17 +276,19 @@ sqlite3.wasm
 drift_worker.js
 ```
 
-`tool/bootstrap_platforms.py`:
+`tool/bootstrap_platforms.py` now:
 
-1. generates all six runners with `flutter create --no-pub`;
-2. reads the direct Drift version from `pubspec.yaml`;
-3. requires it to match reviewed `DRIFT_WEB_VERSION = "2.34.3"`;
-4. downloads `sqlite3.wasm` and `drift_worker.js` from the matching Drift release;
-5. rejects unexpectedly small payloads;
-6. verifies the WebAssembly header;
-7. rejects worker content that looks like an HTML error page;
-8. writes the assets into the generated Web runner;
-9. fails if the direct dependency and reviewed runtime pair drift apart.
+1. snapshots the committed `pubspec.yaml` and `pubspec.lock`;
+2. generates all six runners with `flutter create --no-pub`;
+3. restores the committed application manifest and lock byte-for-byte even if runner generation fails;
+4. reads the direct Drift version from the restored `pubspec.yaml`;
+5. requires it to match reviewed `DRIFT_WEB_VERSION = "2.34.3"`;
+6. downloads `sqlite3.wasm` and `drift_worker.js` from the matching Drift release;
+7. rejects unexpectedly small payloads;
+8. verifies the WebAssembly header;
+9. rejects worker content that looks like an HTML error page;
+10. writes the assets into the generated Web runner;
+11. fails if the direct dependency and reviewed runtime pair drift apart.
 
 This is version/runtime pairing plus basic payload validation. It is not a cryptographic provenance claim.
 
@@ -278,6 +337,7 @@ No custom browser/Linux password system was added merely to advertise parity. Ap
 - Save failure keeps the editor open with feedback.
 - Missing-note load failure becomes retryable.
 - Offset-zero empty-first-line Markdown prefix behavior is covered.
+- Stable widget keys identify title/body/folder/tag fields for deterministic tests.
 
 ### Notes lifecycle
 
@@ -285,6 +345,7 @@ No custom browser/Linux password system was added merely to advertise parity. Ap
 - Trash clears incompatible lifecycle state.
 - A trashed note cannot be pinned.
 - Collection filter metadata uses the same lifecycle semantics as collection listing.
+- Stored update timestamps advance monotonically, preserving deterministic conflict ordering when rapid updates occur within the same wall-clock second.
 
 ### Settings and onboarding
 
@@ -293,6 +354,14 @@ No custom browser/Linux password system was added merely to advertise parity. Ap
 - Applicable optimistic state rolls back.
 - Stale failures do not overwrite newer state.
 - Onboarding persists before the UI leaves onboarding.
+- Onboarding content is vertically scrollable for compact-height/large-text layouts.
+
+### Markdown metadata
+
+- NoteNest metadata remains front matter rather than rich-text storage.
+- Metadata decoding removes one generated blank separator after recognized NoteNest front matter.
+- A real leading newline in the note body remains part of the body.
+- Unrelated YAML-style front matter remains ordinary Markdown and is not consumed as NoteNest metadata.
 
 ### Backup
 
@@ -316,7 +385,7 @@ Restore is transactional and keeps newer local note revisions during conflicts.
 
 The exhaustive tracked-file catalog contains **109 files**. `pubspec.lock` is included as release source.
 
-The principal public/engineering surfaces are synchronized with the locked file-picker-12 and maintained-actions baseline:
+The principal public/engineering surfaces are synchronized with the locked file-picker-12 and published-actions baseline:
 
 - `README.md`
 - `CHANGELOG.md`
@@ -333,7 +402,7 @@ The principal public/engineering surfaces are synchronized with the locked file-
 
 ## Diagnostic automated evidence
 
-### Platform builds
+### Platform builds before PR #7
 
 Diagnostic file-picker-12 platform run: **32360941439**.
 
@@ -347,20 +416,18 @@ Completed build steps:
 - Chrome Web platform smoke: **passed**.
 - Web release: **passed**.
 
-This run proves the Android file-picker-12 path, Windows current-MSVC fix, explicit iOS 14 floor, Linux desktop build, and Web runtime generation compiled together on the reviewed dependency generation.
+This run proves the Android file-picker-12 path, Windows current-MSVC fix, explicit iOS 14 floor, Linux desktop build, and Web runtime generation compiled together on that reviewed dependency generation.
 
-It is not the final release run because repository lints, lock-enforcement, documentation, and workflow-runtime commits followed.
+It is not the final release run because later lock-enforcement, documentation, source fixes, and workflow changes followed.
 
-### Security
+### Security before PR #7
 
 Diagnostic security run: **32360941512**.
 
 - Repository secret scan: **passed**.
 - Dependency review: **passed**.
 
-A final exact-candidate run remains required after the repository is frozen.
-
-### Quality/materialization
+### Quality/materialization before PR #7
 
 Diagnostic CI run: **32360941601**.
 
@@ -374,30 +441,42 @@ Reached successfully:
 - Exact lock/formatter materialization.
 - Canonical formatting verification.
 
-Analyzer then stopped the run on five style-level infos. Those five findings have all been corrected on `main`. Tests and later policy steps did not run in that diagnostic CI because analyzer failure correctly stopped the job.
+Analyzer then stopped the run on five style-level infos. Those findings were corrected on `main` without weakening analysis policy.
 
-## GitHub verification PR
+### PR #7 exact run
 
-PR #7 is a **verification-only** mechanism.
+Frozen PR #7 base candidate: `0c390135cfe5af2f65341a978c8380956e026687`.  
+Verification head: `81b3e03329b4612b2ef95c9e64f22b1617616515`.
 
-The branch `verify/2.0.12-final` should always contain:
+Runs:
 
-1. the exact final `main` candidate;
-2. one non-functional comment marker in `lib/main.dart` so PR path filters trigger all platform lanes.
+- CI `32627339322`: **failed** at Flutter tests after version sync, lock restore, Drift generation, formatting, and analyzer succeeded; 77 tests passed, 6 failed.
+- Platform builds `32627339327`: **failed**; Android failed resolving unpublished `actions/setup-java@v6`, while other lanes failed locked restoration after runner generation rewrote the application manifest.
+- Security `32627339343`: **passed**.
 
-The marker must never be merged into `main`.
+These runs are diagnostic and superseded by the blocker-fix work on PR #18.
 
-Final automated evidence procedure:
+## PR #18 blocker-fix verification
 
-1. finish all repository source/tooling/documentation changes;
-2. record the exact final `main` SHA externally in PR #7;
-3. align `verify/2.0.12-final` to that exact `main` tree;
-4. add one non-functional marker comment;
-5. update PR #7 body with the exact base SHA and current maintenance facts;
-6. treat only checks from the resulting current PR head as final automated evidence;
-7. do not change `main` afterward and cite older checks for the new SHA.
+PR #18 starts from `main` at:
 
-Older run sets remain useful diagnostics but are not release certification.
+`20bc47d9fd072914b83ed02f0e7428e5c09c1a00`
+
+Its purpose is to prove the corrections found necessary by PR #7 without pretending that a blocker-fix PR is itself the final stable release certification.
+
+PR #18 must pass:
+
+- CI quality including all Flutter tests and repository gates;
+- security/dependency review;
+- Android release compile with stable `setup-java@v5`;
+- Linux release compile after manifest-preserving runner bootstrap;
+- Windows release compile after manifest-preserving runner bootstrap;
+- macOS release compile after manifest-preserving runner bootstrap;
+- unsigned iOS release compile after manifest-preserving runner bootstrap;
+- Chrome Web smoke after manifest-preserving runner bootstrap;
+- Web release compile after manifest-preserving runner bootstrap.
+
+If PR #18 is green, merge the blocker fixes into `main`. Then create/re-align a separate verification-only branch from the exact resulting `main` SHA plus one non-functional path-filter trigger marker. Only that post-merge exact head may become final automated release evidence.
 
 ## Issue #8 status
 
@@ -411,28 +490,30 @@ The technical lockfile work is implemented:
 - lock cataloged in the 109-file reference;
 - repository policy requires it;
 - quality/platform/release workflows enforce it;
-- temporary CI write/materialization path removed.
+- temporary CI write/materialization path removed;
+- PR #18 preserves the manifest/lock pair across generated runner creation before enforced restoration.
 
-Issue #8 should remain open only until the exact final automated verification confirms the locked candidate. After that evidence is recorded, close it as **completed**. Closing #8 does **not** mean the stable tag may be created; manual/runtime/distribution checks remain.
+Issue #8 should remain open until the new exact post-merge automated verification confirms the locked candidate. Closing #8 does **not** mean the stable tag may be created; manual/runtime/distribution checks remain.
 
 ## Issue #15 status
 
 Issue #15 tracked GitHub Actions runtime-major modernization.
 
-Implementation is now complete in source:
+The prior implementation incorrectly selected unpublished `actions/setup-java@v6`. PR #7 proved that tag could not be resolved. PR #18 corrects the production baseline to:
 
 - checkout v7 across maintained workflows;
-- setup-java v6 where Java is needed;
+- setup-java v5 where Java is needed;
 - upload-artifact v7 for coverage/release artifacts;
 - dependency-review-action v5;
-- repository policy enforcement for the reviewed action-major baseline;
+- Flutter setup v2;
+- repository policy enforcement for the reviewed **published** action-major baseline;
 - GitHub operations, roadmap, changelog, and handoff documentation synchronized.
 
-Issue #15 should remain open only until the exact PR #7 rerun proves CI/security/all six platform lanes remain green after the runtime migration. If that rerun succeeds without Node-runtime warnings attributable to project-owned first-party action pins, close #15 as **completed**.
+Issue #15 should remain open until PR #18 and the later exact post-merge candidate prove CI/security/all six platform lanes green with the corrected published runtime baseline.
 
 ## Exact final automated verification still required
 
-The final PR #7 run must prove on one exact frozen candidate:
+After PR #18 is merged, the new exact verification-only run must prove on one frozen candidate:
 
 ### CI quality
 
@@ -442,11 +523,11 @@ The final PR #7 run must prove on one exact frozen candidate:
 - canonical formatter;
 - analyzer;
 - Flutter tests with coverage;
-- repository policy, including maintained action-major checks;
+- repository policy, including published maintained action-major checks;
 - 109-file repository reference;
 - Markdown links;
 - secret scan;
-- coverage artifact upload through the maintained artifact action.
+- coverage artifact upload.
 
 ### Security
 
@@ -507,8 +588,8 @@ If a problem is found after a published stable tag, do not move the tag. Prepare
 
 ## Current engineering statement
 
-NoteNest 2.0.12 is a reproducibly locked, six-platform Flutter release candidate with local-first notes/search/versioning, ordered editor/settings persistence, validated conflict-safe backup/restore, bounded native/browser file handling, safe cross-platform app-lock capability modeling, generated six-target runner policy, Drift Web SQLite support, current Windows/iOS/Android toolchain hardening, maintained GitHub Actions runtime majors, deterministic repository quality gates, and a complete 109-file tracked-source contract.
+NoteNest 2.0.12 is a reproducibly locked, six-platform Flutter release candidate with local-first notes/search/versioning, ordered editor/settings persistence, validated conflict-safe backup/restore, bounded native/browser file handling, safe cross-platform app-lock capability modeling, generated six-target runner policy, Drift Web SQLite support, current Windows/iOS/Android toolchain hardening, published maintained GitHub Actions majors, deterministic repository quality gates, and a complete 109-file tracked-source contract.
 
-The remaining core release work is **verification**, not unimplemented core architecture. Until the exact final automated run and the manual/runtime/distribution checklist are complete, the truthful status remains:
+The remaining release work is **verification and distribution readiness**, not missing core architecture. Until PR #18, the later exact post-merge automated verification, and the manual/runtime/distribution checklist are complete, the truthful status remains:
 
 **2.0.12 release candidate — not stable.**

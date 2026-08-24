@@ -65,9 +65,9 @@ void main() {
     await tester.tap(find.text('Open editor'));
     await tester.pumpAndSettle();
 
-    final Finder textFields = find.byType(TextField);
-    expect(textFields, findsNWidgets(4));
-    await tester.enterText(textFields.last, 'Newest draft before back');
+    final Finder bodyField = find.byKey(const Key('note-body-field'));
+    expect(bodyField, findsOneWidget);
+    await tester.enterText(bodyField, 'Newest draft before back');
 
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -117,9 +117,9 @@ void main() {
     await tester.tap(find.text('Open formatting editor'));
     await tester.pumpAndSettle();
 
-    final Finder textFields = find.byType(TextField);
-    expect(textFields, findsNWidgets(4));
-    final TextField bodyField = tester.widget<TextField>(textFields.last);
+    final Finder bodyFieldFinder = find.byKey(const Key('note-body-field'));
+    expect(bodyFieldFinder, findsOneWidget);
+    final TextField bodyField = tester.widget<TextField>(bodyFieldFinder);
     final TextEditingController bodyController = bodyField.controller!;
     bodyController.selection = const TextSelection.collapsed(offset: 0);
 

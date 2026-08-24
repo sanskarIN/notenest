@@ -48,6 +48,29 @@ def run(*args: str) -> None:
     subprocess.run(command, cwd=ROOT, check=True)
 
 
+def generate_platform_runners() -> None:
+    manifest_paths = (ROOT / "pubspec.yaml", ROOT / "pubspec.lock")
+    snapshots = {
+        path: path.read_bytes() if path.exists() else None for path in manifest_paths
+    }
+    try:
+        run(
+            "flutter",
+            "create",
+            "--no-pub",
+            "--platforms=android,ios,linux,macos,windows,web",
+            "--org=com.sanskarin",
+            "--project-name=notenest",
+            ".",
+        )
+    finally:
+        for path, data in snapshots.items():
+            if data is None:
+                path.unlink(missing_ok=True)
+            else:
+                path.write_bytes(data)
+
+
 def patch_android() -> None:
     activity = ROOT / "android/app/src/main/kotlin/com/sanskarin/notenest/MainActivity.kt"
     if not activity.exists():
@@ -276,15 +299,7 @@ def prepare_web() -> None:
 def main() -> None:
     if shutil.which("flutter") is None:
         raise SystemExit("Flutter is required but was not found on PATH.")
-    run(
-        "flutter",
-        "create",
-        "--no-pub",
-        "--platforms=android,ios,linux,macos,windows,web",
-        "--org=com.sanskarin",
-        "--project-name=notenest",
-        ".",
-    )
+    generate_platform_runners()
     patch_android()
     patch_ios()
     patch_windows()

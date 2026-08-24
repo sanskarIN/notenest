@@ -80,7 +80,7 @@ REQUIRED_README_TEXT = (
     "sanskarin@outlook.in",
     "supportramsandesh@gmail.com",
     "MIT License",
-    "Android, iOS, Windows, macOS, Linux, and Web",
+    "Android, iOS/iPadOS, Windows, macOS, Linux, and Web",
 )
 
 REQUIRED_WORKFLOW_ACTIONS = {
@@ -91,12 +91,12 @@ REQUIRED_WORKFLOW_ACTIONS = {
     ),
     ".github/workflows/platform-builds.yml": (
         "actions/checkout@v7",
-        "actions/setup-java@v6",
+        "actions/setup-java@v5",
         "subosito/flutter-action@v2",
     ),
     ".github/workflows/release.yml": (
         "actions/checkout@v7",
-        "actions/setup-java@v6",
+        "actions/setup-java@v5",
         "actions/upload-artifact@v7",
         "subosito/flutter-action@v2",
     ),

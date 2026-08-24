@@ -107,14 +107,16 @@ Current workflows:
 Maintained action-major baseline for GitHub-hosted runners:
 
 - `actions/checkout@v7`;
-- `actions/setup-java@v6` where Java setup is required;
+- `actions/setup-java@v5` where Java setup is required;
 - `actions/upload-artifact@v7` for coverage/release artifacts;
 - `actions/dependency-review-action@v5` for pull-request dependency review;
 - `subosito/flutter-action@v2`, the current supported major for the Flutter setup action used by this project.
 
-The maintained first-party action majors above use the current Node.js runtime generation and therefore assume up-to-date GitHub-hosted runners. If self-hosted runners are introduced later, their runner version must be reviewed before adopting or retaining those majors.
+`actions/setup-java@v6` is not used for production verification because that tag is not currently published as a stable release. The project stays on the latest published stable major until a later migration is both available and verified.
 
-`tool/check_repo.py` enforces this maintained action-major baseline so a later workflow edit cannot silently regress to an obsolete runtime line.
+The maintained first-party action majors above use current supported action runtimes and therefore assume up-to-date GitHub-hosted runners. If self-hosted runners are introduced later, their runner version must be reviewed before adopting or retaining those majors.
+
+`tool/check_repo.py` enforces this maintained action-major baseline so a later workflow edit cannot silently regress to an obsolete or unpublished runtime line.
 
 All Flutter jobs use the exact project SDK pin. If GitHub Actions are disabled, badges/queued workflows are not proof of verification.
 
@@ -140,7 +142,8 @@ Use annotated semantic tags such as `v2.0.12`. Never move a published tag.
 For the current candidate:
 
 - the resolver-generated `pubspec.lock` is committed, cataloged, and enforced across quality/platform/release workflows;
-- issue #8 now remains open only until the exact final post-maintenance automated verification is complete;
+- generated platform runners must preserve the committed `pubspec.yaml` and `pubspec.lock` exactly before locked restoration;
+- issue #8 remains open until the exact final post-fix automated verification is complete;
 - the exact final candidate must pass CI/security plus Android/iOS/Windows/macOS/Linux/Web build verification;
 - real runtime/accessibility/browser deployment checks must be recorded;
 - signing/checksum status must be explicit.
@@ -184,7 +187,7 @@ A verification-only PR may be used to trigger path-filtered build matrices witho
 - treat only completed checks on its **current head** as evidence;
 - explicitly mark older queued/green runs as superseded after realignment.
 
-For 2.0.12, PR #7 is the verification path and must be rebuilt after the final maintenance/documentation commit before its checks are treated as exact release evidence.
+For 2.0.12, the previous PR #7 run is diagnostic only because `main` advanced after it exposed test, action-tag, and runner-bootstrap blockers. A new exact verification head must be created from the final post-fix `main` candidate.
 
 ## Handoff discipline
 
