@@ -116,8 +116,18 @@ final class NotesController extends ChangeNotifier {
     await load(showLoading: false);
   }
 
+  Future<void> archiveMany(Iterable<String> ids) async {
+    await _repository.archiveMany(ids);
+    await load(showLoading: false);
+  }
+
   Future<void> unarchive(Note note) async {
     await _repository.unarchive(note.id);
+    await load(showLoading: false);
+  }
+
+  Future<void> unarchiveMany(Iterable<String> ids) async {
+    await _repository.unarchiveMany(ids);
     await load(showLoading: false);
   }
 
@@ -126,13 +136,28 @@ final class NotesController extends ChangeNotifier {
     await load(showLoading: false);
   }
 
+  Future<void> trashMany(Iterable<String> ids) async {
+    await _repository.trashMany(ids);
+    await load(showLoading: false);
+  }
+
   Future<void> restore(Note note) async {
     await _repository.restore(note.id);
     await load(showLoading: false);
   }
 
+  Future<void> restoreMany(Iterable<String> ids) async {
+    await _repository.restoreMany(ids);
+    await load(showLoading: false);
+  }
+
   Future<void> permanentlyDelete(Note note) async {
     await _repository.permanentlyDelete(note.id);
+    await load(showLoading: false);
+  }
+
+  Future<void> permanentlyDeleteMany(Iterable<String> ids) async {
+    await _repository.permanentlyDeleteMany(ids);
     await load(showLoading: false);
   }
 
