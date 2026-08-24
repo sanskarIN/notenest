@@ -38,6 +38,18 @@ final class NoteRepository {
     return getById(id);
   }
 
+  Future<Note> duplicate(String id) async {
+    final Note source = await getById(id);
+    final String sourceTitle = source.title.trim();
+    return create(
+      title: sourceTitle.isEmpty ? 'Untitled copy' : '$sourceTitle (copy)',
+      body: source.body,
+      folder: source.folder,
+      tags: decodeTags(source.tags),
+      colorValue: source.colorValue,
+    );
+  }
+
   Future<Note> getById(String id) {
     return (_db.select(
       _db.notes,
@@ -70,7 +82,7 @@ final class NoteRepository {
         if (a.isPinned != b.isPinned) {
           return a.isPinned ? -1 : 1;
         }
-        return b.updatedAt.compareTo(a.updatedAt);
+        return _compareNotes(a, b, filter.sort);
       });
     return sorted;
   }
@@ -98,38 +110,16 @@ final class NoteRepository {
       return;
     }
 
-    final DateTime now = _nextUpdateTime(existing.updatedAt);
-    await _db.transaction(() async {
-      await _db
-          .into(_db.noteVersions)
-          .insert(
-            NoteVersionsCompanion(
-              noteId: Value<String>(existing.id),
-              title: Value<String>(existing.title),
-              body: Value<String>(existing.body),
-              folder: Value<String>(existing.folder),
-              tags: Value<String>(existing.tags),
-              colorValue: Value<int?>(existing.colorValue),
-              isPinned: Value<bool>(existing.isPinned),
-              isFavorite: Value<bool>(existing.isFavorite),
-              isArchived: Value<bool>(existing.isArchived),
-              isTrashed: Value<bool>(existing.isTrashed),
-              capturedAt: Value<DateTime>(now),
-            ),
-          );
-      await (_db.update(
-        _db.notes,
-      )..where(($NotesTable row) => row.id.equals(id))).write(
-        NotesCompanion(
-          title: Value<String>(normalizedTitle),
-          body: Value<String>(body),
-          folder: Value<String>(normalizedFolder),
-          tags: Value<String>(encodedTags),
-          colorValue: Value<int?>(colorValue),
-          updatedAt: Value<DateTime>(now),
-        ),
-      );
-    });
+    await _db.transaction(
+      () => _persistContentChange(
+        existing: existing,
+        title: normalizedTitle,
+        body: body,
+        folder: normalizedFolder,
+        encodedTags: encodedTags,
+        colorValue: colorValue,
+      ),
+    );
   }
 
   Future<List<NoteVersion>> versions(String noteId) {
@@ -182,8 +172,19 @@ final class NoteRepository {
     ),
   );
 
+  Future<void> archiveMany(Iterable<String> ids) => _patchMany(
+    ids,
+    const NotesCompanion(
+      isArchived: Value<bool>(true),
+      isTrashed: Value<bool>(false),
+    ),
+  );
+
   Future<void> unarchive(String id) =>
       _patch(id, const NotesCompanion(isArchived: Value<bool>(false)));
+
+  Future<void> unarchiveMany(Iterable<String> ids) =>
+      _patchMany(ids, const NotesCompanion(isArchived: Value<bool>(false)));
 
   Future<void> trash(String id) => _patch(
     id,
@@ -194,8 +195,20 @@ final class NoteRepository {
     ),
   );
 
+  Future<void> trashMany(Iterable<String> ids) => _patchMany(
+    ids,
+    const NotesCompanion(
+      isTrashed: Value<bool>(true),
+      isArchived: Value<bool>(false),
+      isPinned: Value<bool>(false),
+    ),
+  );
+
   Future<void> restore(String id) =>
       _patch(id, const NotesCompanion(isTrashed: Value<bool>(false)));
+
+  Future<void> restoreMany(Iterable<String> ids) =>
+      _patchMany(ids, const NotesCompanion(isTrashed: Value<bool>(false)));
 
   Future<void> permanentlyDelete(String id) async {
     await (_db.delete(
@@ -203,10 +216,82 @@ final class NoteRepository {
     )..where(($NotesTable row) => row.id.equals(id))).go();
   }
 
+  Future<void> permanentlyDeleteMany(Iterable<String> ids) async {
+    final List<String> values = _normalizedIds(ids);
+    if (values.isEmpty) return;
+    await _db.transaction(() async {
+      for (final String id in values) {
+        await (_db.delete(
+          _db.notes,
+        )..where(($NotesTable row) => row.id.equals(id))).go();
+      }
+    });
+  }
+
   Future<int> emptyTrash() {
     return (_db.delete(
       _db.notes,
     )..where(($NotesTable row) => row.isTrashed.equals(true))).go();
+  }
+
+  Future<int> renameFolder(String from, String to) async {
+    final String source = from.trim();
+    final String target = to.trim();
+    if (source.isEmpty || target.isEmpty) {
+      throw const ValidationException('Folder names must not be empty.');
+    }
+    if (source == target) return 0;
+
+    final List<Note> affected = await (_db.select(
+      _db.notes,
+    )..where(($NotesTable row) => row.folder.equals(source))).get();
+    if (affected.isEmpty) return 0;
+
+    await _db.transaction(() async {
+      for (final Note note in affected) {
+        await _persistContentChange(
+          existing: note,
+          title: note.title,
+          body: note.body,
+          folder: target,
+          encodedTags: note.tags,
+          colorValue: note.colorValue,
+        );
+      }
+    });
+    return affected.length;
+  }
+
+  Future<int> renameTag(String from, String to) async {
+    final String source = from.trim();
+    final String target = to.trim();
+    if (source.isEmpty || target.isEmpty) {
+      throw const ValidationException('Tag names must not be empty.');
+    }
+    if (source == target) return 0;
+
+    final List<Note> allNotes = await _db.select(_db.notes).get();
+    final List<Note> affected = allNotes
+        .where((Note note) => decodeTags(note.tags).contains(source))
+        .toList(growable: false);
+    if (affected.isEmpty) return 0;
+
+    await _db.transaction(() async {
+      for (final Note note in affected) {
+        final List<String> renamedTags = decodeTags(note.tags)
+            .map((String tag) => tag == source ? target : tag)
+            .toList(growable: false);
+        await _persistContentChange(
+          existing: note,
+          title: note.title,
+          body: note.body,
+          folder: note.folder,
+          encodedTags: _encodeTags(renamedTags),
+          colorValue: note.colorValue,
+        );
+      }
+    });
+    return affected.length;
   }
 
   Future<Set<String>> folders({
@@ -246,6 +331,21 @@ final class NoteRepository {
     }
   }
 
+  int _compareNotes(Note a, Note b, NoteSort sort) {
+    return switch (sort) {
+      NoteSort.updatedNewest => b.updatedAt.compareTo(a.updatedAt),
+      NoteSort.updatedOldest => a.updatedAt.compareTo(b.updatedAt),
+      NoteSort.titleAscending => _compareTitles(a, b),
+      NoteSort.titleDescending => _compareTitles(b, a),
+    };
+  }
+
+  int _compareTitles(Note a, Note b) {
+    final int titleOrder = a.title.toLowerCase().compareTo(b.title.toLowerCase());
+    if (titleOrder != 0) return titleOrder;
+    return b.updatedAt.compareTo(a.updatedAt);
+  }
+
   bool _matchesCollection(Note note, NoteCollection collection) {
     return switch (collection) {
       NoteCollection.all => !note.isTrashed && !note.isArchived,
@@ -254,6 +354,46 @@ final class NoteRepository {
       NoteCollection.archive => !note.isTrashed && note.isArchived,
       NoteCollection.trash => note.isTrashed,
     };
+  }
+
+  Future<void> _persistContentChange({
+    required Note existing,
+    required String title,
+    required String body,
+    required String folder,
+    required String encodedTags,
+    required int? colorValue,
+  }) async {
+    final DateTime now = _nextUpdateTime(existing.updatedAt);
+    await _db
+        .into(_db.noteVersions)
+        .insert(
+          NoteVersionsCompanion(
+            noteId: Value<String>(existing.id),
+            title: Value<String>(existing.title),
+            body: Value<String>(existing.body),
+            folder: Value<String>(existing.folder),
+            tags: Value<String>(existing.tags),
+            colorValue: Value<int?>(existing.colorValue),
+            isPinned: Value<bool>(existing.isPinned),
+            isFavorite: Value<bool>(existing.isFavorite),
+            isArchived: Value<bool>(existing.isArchived),
+            isTrashed: Value<bool>(existing.isTrashed),
+            capturedAt: Value<DateTime>(now),
+          ),
+        );
+    await (_db.update(
+      _db.notes,
+    )..where(($NotesTable row) => row.id.equals(existing.id))).write(
+      NotesCompanion(
+        title: Value<String>(title),
+        body: Value<String>(body),
+        folder: Value<String>(folder),
+        tags: Value<String>(encodedTags),
+        colorValue: Value<int?>(colorValue),
+        updatedAt: Value<DateTime>(now),
+      ),
+    );
   }
 
   Future<void> _patch(String id, NotesCompanion patch) async {
@@ -266,6 +406,29 @@ final class NoteRepository {
       ),
     );
   }
+
+  Future<void> _patchMany(Iterable<String> ids, NotesCompanion patch) async {
+    final List<String> values = _normalizedIds(ids);
+    if (values.isEmpty) return;
+    await _db.transaction(() async {
+      for (final String id in values) {
+        final Note existing = await getById(id);
+        await (_db.update(
+          _db.notes,
+        )..where(($NotesTable row) => row.id.equals(id))).write(
+          patch.copyWith(
+            updatedAt: Value<DateTime>(_nextUpdateTime(existing.updatedAt)),
+          ),
+        );
+      }
+    });
+  }
+
+  List<String> _normalizedIds(Iterable<String> ids) => ids
+      .map((String id) => id.trim())
+      .where((String id) => id.isNotEmpty)
+      .toSet()
+      .toList(growable: false);
 
   DateTime _nextUpdateTime(DateTime previous) {
     final DateTime now = DateTime.now().toUtc();

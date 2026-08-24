@@ -54,4 +54,76 @@ void main() {
     expect(controller.tags, <String>{'trash-tag'});
     expect(controller.notes.map((Note note) => note.id), <String>[trashed.id]);
   });
+
+  test('changing sort order reloads notes with the selected order', () async {
+    await repository.create(title: 'Zebra');
+    await repository.create(title: 'alpha');
+    await repository.create(title: 'Middle');
+
+    controller.setSort(NoteSort.titleAscending);
+    await controller.load(showLoading: false);
+
+    expect(controller.filter.sort, NoteSort.titleAscending);
+    expect(controller.notes.map((Note note) => note.title), <String>[
+      'alpha',
+      'Middle',
+      'Zebra',
+    ]);
+  });
+
+  test('changing sort preserves active collection and filters', () async {
+    controller.filter = const NoteFilter(
+      collection: NoteCollection.favorites,
+      query: 'idea',
+      folder: 'Projects',
+      tag: 'flutter',
+    );
+
+    controller.setSort(NoteSort.titleDescending);
+
+    expect(controller.filter.collection, NoteCollection.favorites);
+    expect(controller.filter.query, 'idea');
+    expect(controller.filter.folder, 'Projects');
+    expect(controller.filter.tag, 'flutter');
+    expect(controller.filter.sort, NoteSort.titleDescending);
+
+    await controller.load(showLoading: false);
+  });
+
+  test('folder rename keeps the active filter aligned', () async {
+    final Note note = await repository.create(
+      title: 'Folder rename',
+      folder: 'Old folder',
+    );
+    controller.filter = const NoteFilter(folder: 'Old folder');
+    await controller.load(showLoading: false);
+
+    final int changed = await controller.renameFolder(
+      'Old folder',
+      'New folder',
+    );
+
+    expect(changed, 1);
+    expect(controller.filter.folder, 'New folder');
+    expect(controller.notes.map((Note value) => value.id), <String>[note.id]);
+    expect(controller.folders, contains('New folder'));
+    expect(controller.folders, isNot(contains('Old folder')));
+  });
+
+  test('tag merge keeps the active filter aligned', () async {
+    final Note note = await repository.create(
+      title: 'Tag merge',
+      tags: const <String>['old-tag', 'existing'],
+    );
+    controller.filter = const NoteFilter(tag: 'old-tag');
+    await controller.load(showLoading: false);
+
+    final int changed = await controller.renameTag('old-tag', 'existing');
+
+    expect(changed, 1);
+    expect(controller.filter.tag, 'existing');
+    expect(controller.notes.map((Note value) => value.id), <String>[note.id]);
+    expect(controller.tags, contains('existing'));
+    expect(controller.tags, isNot(contains('old-tag')));
+  });
 }

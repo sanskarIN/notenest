@@ -29,6 +29,8 @@ class NotesPage extends StatefulWidget {
 
 class _NotesPageState extends State<NotesPage> {
   final TextEditingController _searchController = TextEditingController();
+  final Set<String> _selectedIds = <String>{};
+  bool _selectionBusy = false;
 
   @override
   void initState() {
@@ -45,7 +47,13 @@ class _NotesPageState extends State<NotesPage> {
   }
 
   void _handleChange() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final Set<String> visibleIds = widget.controller.notes
+        .map((Note note) => note.id)
+        .toSet();
+    setState(() {
+      _selectedIds.removeWhere((String id) => !visibleIds.contains(id));
+    });
   }
 
   @override
@@ -82,7 +90,7 @@ class _NotesPageState extends State<NotesPage> {
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
                   tooltip: AppStrings.importMarkdown,
-                  onPressed: _importMarkdown,
+                  onPressed: _selectionBusy ? null : _importMarkdown,
                   icon: const Icon(Icons.file_open_rounded),
                 ),
               ],
@@ -91,7 +99,9 @@ class _NotesPageState extends State<NotesPage> {
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
                   tooltip: 'Empty trash',
-                  onPressed: controller.notes.isEmpty ? null : _emptyTrash,
+                  onPressed: controller.notes.isEmpty || _selectionBusy
+                      ? null
+                      : _emptyTrash,
                   icon: const Icon(Icons.delete_sweep_rounded),
                 ),
               ],
@@ -99,8 +109,72 @@ class _NotesPageState extends State<NotesPage> {
           ),
         ),
         _FilterRow(controller: controller),
+        if (_selectedIds.isNotEmpty) _selectionBar(controller),
         Expanded(child: _body(controller)),
       ],
+    );
+  }
+
+  Widget _selectionBar(NotesController controller) {
+    final int count = _selectedIds.length;
+    final String countLabel = '$count ${count == 1 ? 'note' : 'notes'} selected';
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          children: <Widget>[
+            IconButton(
+              tooltip: 'Clear selection',
+              onPressed: _selectionBusy ? null : _clearSelection,
+              icon: const Icon(Icons.close_rounded),
+            ),
+            Text(countLabel, key: const Key('note-selection-count')),
+            const SizedBox(width: 8),
+            if (controller.filter.collection == NoteCollection.all ||
+                controller.filter.collection ==
+                    NoteCollection.favorites) ...<Widget>[
+              TextButton.icon(
+                onPressed: _selectionBusy ? null : _archiveSelected,
+                icon: const Icon(Icons.archive_outlined),
+                label: const Text('Archive'),
+              ),
+              TextButton.icon(
+                onPressed: _selectionBusy ? null : _trashSelected,
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: const Text('Trash'),
+              ),
+            ],
+            if (controller.filter.collection ==
+                NoteCollection.archive) ...<Widget>[
+              TextButton.icon(
+                onPressed: _selectionBusy ? null : _unarchiveSelected,
+                icon: const Icon(Icons.unarchive_outlined),
+                label: const Text('Unarchive'),
+              ),
+              TextButton.icon(
+                onPressed: _selectionBusy ? null : _trashSelected,
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: const Text('Trash'),
+              ),
+            ],
+            if (controller.filter.collection ==
+                NoteCollection.trash) ...<Widget>[
+              TextButton.icon(
+                onPressed: _selectionBusy ? null : _restoreSelected,
+                icon: const Icon(Icons.restore_rounded),
+                label: const Text('Restore'),
+              ),
+              TextButton.icon(
+                onPressed: _selectionBusy ? null : _deleteSelectedForever,
+                icon: const Icon(Icons.delete_forever_outlined),
+                label: const Text('Delete permanently'),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -126,6 +200,7 @@ class _NotesPageState extends State<NotesPage> {
       return _collectionEmptyState(controller.filter.collection);
     }
 
+    final bool selectionMode = _selectedIds.isNotEmpty;
     return RefreshIndicator(
       onRefresh: controller.load,
       child: LayoutBuilder(
@@ -150,6 +225,9 @@ class _NotesPageState extends State<NotesPage> {
               final Note note = controller.notes[index];
               return NoteCard(
                 note: note,
+                selectionMode: selectionMode,
+                selected: _selectedIds.contains(note.id),
+                onSelect: _selectionBusy ? null : () => _toggleSelection(note),
                 onOpen: () {
                   unawaited(_openEditor(note));
                 },
@@ -239,6 +317,118 @@ class _NotesPageState extends State<NotesPage> {
             )
           : null,
     );
+  }
+
+  void _toggleSelection(Note note) {
+    setState(() {
+      if (!_selectedIds.add(note.id)) {
+        _selectedIds.remove(note.id);
+      }
+    });
+  }
+
+  void _clearSelection() {
+    setState(_selectedIds.clear);
+  }
+
+  Future<void> _archiveSelected() async {
+    final Set<String> ids = Set<String>.of(_selectedIds);
+    if (await _runSelectionAction(
+      () => widget.controller.archiveMany(ids),
+      failureMessage: 'Could not archive the selected notes.',
+    )) {
+      _message('Archived ${ids.length} ${ids.length == 1 ? 'note' : 'notes'}.');
+    }
+  }
+
+  Future<void> _unarchiveSelected() async {
+    final Set<String> ids = Set<String>.of(_selectedIds);
+    if (await _runSelectionAction(
+      () => widget.controller.unarchiveMany(ids),
+      failureMessage: 'Could not unarchive the selected notes.',
+    )) {
+      _message(
+        'Unarchived ${ids.length} ${ids.length == 1 ? 'note' : 'notes'}.',
+      );
+    }
+  }
+
+  Future<void> _trashSelected() async {
+    final Set<String> ids = Set<String>.of(_selectedIds);
+    final bool moved = await _runSelectionAction(
+      () => widget.controller.trashMany(ids),
+      failureMessage: 'Could not move the selected notes to trash.',
+    );
+    if (!moved || !mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Moved ${ids.length} ${ids.length == 1 ? 'note' : 'notes'} to trash.',
+        ),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () {
+            unawaited(_restoreBatchAfterUndo(ids));
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _restoreBatchAfterUndo(Set<String> ids) async {
+    try {
+      await widget.controller.restoreMany(ids);
+    } on Object {
+      _message('Could not undo the bulk trash action.');
+    }
+  }
+
+  Future<void> _restoreSelected() async {
+    final Set<String> ids = Set<String>.of(_selectedIds);
+    if (await _runSelectionAction(
+      () => widget.controller.restoreMany(ids),
+      failureMessage: 'Could not restore the selected notes.',
+    )) {
+      _message('Restored ${ids.length} ${ids.length == 1 ? 'note' : 'notes'}.');
+    }
+  }
+
+  Future<void> _deleteSelectedForever() async {
+    final Set<String> ids = Set<String>.of(_selectedIds);
+    final bool confirmed = await _confirm(
+      title: 'Delete selected notes permanently?',
+      message:
+          'This permanently deletes ${ids.length} ${ids.length == 1 ? 'note' : 'notes'} and their version history.',
+    );
+    if (!confirmed) return;
+    if (await _runSelectionAction(
+      () => widget.controller.permanentlyDeleteMany(ids),
+      failureMessage: 'Could not permanently delete the selected notes.',
+    )) {
+      _message(
+        'Permanently deleted ${ids.length} ${ids.length == 1 ? 'note' : 'notes'}.',
+      );
+    }
+  }
+
+  Future<bool> _runSelectionAction(
+    Future<void> Function() action, {
+    required String failureMessage,
+  }) async {
+    if (_selectionBusy || _selectedIds.isEmpty) return false;
+    setState(() => _selectionBusy = true);
+    try {
+      await action();
+      if (!mounted) return true;
+      setState(_selectedIds.clear);
+      return true;
+    } on Object {
+      _message(failureMessage);
+      return false;
+    } finally {
+      if (mounted) setState(() => _selectionBusy = false);
+    }
   }
 
   Future<void> _createNote() async {
@@ -404,6 +594,18 @@ class _FilterRow extends StatelessWidget {
               onSelected: controller.setFolder,
             ),
           ),
+          if (controller.filter.folder case final String folder) ...<Widget>[
+            IconButton(
+              tooltip: 'Rename or merge folder',
+              onPressed: () => _renameOrMerge(
+                context,
+                kind: 'folder',
+                current: folder,
+                rename: controller.renameFolder,
+              ),
+              icon: const Icon(Icons.drive_file_rename_outline_rounded),
+            ),
+          ],
           const SizedBox(width: 8),
           FilterChip(
             label: Text(
@@ -419,6 +621,24 @@ class _FilterRow extends StatelessWidget {
               selected: controller.filter.tag,
               onSelected: controller.setTag,
             ),
+          ),
+          if (controller.filter.tag case final String tag) ...<Widget>[
+            IconButton(
+              tooltip: 'Rename or merge tag',
+              onPressed: () => _renameOrMerge(
+                context,
+                kind: 'tag',
+                current: tag,
+                rename: controller.renameTag,
+              ),
+              icon: const Icon(Icons.edit_rounded),
+            ),
+          ],
+          const SizedBox(width: 8),
+          ActionChip(
+            avatar: const Icon(Icons.sort_rounded),
+            label: Text(_sortLabel(controller.filter.sort)),
+            onPressed: () => _showSortMenu(context),
           ),
           if (controller.filter.folder != null || controller.filter.tag != null)
             Padding(
@@ -436,6 +656,113 @@ class _FilterRow extends StatelessWidget {
       ),
     );
   }
+
+  String _sortLabel(NoteSort sort) {
+    return switch (sort) {
+      NoteSort.updatedNewest => 'Newest first',
+      NoteSort.updatedOldest => 'Oldest first',
+      NoteSort.titleAscending => 'Title A–Z',
+      NoteSort.titleDescending => 'Title Z–A',
+    };
+  }
+
+  Future<void> _showSortMenu(BuildContext context) async {
+    final NoteSort? value = await showModalBottomSheet<NoteSort>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: <Widget>[
+            for (final NoteSort sort in NoteSort.values)
+              ListTile(
+                leading: controller.filter.sort == sort
+                    ? const Icon(Icons.check_rounded)
+                    : const SizedBox(width: 24),
+                title: Text(_sortLabel(sort)),
+                onTap: () => Navigator.pop(context, sort),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!context.mounted || value == null) return;
+    controller.setSort(value);
+  }
+
+  Future<void> _renameOrMerge(
+    BuildContext context, {
+    required String kind,
+    required String current,
+    required Future<int> Function(String from, String to) rename,
+  }) async {
+    final TextEditingController input = TextEditingController(text: current);
+    final String? target = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: Text('Rename or merge $kind'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'Enter a new $kind name. If that name already exists, matching notes will merge into it.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              key: Key('rename-$kind-field'),
+              controller: input,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(labelText: 'New $kind name'),
+              onSubmitted: (String value) =>
+                  Navigator.pop(dialogContext, value),
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, input.text),
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+    input.dispose();
+    if (!context.mounted || target == null) return;
+    final String normalized = target.trim();
+    if (normalized.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${_capitalize(kind)} name cannot be empty.')),
+      );
+      return;
+    }
+    if (normalized == current) return;
+
+    try {
+      final int changed = await rename(current, normalized);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Updated $changed ${changed == 1 ? 'note' : 'notes'} to ${kind == 'tag' ? '#$normalized' : normalized}.',
+          ),
+        ),
+      );
+    } on Object {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not rename or merge this $kind.')),
+      );
+    }
+  }
+
+  String _capitalize(String value) =>
+      value.isEmpty ? value : '${value[0].toUpperCase()}${value.substring(1)}';
 
   Future<void> _showFilterMenu(
     BuildContext context, {

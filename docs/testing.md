@@ -2,7 +2,7 @@
 
 Testing protects local user data first, then interaction quality. Deterministic invariants belong in automation; successful compilation never substitutes for real runtime/accessibility validation.
 
-Current release candidate: **2.0.12** (`2.0.12+2012`).
+Current stable-candidate line: **2.0.12** (`2.0.12+2012`). Active next-version development: **2.1.0** on `feature/2.1.0-productivity`.
 
 ## Platform scope
 
@@ -67,7 +67,7 @@ This complements, but does not replace, `flutter build web --release` and real d
 ### Application/controller tests
 
 - `test/app/app_settings_controller_test.dart` — atomic load, serialized writes, rollback, persistence-first onboarding, app-lock preference behavior.
-- `test/features/notes/notes_controller_test.dart` — collection-switch filter reset and collection-scoped metadata.
+- `test/features/notes/notes_controller_test.dart` — collection-switch filter reset, collection-scoped metadata, configurable sorting, and sort/filter preservation.
 
 ### Repository/database tests
 
@@ -75,15 +75,47 @@ This complements, but does not replace, `flutter build web --release` and real d
 - `test/data/backup_repository_test.dart`
 - `test/data/settings_repository_test.dart`
 
-Coverage includes create/update/search, safe FTS input, lifecycle collections, pin/favorite/archive/trash invariants, snapshots, restore/cascade behavior, folder/tag metadata, no-pinned-trash, backup schema/type/UTC/tag/ID/relationship/color/lifecycle validation, conflict-safe restore, and settings persistence.
+Coverage includes create/update/search, safe FTS input, lifecycle collections, pin/favorite/archive/trash invariants, duplicate-note identity/content/lifecycle semantics, configurable sort ordering with pinned-first behavior, snapshots, restore/cascade behavior, folder/tag metadata, no-pinned-trash, backup schema/type/UTC/tag/ID/relationship/color/lifecycle validation, conflict-safe restore, and settings persistence.
 
 ### Widget tests
 
 - `test/widgets/onboarding_page_test.dart` — privacy/offline messaging and persistence success/failure.
-- `test/widgets/notes_page_empty_state_test.dart` — collection-specific empty states/actions.
+- `test/widgets/notes_page_empty_state_test.dart` — collection-specific empty states/actions plus visible note-sort interaction.
 - `test/widgets/note_editor_accessibility_test.dart` — selected/reset semantics and touch target.
-- `test/widgets/note_editor_save_test.dart` — save-before-pop, load recovery, and first-line formatting boundary.
+- `test/widgets/note_editor_save_test.dart` — save-before-pop, load recovery, first-line formatting boundary, live local text metrics, and save-before-duplicate editor flow.
 - `test/widgets/about_page_test.dart` — external-link failure feedback.
+
+## 2.1.0 productivity regression boundaries
+
+The first clean 2.1.0 slice adds no schema, dependency, permission, account, server, or network requirement.
+
+### Text metrics
+
+- Empty body reports zero words and zero characters.
+- Whitespace-separated words are counted independently of repeated spaces/newlines.
+- Singular/plural labels remain correct.
+- Character count uses Unicode code points (`runes`) rather than UTF-16 code units; a non-BMP emoji counts as one character.
+- Metrics update from the in-memory body draft and do not add a network or storage-format dependency.
+
+### Duplicate note
+
+- Duplication receives a fresh note ID.
+- The editor saves the current draft before duplicate creation starts.
+- Body, folder, tags, and color copy through repository normalization rules.
+- Titled sources receive a `(copy)` suffix.
+- Untitled sources receive `Untitled copy`.
+- The copy starts active, unpinned, non-favorite, non-archived, and non-trashed.
+- The editor replaces its route with the new independent copy instead of mutating the source note.
+
+### Configurable sorting
+
+- Newest-first remains the default.
+- Oldest-first reverses update chronology after the pinned-first partition.
+- Title A–Z and Z–A are case-insensitive.
+- Equal titles retain update-time tie-breaking.
+- Pinned notes remain ahead of unpinned notes under every sort mode.
+- Sort changes preserve collection/query/folder/tag filters.
+- Sorting changes no stored note content and requires no migration.
 
 ## Cross-platform file-transfer tests
 
@@ -172,6 +204,9 @@ Important release journeys:
 20. Controlled root teardown → settings/database disposed.
 21. Web create/edit/search → reload → browser restart persistence.
 22. Web backup/Markdown download then re-import.
+23. Change note sort in an active filtered collection → order changes without losing filters.
+24. Duplicate a recently edited note → newest draft is saved and the new active copy opens with independent identity/lifecycle.
+25. Edit ASCII and non-BMP Unicode body text → live metrics update without changing stored-format semantics.
 
 Use fictional data only.
 
@@ -249,11 +284,11 @@ Every backup change should retain coverage for:
 
 Malformed input must be rejected before restore writes begin.
 
-## Search/lifecycle tests
+## Search/lifecycle/sort tests
 
 FTS tests should cover title/body/folder/tag matches, multiple terms, quote/punctuation safety, appropriate Unicode, collection exclusion rules, and deterministic ordering where promised.
 
-Collection metadata must match the active lifecycle predicate. Search terms must never be concatenated as executable SQL.
+Collection metadata must match the active lifecycle predicate. Search terms must never be concatenated as executable SQL. Pinned-first behavior must remain explicit when configurable sort modes change secondary ordering.
 
 ## Editor/autosave tests
 
@@ -266,21 +301,23 @@ Protect:
 - Ordered saves.
 - Stale completion cannot mark a newer draft saved.
 - Back waits for successful current-draft save.
-- Failed final save blocks Back/export/history.
+- Failed final save blocks Back/export/history/duplicate.
 - Retryable missing-note load state.
 - Offset-zero first-line formatting.
+- Live local word/character metrics.
+- Save-before-duplicate semantics and independent copy navigation.
 
 Real platform testing still needs lifecycle/background/system-back/process-termination behavior.
 
 ## Migration tests
 
-Drift schema remains **1** for application 2.0.12. Starting with schema 2, every migration needs fixture-driven previous-schema → new-schema validation including data, constraints, FTS/index behavior, foreign keys, and repository operations.
+Drift schema remains **1** for application 2.0.12 and the first 2.1.0 productivity slice. Starting with schema 2, every migration needs fixture-driven previous-schema → new-schema validation including data, constraints, FTS/index behavior, foreign keys, and repository operations.
 
 ## Accessibility testing
 
 Automation should check semantics, non-color selected state, minimum target size, discoverable controls, visible failure messages, and representative large-text layouts where practical.
 
-Manual verification must cover screen readers, keyboard traversal, browser focus, zoom/text scaling, dark/light themes, reduced motion, compact/wide viewports, and destructive-action clarity. See [`accessibility.md`](accessibility.md).
+Manual verification must cover screen readers, keyboard traversal, browser focus, zoom/text scaling, dark/light themes, reduced motion, compact/wide viewports, destructive-action clarity, and discoverability/readability of the 2.1 sort/text-metric controls. See [`accessibility.md`](accessibility.md).
 
 ## Platform build matrix
 
@@ -293,7 +330,7 @@ GitHub Actions verifies:
 - iOS release compile without signing.
 - Chrome Web smoke + Web release compile.
 
-The current file-picker-12 hardening generation has already completed all seven build/smoke steps successfully. The exact final post-documentation candidate must repeat them before release tagging.
+The exact 2.0.12 post-fix candidate completed all quality/security/build checks on verification-only PR #19. Every 2.1.0 branch must run its own matrix independently; earlier release evidence does not certify later product changes.
 
 Compilation is integration evidence, not proof of real-device/browser runtime behavior.
 

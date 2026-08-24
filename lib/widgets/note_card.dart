@@ -13,6 +13,9 @@ class NoteCard extends StatelessWidget {
     required this.onTrash,
     required this.onRestore,
     required this.onDeleteForever,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onSelect,
     super.key,
   });
 
@@ -24,6 +27,9 @@ class NoteCard extends StatelessWidget {
   final VoidCallback onTrash;
   final VoidCallback onRestore;
   final VoidCallback onDeleteForever;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback? onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -35,12 +41,14 @@ class NoteCard extends StatelessWidget {
 
     return Semantics(
       button: true,
+      selected: selectionMode ? selected : null,
       label: note.title.trim().isEmpty ? 'Untitled note' : note.title,
       child: Card(
-        color: background,
+        color: selected ? colors.secondaryContainer : background,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: onOpen,
+          onTap: selectionMode ? onSelect : onOpen,
+          onLongPress: onSelect,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -48,7 +56,15 @@ class NoteCard extends StatelessWidget {
               children: <Widget>[
                 Row(
                   children: <Widget>[
-                    if (note.isPinned)
+                    if (selectionMode)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: Checkbox(
+                          value: selected,
+                          onChanged: onSelect == null ? null : (_) => onSelect!(),
+                        ),
+                      )
+                    else if (note.isPinned)
                       const Padding(
                         padding: EdgeInsets.only(right: 6),
                         child: Icon(Icons.push_pin_rounded, size: 18),
@@ -62,69 +78,71 @@ class NoteCard extends StatelessWidget {
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
-                    IconButton(
-                      tooltip: note.isFavorite
-                          ? 'Remove from favorites'
-                          : 'Add to favorites',
-                      onPressed: onFavorite,
-                      icon: Icon(
-                        note.isFavorite
-                            ? Icons.star_rounded
-                            : Icons.star_outline_rounded,
+                    if (!selectionMode) ...<Widget>[
+                      IconButton(
+                        tooltip: note.isFavorite
+                            ? 'Remove from favorites'
+                            : 'Add to favorites',
+                        onPressed: onFavorite,
+                        icon: Icon(
+                          note.isFavorite
+                              ? Icons.star_rounded
+                              : Icons.star_outline_rounded,
+                        ),
                       ),
-                    ),
-                    PopupMenuButton<String>(
-                      tooltip: 'More actions',
-                      onSelected: (String action) {
-                        switch (action) {
-                          case 'pin':
-                            onPin();
-                            break;
-                          case 'archive':
-                            onArchive();
-                            break;
-                          case 'trash':
-                            onTrash();
-                            break;
-                          case 'restore':
-                            onRestore();
-                            break;
-                          case 'delete':
-                            onDeleteForever();
-                            break;
-                        }
-                      },
-                      itemBuilder: (BuildContext context) =>
-                          <PopupMenuEntry<String>>[
-                            if (!note.isTrashed)
-                              PopupMenuItem<String>(
-                                value: 'pin',
-                                child: Text(note.isPinned ? 'Unpin' : 'Pin'),
-                              ),
-                            if (!note.isTrashed)
-                              PopupMenuItem<String>(
-                                value: 'archive',
-                                child: Text(
-                                  note.isArchived ? 'Unarchive' : 'Archive',
+                      PopupMenuButton<String>(
+                        tooltip: 'More actions',
+                        onSelected: (String action) {
+                          switch (action) {
+                            case 'pin':
+                              onPin();
+                              break;
+                            case 'archive':
+                              onArchive();
+                              break;
+                            case 'trash':
+                              onTrash();
+                              break;
+                            case 'restore':
+                              onRestore();
+                              break;
+                            case 'delete':
+                              onDeleteForever();
+                              break;
+                          }
+                        },
+                        itemBuilder: (BuildContext context) =>
+                            <PopupMenuEntry<String>>[
+                              if (!note.isTrashed)
+                                PopupMenuItem<String>(
+                                  value: 'pin',
+                                  child: Text(note.isPinned ? 'Unpin' : 'Pin'),
                                 ),
-                              ),
-                            if (!note.isTrashed)
-                              const PopupMenuItem<String>(
-                                value: 'trash',
-                                child: Text('Move to trash'),
-                              ),
-                            if (note.isTrashed)
-                              const PopupMenuItem<String>(
-                                value: 'restore',
-                                child: Text('Restore'),
-                              ),
-                            if (note.isTrashed)
-                              const PopupMenuItem<String>(
-                                value: 'delete',
-                                child: Text('Delete permanently'),
-                              ),
-                          ],
-                    ),
+                              if (!note.isTrashed)
+                                PopupMenuItem<String>(
+                                  value: 'archive',
+                                  child: Text(
+                                    note.isArchived ? 'Unarchive' : 'Archive',
+                                  ),
+                                ),
+                              if (!note.isTrashed)
+                                const PopupMenuItem<String>(
+                                  value: 'trash',
+                                  child: Text('Move to trash'),
+                                ),
+                              if (note.isTrashed)
+                                const PopupMenuItem<String>(
+                                  value: 'restore',
+                                  child: Text('Restore'),
+                                ),
+                              if (note.isTrashed)
+                                const PopupMenuItem<String>(
+                                  value: 'delete',
+                                  child: Text('Delete permanently'),
+                                ),
+                            ],
+                      ),
+                    ],
                   ],
                 ),
                 if (preview.isNotEmpty) ...<Widget>[

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:notenest/core/theme/app_tokens.dart';
 import 'package:notenest/core/utils/async_serial_queue.dart';
 import 'package:notenest/core/utils/debouncer.dart';
@@ -303,6 +304,10 @@ class _NoteEditorPageState extends State<NoteEditorPage>
               itemBuilder: (BuildContext context) =>
                   const <PopupMenuEntry<String>>[
                     PopupMenuItem<String>(
+                      value: 'duplicate',
+                      child: Text('Duplicate note'),
+                    ),
+                    PopupMenuItem<String>(
                       value: 'versions',
                       child: Text('Version history'),
                     ),
@@ -328,21 +333,18 @@ class _NoteEditorPageState extends State<NoteEditorPage>
                     if (!_distractionFree) _formatToolbar(),
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                        child: TextField(
-                          key: const Key('note-body-field'),
-                          controller: _body,
-                          expands: true,
-                          maxLines: null,
-                          minLines: null,
-                          keyboardType: TextInputType.multiline,
-                          textAlignVertical: TextAlignVertical.top,
-                          decoration: const InputDecoration(
-                            hintText:
-                                'Start writing…\n\nMarkdown-lite supported: headings, emphasis, lists, and checklists.',
-                            filled: false,
-                            border: InputBorder.none,
-                          ),
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                        child: _bodyEditor(),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          _textMetricsLabel(),
+                          key: const Key('editor-text-metrics'),
+                          style: Theme.of(context).textTheme.labelMedium,
                         ),
                       ),
                     ),
@@ -354,6 +356,46 @@ class _NoteEditorPageState extends State<NoteEditorPage>
         ),
       ),
     );
+  }
+
+  Widget _bodyEditor() {
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyB, control: true): () =>
+            _wrapSelection('**'),
+        const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () =>
+            _wrapSelection('**'),
+        const SingleActivator(LogicalKeyboardKey.keyI, control: true): () =>
+            _wrapSelection('_'),
+        const SingleActivator(LogicalKeyboardKey.keyI, meta: true): () =>
+            _wrapSelection('_'),
+      },
+      child: TextField(
+        key: const Key('note-body-field'),
+        controller: _body,
+        expands: true,
+        maxLines: null,
+        minLines: null,
+        keyboardType: TextInputType.multiline,
+        textAlignVertical: TextAlignVertical.top,
+        decoration: const InputDecoration(
+          hintText:
+              'Start writing…\n\nMarkdown-lite supported: headings, emphasis, lists, and checklists.',
+          filled: false,
+          border: InputBorder.none,
+        ),
+      ),
+    );
+  }
+
+  String _textMetricsLabel() {
+    final String text = _body.text;
+    final String trimmed = text.trim();
+    final int words = trimmed.isEmpty ? 0 : trimmed.split(RegExp(r'\s+')).length;
+    final int characters = text.runes.length;
+    final String wordLabel = words == 1 ? 'word' : 'words';
+    final String characterLabel = characters == 1 ? 'character' : 'characters';
+    return '$words $wordLabel · $characters $characterLabel';
   }
 
   Widget _metadata() {
@@ -492,6 +534,22 @@ class _NoteEditorPageState extends State<NoteEditorPage>
 
     try {
       switch (action) {
+        case 'duplicate':
+          final Note duplicate = await widget.repository.duplicate(widget.noteId);
+          if (!mounted) return;
+          _allowPop = true;
+          unawaited(
+            Navigator.of(context).pushReplacement<void, void>(
+              MaterialPageRoute<void>(
+                builder: (BuildContext context) => NoteEditorPage(
+                  noteId: duplicate.id,
+                  repository: widget.repository,
+                  files: widget.files,
+                ),
+              ),
+            ),
+          );
+          break;
         case 'versions':
           await _showVersions();
           break;

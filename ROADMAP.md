@@ -2,7 +2,7 @@
 
 The roadmap keeps future work aligned with NoteNest's local-first, private, accessible notes experience. It is not a promise of release dates.
 
-Current release candidate: **2.0.12** (`2.0.12+2012`).
+Current stable-candidate line: **2.0.12** (`2.0.12+2012`). Active next-version development: **2.1.0** on `feature/2.1.0-productivity`.
 
 ## Product principles
 
@@ -106,42 +106,33 @@ Implementation is listed separately from pending stable verification because sou
 - [x] Editor save/formatting widget tests target stable field keys rather than positional `TextField` ordering.
 - [x] NoteNest Markdown metadata round-trip separator handling is fixed and covered for leading-newline content.
 
-### Diagnostic automated evidence already reached
+### Exact final automated verification completed
 
-The immediate file-picker-12 hardening candidate completed:
+Frozen `main` candidate: `8b2b40f9af03c91be5818ea6b94987aecdb131dc`.
 
-- [x] Android release APK compile.
-- [x] Windows release compile on current hosted VS2026.
-- [x] Linux release compile.
-- [x] macOS release compile.
-- [x] unsigned iOS release compile.
-- [x] Chrome Web platform smoke.
-- [x] Web release compile.
-- [x] Repository secret scan.
-- [x] Dependency review.
+Verification-only PR #19 head: `e6f8cf444fba8ba7e3938e33fc3231f964195393`. PR #19 was closed without merge after completing its purpose; its only change was a non-functional path-filter trigger marker.
 
-PR #7 later exposed six test failures plus two automation problems: an unpublished `actions/setup-java@v6` tag and `flutter create --no-pub` rewriting the root manifest before `--enforce-lockfile`. Those results are diagnostic only. The source/test/action/bootstrap fixes are now being verified on a new post-PR-#7 blocker-fix branch before a fresh exact 2.0.12 candidate is frozen.
+- [x] Version/toolchain synchronization green — CI `32682167823`.
+- [x] Enforced locked dependency restore green.
+- [x] Drift generation green.
+- [x] Formatter green.
+- [x] Analyzer green.
+- [x] **86 Flutter tests** with coverage green.
+- [x] Repository policy green.
+- [x] 109-file repository-reference check green.
+- [x] Markdown-link scan green.
+- [x] Secret scan green.
+- [x] Dependency review green — Security `32682167760`.
+- [x] Android release compile green — Platform builds `32682167769`.
+- [x] Windows release compile green.
+- [x] Linux release compile green.
+- [x] macOS release compile green.
+- [x] iOS no-codesign compile green.
+- [x] Chrome Web smoke green.
+- [x] Web release compile green.
+- [x] Every platform lane verified `pubspec.yaml` and `pubspec.lock` remained unchanged after generated-runner bootstrap.
 
-### Required exact final automated verification
-
-- [ ] Version/toolchain synchronization green.
-- [ ] Enforced locked dependency restore green.
-- [ ] Drift generation green.
-- [ ] Formatter green.
-- [ ] Analyzer green.
-- [ ] Flutter tests/coverage green.
-- [ ] Repository policy green.
-- [ ] 109-file repository-reference check green.
-- [ ] Markdown-link scan green.
-- [ ] Secret scan green.
-- [ ] Dependency review green.
-- [ ] Android release compile green.
-- [ ] Windows release compile green.
-- [ ] Linux release compile green.
-- [ ] macOS release compile green.
-- [ ] iOS no-codesign compile green.
-- [ ] Chrome Web smoke green.
-- [ ] Web release compile green.
+Issues #8 (resolver-lock reproducibility) and #15 (GitHub Actions runtime modernization) are closed as completed based on this exact evidence.
 
 ### Required manual/runtime/accessibility verification
 
@@ -162,23 +153,33 @@ PR #7 later exposed six test failures plus two automation problems: an unpublish
 - [ ] Final signing/artifact/checksum status recorded.
 - [ ] `v2.0.12` created only on the exact fully verified commit.
 
-## Milestone: 2.1 — organization and productivity polish
+## Milestone: 2.1.0 — organization and productivity polish
 
-Candidate work after stable 2.0.12:
+Active branch: `feature/2.1.0-productivity`, based directly on the fully automated-verified 2.0.12 `main` candidate. The package version remains `2.0.12+2012` until the 2.1.0 feature set and validation boundary are ready to freeze.
 
-- Configurable sorting.
-- Multi-select note actions.
-- Dedicated folder/tag rename/merge management.
-- Saved searches/local smart filters.
-- Optional automatic trash retention.
-- Additional Markdown-lite shortcuts, including desktop/browser keyboard shortcuts.
-- Better checklist interaction without converting storage into rich text.
-- Duplicate-note command.
-- Local word/character count.
-- Import preview.
-- Batch Markdown export.
+Implemented on the clean 2.1.0 branch:
 
-Every item should be reviewed on compact mobile, desktop, and Web viewports.
+- [x] Configurable sorting: newest, oldest, title A–Z, and title Z–A.
+- [x] Pinned-first behavior retained under every selected sort mode.
+- [x] Sort changes preserve collection/query/folder/tag filters.
+- [x] Duplicate-note command with fresh identity and active lifecycle defaults.
+- [x] Editor saves the current draft before duplication, then opens the independent copy.
+- [x] Live local word and Unicode-code-point character counts.
+- [x] Focused repository/controller/widget regressions for the new behavior.
+- [x] No schema, backup-format, dependency, permission, account, server, or network requirement introduced by this checkpoint.
+
+Remaining candidate work, ordered for later 2.1.x checkpoints rather than being silently bundled into the first validated slice:
+
+- [ ] Multi-select note actions.
+- [ ] Dedicated folder/tag rename/merge management.
+- [ ] Saved searches/local smart filters.
+- [ ] Optional automatic trash retention.
+- [ ] Additional Markdown-lite shortcuts, including desktop/browser keyboard shortcuts.
+- [ ] Better checklist interaction without converting storage into rich text.
+- [ ] Import preview.
+- [ ] Batch Markdown export.
+
+Before 2.1.0 integration, its own CI/security/six-platform matrix must be green. Every implemented item should also be reviewed on compact mobile, desktop, and Web viewports before release.
 
 ## Milestone: 2.2 — resilience and scale
 

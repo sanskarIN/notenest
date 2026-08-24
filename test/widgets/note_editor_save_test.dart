@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notenest/data/database/app_database.dart';
 import 'package:notenest/data/repositories/backup_repository.dart';
 import 'package:notenest/data/repositories/note_repository.dart';
+import 'package:notenest/domain/models/note_filter.dart';
 import 'package:notenest/features/notes/note_editor_page.dart';
 import 'package:notenest/services/file_transfer_service.dart';
 
@@ -131,6 +133,130 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.text('Open formatting editor'), findsOneWidget);
+  });
+
+  testWidgets('editor shows live local word and character counts', (
+    WidgetTester tester,
+  ) async {
+    final Note note = await repository.create(
+      title: 'Text metrics',
+      body: 'One two',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NoteEditorPage(
+          noteId: note.id,
+          repository: repository,
+          files: files,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('2 words · 7 characters'), findsOneWidget);
+
+    final Finder bodyField = find.byKey(const Key('note-body-field'));
+    await tester.enterText(bodyField, 'One\n two   three');
+    await tester.pump();
+
+    expect(find.text('3 words · 16 characters'), findsOneWidget);
+
+    await tester.enterText(bodyField, '😀');
+    await tester.pump();
+
+    expect(find.text('1 word · 1 character'), findsOneWidget);
+  });
+
+  testWidgets('duplicate note action saves and opens a new active copy', (
+    WidgetTester tester,
+  ) async {
+    final Note source = await repository.create(
+      title: 'Duplicate source',
+      body: 'Old body',
+      folder: 'Projects',
+      tags: const <String>['copy'],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NoteEditorPage(
+          noteId: source.id,
+          repository: repository,
+          files: files,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder bodyField = find.byKey(const Key('note-body-field'));
+    await tester.enterText(bodyField, 'Newest body before duplicate');
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Note actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Duplicate note'));
+    await tester.pumpAndSettle();
+
+    final Finder titleField = find.byKey(const Key('note-title-field'));
+    expect(titleField, findsOneWidget);
+    final TextField title = tester.widget<TextField>(titleField);
+    expect(title.controller!.text, 'Duplicate source (copy)');
+
+    final List<Note> activeNotes = await repository.list(const NoteFilter());
+    expect(activeNotes, hasLength(2));
+    final Note copy = activeNotes.firstWhere((Note note) => note.id != source.id);
+    expect(copy.body, 'Newest body before duplicate');
+    expect(copy.folder, 'Projects');
+    expect(repository.decodeTags(copy.tags), <String>['copy']);
+    expect(copy.isPinned, isFalse);
+    expect(copy.isFavorite, isFalse);
+    expect(copy.isArchived, isFalse);
+    expect(copy.isTrashed, isFalse);
+  });
+
+  testWidgets('editor keyboard shortcuts format the body selection', (
+    WidgetTester tester,
+  ) async {
+    final Note note = await repository.create(
+      title: 'Shortcuts',
+      body: 'word',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NoteEditorPage(
+          noteId: note.id,
+          repository: repository,
+          files: files,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder bodyFieldFinder = find.byKey(const Key('note-body-field'));
+    await tester.tap(bodyFieldFinder);
+    final TextField bodyField = tester.widget<TextField>(bodyFieldFinder);
+    final TextEditingController controller = bodyField.controller!;
+    controller.selection = const TextSelection(baseOffset: 0, extentOffset: 4);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(controller.text, '**word**');
+
+    controller.value = const TextEditingValue(
+      text: 'word',
+      selection: TextSelection(baseOffset: 0, extentOffset: 4),
+    );
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyI);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+
+    expect(controller.text, '_word_');
   });
 
   testWidgets(

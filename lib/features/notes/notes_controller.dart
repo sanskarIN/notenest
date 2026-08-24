@@ -89,6 +89,30 @@ final class NotesController extends ChangeNotifier {
     unawaited(load(showLoading: false));
   }
 
+  void setSort(NoteSort value) {
+    if (filter.sort == value) return;
+    filter = filter.copyWith(sort: value);
+    unawaited(load(showLoading: false));
+  }
+
+  Future<int> renameFolder(String from, String to) async {
+    final int changed = await _repository.renameFolder(from, to);
+    if (filter.folder == from.trim()) {
+      filter = filter.copyWith(folder: to.trim());
+    }
+    await load(showLoading: false);
+    return changed;
+  }
+
+  Future<int> renameTag(String from, String to) async {
+    final int changed = await _repository.renameTag(from, to);
+    if (filter.tag == from.trim()) {
+      filter = filter.copyWith(tag: to.trim());
+    }
+    await load(showLoading: false);
+    return changed;
+  }
+
   Future<Note> createNote() async {
     final Note note = await _repository.create();
     await load(showLoading: false);
@@ -110,8 +134,18 @@ final class NotesController extends ChangeNotifier {
     await load(showLoading: false);
   }
 
+  Future<void> archiveMany(Iterable<String> ids) async {
+    await _repository.archiveMany(ids);
+    await load(showLoading: false);
+  }
+
   Future<void> unarchive(Note note) async {
     await _repository.unarchive(note.id);
+    await load(showLoading: false);
+  }
+
+  Future<void> unarchiveMany(Iterable<String> ids) async {
+    await _repository.unarchiveMany(ids);
     await load(showLoading: false);
   }
 
@@ -120,13 +154,28 @@ final class NotesController extends ChangeNotifier {
     await load(showLoading: false);
   }
 
+  Future<void> trashMany(Iterable<String> ids) async {
+    await _repository.trashMany(ids);
+    await load(showLoading: false);
+  }
+
   Future<void> restore(Note note) async {
     await _repository.restore(note.id);
     await load(showLoading: false);
   }
 
+  Future<void> restoreMany(Iterable<String> ids) async {
+    await _repository.restoreMany(ids);
+    await load(showLoading: false);
+  }
+
   Future<void> permanentlyDelete(Note note) async {
     await _repository.permanentlyDelete(note.id);
+    await load(showLoading: false);
+  }
+
+  Future<void> permanentlyDeleteMany(Iterable<String> ids) async {
+    await _repository.permanentlyDeleteMany(ids);
     await load(showLoading: false);
   }
 
