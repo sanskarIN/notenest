@@ -37,27 +37,30 @@ void main() {
     ]);
   });
 
-  test('content and lifecycle changes advance the stored update time', () async {
-    final Note created = await repository.create(title: 'Timestamp');
+  test(
+    'content and lifecycle changes advance the stored update time',
+    () async {
+      final Note created = await repository.create(title: 'Timestamp');
 
-    await repository.saveContent(
-      id: created.id,
-      title: 'Timestamp changed',
-      body: '',
-      folder: '',
-      tags: const <String>[],
-      colorValue: null,
-    );
-    final Note contentChanged = await repository.getById(created.id);
-    expect(contentChanged.updatedAt.isAfter(created.updatedAt), isTrue);
+      await repository.saveContent(
+        id: created.id,
+        title: 'Timestamp changed',
+        body: '',
+        folder: '',
+        tags: const <String>[],
+        colorValue: null,
+      );
+      final Note contentChanged = await repository.getById(created.id);
+      expect(contentChanged.updatedAt.isAfter(created.updatedAt), isTrue);
 
-    await repository.setFavorite(created.id, value: true);
-    final Note lifecycleChanged = await repository.getById(created.id);
-    expect(
-      lifecycleChanged.updatedAt.isAfter(contentChanged.updatedAt),
-      isTrue,
-    );
-  });
+      await repository.setFavorite(created.id, value: true);
+      final Note lifecycleChanged = await repository.getById(created.id);
+      expect(
+        lifecycleChanged.updatedAt.isAfter(contentChanged.updatedAt),
+        isTrue,
+      );
+    },
+  );
 
   test('saving changed content creates a version snapshot', () async {
     final Note created = await repository.create(title: 'First', body: 'One');
