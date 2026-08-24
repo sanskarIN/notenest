@@ -110,38 +110,16 @@ final class NoteRepository {
       return;
     }
 
-    final DateTime now = _nextUpdateTime(existing.updatedAt);
-    await _db.transaction(() async {
-      await _db
-          .into(_db.noteVersions)
-          .insert(
-            NoteVersionsCompanion(
-              noteId: Value<String>(existing.id),
-              title: Value<String>(existing.title),
-              body: Value<String>(existing.body),
-              folder: Value<String>(existing.folder),
-              tags: Value<String>(existing.tags),
-              colorValue: Value<int?>(existing.colorValue),
-              isPinned: Value<bool>(existing.isPinned),
-              isFavorite: Value<bool>(existing.isFavorite),
-              isArchived: Value<bool>(existing.isArchived),
-              isTrashed: Value<bool>(existing.isTrashed),
-              capturedAt: Value<DateTime>(now),
-            ),
-          );
-      await (_db.update(
-        _db.notes,
-      )..where(($NotesTable row) => row.id.equals(id))).write(
-        NotesCompanion(
-          title: Value<String>(normalizedTitle),
-          body: Value<String>(body),
-          folder: Value<String>(normalizedFolder),
-          tags: Value<String>(encodedTags),
-          colorValue: Value<int?>(colorValue),
-          updatedAt: Value<DateTime>(now),
-        ),
-      );
-    });
+    await _db.transaction(
+      () => _persistContentChange(
+        existing: existing,
+        title: normalizedTitle,
+        body: body,
+        folder: normalizedFolder,
+        encodedTags: encodedTags,
+        colorValue: colorValue,
+      ),
+    );
   }
 
   Future<List<NoteVersion>> versions(String noteId) {
@@ -256,6 +234,66 @@ final class NoteRepository {
     )..where(($NotesTable row) => row.isTrashed.equals(true))).go();
   }
 
+  Future<int> renameFolder(String from, String to) async {
+    final String source = from.trim();
+    final String target = to.trim();
+    if (source.isEmpty || target.isEmpty) {
+      throw const ValidationException('Folder names must not be empty.');
+    }
+    if (source == target) return 0;
+
+    final List<Note> affected = await (_db.select(
+      _db.notes,
+    )..where(($NotesTable row) => row.folder.equals(source))).get();
+    if (affected.isEmpty) return 0;
+
+    await _db.transaction(() async {
+      for (final Note note in affected) {
+        await _persistContentChange(
+          existing: note,
+          title: note.title,
+          body: note.body,
+          folder: target,
+          encodedTags: note.tags,
+          colorValue: note.colorValue,
+        );
+      }
+    });
+    return affected.length;
+  }
+
+  Future<int> renameTag(String from, String to) async {
+    final String source = from.trim();
+    final String target = to.trim();
+    if (source.isEmpty || target.isEmpty) {
+      throw const ValidationException('Tag names must not be empty.');
+    }
+    if (source == target) return 0;
+
+    final List<Note> allNotes = await _db.select(_db.notes).get();
+    final List<Note> affected = allNotes
+        .where((Note note) => decodeTags(note.tags).contains(source))
+        .toList(growable: false);
+    if (affected.isEmpty) return 0;
+
+    await _db.transaction(() async {
+      for (final Note note in affected) {
+        final List<String> renamedTags = decodeTags(note.tags)
+            .map((String tag) => tag == source ? target : tag)
+            .toList(growable: false);
+        await _persistContentChange(
+          existing: note,
+          title: note.title,
+          body: note.body,
+          folder: note.folder,
+          encodedTags: _encodeTags(renamedTags),
+          colorValue: note.colorValue,
+        );
+      }
+    });
+    return affected.length;
+  }
+
   Future<Set<String>> folders({
     NoteCollection collection = NoteCollection.all,
   }) async {
@@ -316,6 +354,46 @@ final class NoteRepository {
       NoteCollection.archive => !note.isTrashed && note.isArchived,
       NoteCollection.trash => note.isTrashed,
     };
+  }
+
+  Future<void> _persistContentChange({
+    required Note existing,
+    required String title,
+    required String body,
+    required String folder,
+    required String encodedTags,
+    required int? colorValue,
+  }) async {
+    final DateTime now = _nextUpdateTime(existing.updatedAt);
+    await _db
+        .into(_db.noteVersions)
+        .insert(
+          NoteVersionsCompanion(
+            noteId: Value<String>(existing.id),
+            title: Value<String>(existing.title),
+            body: Value<String>(existing.body),
+            folder: Value<String>(existing.folder),
+            tags: Value<String>(existing.tags),
+            colorValue: Value<int?>(existing.colorValue),
+            isPinned: Value<bool>(existing.isPinned),
+            isFavorite: Value<bool>(existing.isFavorite),
+            isArchived: Value<bool>(existing.isArchived),
+            isTrashed: Value<bool>(existing.isTrashed),
+            capturedAt: Value<DateTime>(now),
+          ),
+        );
+    await (_db.update(
+      _db.notes,
+    )..where(($NotesTable row) => row.id.equals(existing.id))).write(
+      NotesCompanion(
+        title: Value<String>(title),
+        body: Value<String>(body),
+        folder: Value<String>(folder),
+        tags: Value<String>(encodedTags),
+        colorValue: Value<int?>(colorValue),
+        updatedAt: Value<DateTime>(now),
+      ),
+    );
   }
 
   Future<void> _patch(String id, NotesCompanion patch) async {
