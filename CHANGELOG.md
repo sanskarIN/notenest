@@ -6,13 +6,21 @@ Current release-candidate target: **2.0.12** (`2.0.12+2012` in `pubspec.yaml`).
 
 ## [Unreleased]
 
+### Fixed
+
+- Editor save/formatting widget regressions now target the stable `note-body-field` key instead of depending on positional `TextField` ordering.
+- NoteNest Markdown metadata decoding removes only the format separator newline, preserving exact note bodies including a real leading newline.
+- Six-platform runner bootstrap now restores the committed `pubspec.yaml` and `pubspec.lock` byte-for-byte after `flutter create --no-pub`, so generated template dependency changes cannot invalidate `flutter pub get --enforce-lockfile`.
+- Android platform/release automation no longer references unpublished `actions/setup-java@v6`; it uses the latest published stable major, `actions/setup-java@v5`.
+
 ### Changed
 
-- GitHub-hosted workflow first-party actions were modernized to maintained 2026 runtime lines: `actions/checkout@v7`, `actions/setup-java@v6`, `actions/upload-artifact@v7`, and `actions/dependency-review-action@v5`.
-- `tool/check_repo.py` now enforces those maintained action-major baselines so future workflow edits cannot silently regress to obsolete runtime generations.
+- GitHub-hosted workflow first-party actions use published maintained 2026 runtime lines: `actions/checkout@v7`, `actions/setup-java@v5`, `actions/upload-artifact@v7`, and `actions/dependency-review-action@v5`.
+- `tool/check_repo.py` enforces those published stable action-major baselines so future workflow edits cannot silently regress to obsolete or unpublished runtime generations.
 - `subosito/flutter-action@v2` remains on its current supported major while the project continues to pin Flutter **3.44.7** exactly.
+- PR #7 is now explicitly diagnostic because it exposed six test failures, the unpublished Java-action tag, and manifest/lock drift during generated-runner bootstrap. PR #18 is the blocker-fix verification path before a new exact 2.0.12 candidate is frozen.
 
-No post-2.0.12 product feature change is included in this maintenance checkpoint; exact candidate automation must be rerun after these workflow changes.
+No post-2.0.12 product feature change is included in this maintenance checkpoint; exact candidate automation must be rerun after these blocker fixes are merged.
 
 ## [2.0.12] - Release candidate
 
@@ -65,7 +73,7 @@ No post-2.0.12 product feature change is included in this maintenance checkpoint
 - File transfer now uses file_picker 12 single-file selection plus `PlatformFile.length()` and `readAsByteStream()`; native cached paths still use bounded filesystem streaming where available.
 - file_picker 12's required **iOS 14.0** minimum is explicitly enforced by generated iOS project/framework configuration.
 - Windows bootstrap applies the MSVC compatibility definition required by the current VS2026 hosted runner for `local_auth_windows`' experimental-coroutine dependency instead of pinning an obsolete runner image.
-- Platform runner generation uses `flutter create --no-pub`; generated runners and dependency resolution are now separate reproducibility stages.
+- Platform runner generation uses `flutter create --no-pub`; generated runners and dependency resolution are separate reproducibility stages, and the application manifest/lock are preserved around template generation.
 - Windows bootstrap invokes Flutter `.bat`/`.cmd` launchers through `COMSPEC` so Python works correctly on Windows hosts.
 - Android CI/release Java setup uses `actions/setup-java@v5`.
 - Active build-runner invocations use the current `dart run build_runner build` command; the removed `--delete-conflicting-outputs` option is no longer passed by maintained workflows.
@@ -84,7 +92,7 @@ No post-2.0.12 product feature change is included in this maintenance checkpoint
 - Normal editor back navigation waits for the current draft save to finish successfully before the route is allowed to pop.
 - Version-history and Markdown-export actions require the current draft to save successfully before the action starts.
 - Dart source/test files are canonicalized with the pinned Dart **3.12.2** formatter.
-- The exhaustive repository reference now catalogs **109 tracked files**, including the committed application lockfile.
+- The exhaustive repository reference catalogs **109 tracked files**, including the committed application lockfile.
 
 ### Fixed
 
@@ -123,6 +131,9 @@ No post-2.0.12 product feature change is included in this maintenance checkpoint
 - Failed onboarding persistence no longer causes a transition away from onboarding before the failure can be shown/retried.
 - Preference-store setter results are checked instead of silently ignoring a reported persistence failure.
 - Analyzer-only style diagnostics found during final hardening were corrected instead of weakening analysis rules.
+- Note update timestamps advance monotonically so second-precision serialized conflict comparisons remain deterministic during rapid edits.
+- Compact-height onboarding is vertically scrollable instead of overflowing the viewport.
+- NoteNest Markdown metadata round trips no longer prepend an unintended newline to imported note bodies.
 
 ### Security
 
@@ -157,9 +168,9 @@ On the file_picker-12 candidate before the final documentation/lint-only post-lo
 - Web release compile: **passed**.
 - Repository secret scan: **passed**.
 - Dependency review: **passed**.
-- Android and Linux lanes were still running/queued when this changelog checkpoint was written; they are not claimed green here.
+- Android and Linux release compilation also passed on the diagnostic file-picker-12 platform generation recorded in the engineering handoff.
 
-Final release evidence must come from the exact post-lock/post-documentation candidate, not from an earlier diagnostic run.
+The later PR #7 run is not final release evidence because it exposed additional test and automation defects. Final release evidence must come from a new exact post-fix candidate after PR #18 is merged.
 
 ### Known release-preparation constraints
 
@@ -167,7 +178,7 @@ Final release evidence must come from the exact post-lock/post-documentation can
 - The Web bundle requires `sqlite3.wasm` to be served with the correct WebAssembly MIME type. Cross-origin isolation headers improve the optimal Drift/OPFS path where a chosen host supports them; Drift retains fallback storage paths when those headers are unavailable.
 - Web app lock is intentionally unavailable because `local_auth 3.0.2` has no Web implementation. Linux likewise treats device authentication as unavailable unless a supported implementation is introduced later.
 - Store/distribution signing credentials are intentionally not part of the repository.
-- Completed green GitHub Actions verification is still required against the exact final post-lock/post-documentation 2.0.12 candidate before a stable tag is created.
+- Completed green GitHub Actions verification is still required against the exact final post-fix 2.0.12 candidate before a stable tag is created.
 - Real-device/browser/platform checks remain required for editor save-before-pop, file pickers/providers, settings persistence, external links, keyboard navigation, screen readers, large text, reduced motion, Web persistence/reload/import/export, supported-device authentication, and runtime screenshots.
 - Intended Web deployment-origin MIME/worker/WASM reachability and browser-restart persistence still require real-host verification.
 - Signing/notarization/store readiness and distributed-artifact checksums remain distribution-time work.
