@@ -258,6 +258,43 @@ void main() {
     expect(await repository.list(const NoteFilter()), hasLength(1));
   });
 
+  test('batch lifecycle actions move and delete notes together', () async {
+    final Note first = await repository.create(title: 'First batch note');
+    final Note second = await repository.create(title: 'Second batch note');
+    final List<String> ids = <String>[first.id, second.id];
+
+    await repository.archiveMany(ids);
+    expect(
+      (await repository.list(
+        const NoteFilter(collection: NoteCollection.archive),
+      )).map((Note note) => note.id).toSet(),
+      ids.toSet(),
+    );
+
+    await repository.unarchiveMany(ids);
+    expect(
+      (await repository.list(const NoteFilter())).map((Note note) => note.id).toSet(),
+      ids.toSet(),
+    );
+
+    await repository.trashMany(ids);
+    for (final String id in ids) {
+      final Note note = await repository.getById(id);
+      expect(note.isTrashed, isTrue);
+      expect(note.isArchived, isFalse);
+      expect(note.isPinned, isFalse);
+    }
+
+    await repository.restoreMany(ids);
+    expect(
+      (await repository.list(const NoteFilter())).map((Note note) => note.id).toSet(),
+      ids.toSet(),
+    );
+
+    await repository.permanentlyDeleteMany(ids);
+    expect(await repository.list(const NoteFilter()), isEmpty);
+  });
+
   test('trash is separated from active notes and can be restored', () async {
     final Note created = await repository.create(title: 'Temporary');
     await repository.setPinned(created.id, value: true);
