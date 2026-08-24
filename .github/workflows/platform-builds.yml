@@ -50,6 +50,8 @@ jobs:
           cache: true
       - name: Generate platform runners
         run: python tool/bootstrap_platforms.py
+      - name: Verify application manifests unchanged
+        run: git diff --exit-code -- pubspec.yaml pubspec.lock
       - name: Restore locked packages
         run: flutter pub get --enforce-lockfile
       - name: Generate Drift code
@@ -74,6 +76,8 @@ jobs:
           cache: true
       - name: Generate platform runners
         run: python tool/bootstrap_platforms.py
+      - name: Verify application manifests unchanged
+        run: git diff --exit-code -- pubspec.yaml pubspec.lock
       - name: Restore locked packages
         run: flutter pub get --enforce-lockfile
       - name: Generate Drift code
@@ -94,6 +98,8 @@ jobs:
           cache: true
       - name: Generate platform runners
         run: python tool/bootstrap_platforms.py
+      - name: Verify application manifests unchanged
+        run: git diff --exit-code -- pubspec.yaml pubspec.lock
       - name: Restore locked packages
         run: flutter pub get --enforce-lockfile
       - name: Generate Drift code
@@ -114,6 +120,8 @@ jobs:
           cache: true
       - name: Generate platform runners
         run: python tool/bootstrap_platforms.py
+      - name: Verify application manifests unchanged
+        run: git diff --exit-code -- pubspec.yaml pubspec.lock
       - name: Restore locked packages
         run: flutter pub get --enforce-lockfile
       - name: Generate Drift code
@@ -136,6 +144,8 @@ jobs:
           cache: true
       - name: Generate platform runners and web database assets
         run: python tool/bootstrap_platforms.py
+      - name: Verify application manifests unchanged
+        run: git diff --exit-code -- pubspec.yaml pubspec.lock
       - name: Restore locked packages
         run: flutter pub get --enforce-lockfile
       - name: Generate Drift code
