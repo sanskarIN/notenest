@@ -4,6 +4,7 @@ import 'package:notenest/app/app_dependencies.dart';
 import 'package:notenest/core/constants/app_strings.dart';
 import 'package:notenest/core/logging/app_logger.dart';
 
+// Verification-only marker for the exact post-fix 2.0.12 candidate.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   const AppLogger logger = AppLogger();
