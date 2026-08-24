@@ -95,6 +95,24 @@ final class NotesController extends ChangeNotifier {
     unawaited(load(showLoading: false));
   }
 
+  Future<int> renameFolder(String from, String to) async {
+    final int changed = await _repository.renameFolder(from, to);
+    if (filter.folder == from.trim()) {
+      filter = filter.copyWith(folder: to.trim());
+    }
+    await load(showLoading: false);
+    return changed;
+  }
+
+  Future<int> renameTag(String from, String to) async {
+    final int changed = await _repository.renameTag(from, to);
+    if (filter.tag == from.trim()) {
+      filter = filter.copyWith(tag: to.trim());
+    }
+    await load(showLoading: false);
+    return changed;
+  }
+
   Future<Note> createNote() async {
     final Note note = await _repository.create();
     await load(showLoading: false);
