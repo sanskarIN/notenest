@@ -89,4 +89,41 @@ void main() {
 
     await controller.load(showLoading: false);
   });
+
+  test('folder rename keeps the active filter aligned', () async {
+    final Note note = await repository.create(
+      title: 'Folder rename',
+      folder: 'Old folder',
+    );
+    controller.filter = const NoteFilter(folder: 'Old folder');
+    await controller.load(showLoading: false);
+
+    final int changed = await controller.renameFolder(
+      'Old folder',
+      'New folder',
+    );
+
+    expect(changed, 1);
+    expect(controller.filter.folder, 'New folder');
+    expect(controller.notes.map((Note value) => value.id), <String>[note.id]);
+    expect(controller.folders, contains('New folder'));
+    expect(controller.folders, isNot(contains('Old folder')));
+  });
+
+  test('tag merge keeps the active filter aligned', () async {
+    final Note note = await repository.create(
+      title: 'Tag merge',
+      tags: const <String>['old-tag', 'existing'],
+    );
+    controller.filter = const NoteFilter(tag: 'old-tag');
+    await controller.load(showLoading: false);
+
+    final int changed = await controller.renameTag('old-tag', 'existing');
+
+    expect(changed, 1);
+    expect(controller.filter.tag, 'existing');
+    expect(controller.notes.map((Note value) => value.id), <String>[note.id]);
+    expect(controller.tags, contains('existing'));
+    expect(controller.tags, isNot(contains('old-tag')));
+  });
 }
