@@ -89,6 +89,12 @@ final class NotesController extends ChangeNotifier {
     unawaited(load(showLoading: false));
   }
 
+  void setSort(NoteSort value) {
+    if (filter.sort == value) return;
+    filter = filter.copyWith(sort: value);
+    unawaited(load(showLoading: false));
+  }
+
   Future<Note> createNote() async {
     final Note note = await _repository.create();
     await load(showLoading: false);
