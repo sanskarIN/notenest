@@ -26,6 +26,7 @@ jobs:
           channel: stable
           cache: true
       - run: python tool/bootstrap_platforms.py
+      - run: git diff --exit-code -- pubspec.yaml pubspec.lock
       - run: flutter pub get --enforce-lockfile
       - run: dart run build_runner build
       - run: flutter build apk --release
@@ -52,6 +53,7 @@ jobs:
           channel: stable
           cache: true
       - run: python tool/bootstrap_platforms.py
+      - run: git diff --exit-code -- pubspec.yaml pubspec.lock
       - run: flutter pub get --enforce-lockfile
       - run: dart run build_runner build
       - run: flutter build linux --release
@@ -74,6 +76,7 @@ jobs:
           channel: stable
           cache: true
       - run: python tool/bootstrap_platforms.py
+      - run: git diff --exit-code -- pubspec.yaml pubspec.lock
       - run: flutter pub get --enforce-lockfile
       - run: dart run build_runner build
       - run: flutter build windows --release
@@ -96,6 +99,7 @@ jobs:
           channel: stable
           cache: true
       - run: python tool/bootstrap_platforms.py
+      - run: git diff --exit-code -- pubspec.yaml pubspec.lock
       - run: flutter pub get --enforce-lockfile
       - run: dart run build_runner build
       - run: flutter build macos --release
@@ -125,6 +129,7 @@ jobs:
           channel: stable
           cache: true
       - run: python tool/bootstrap_platforms.py
+      - run: git diff --exit-code -- pubspec.yaml pubspec.lock
       - run: flutter pub get --enforce-lockfile
       - run: dart run build_runner build
       - run: flutter test --platform chrome test/web/web_platform_smoke_test.dart
