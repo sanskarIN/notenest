@@ -62,3 +62,5 @@ class _BootstrapFailureApp extends StatelessWidget {
     );
   }
 }
+
+// Verification trigger: 2026-08-23 exact post-maintenance 2.0.12 candidate.
